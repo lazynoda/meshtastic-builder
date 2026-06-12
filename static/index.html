@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Meshtastic Firmware Builder</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div class="brandBlock">
+          <span class="kicker">Firmware a medida</span>
+          <h1>Meshtastic Builder</h1>
+          <p>Elige dispositivo, version y preferencias sin editar JSON a mano.</p>
+        </div>
+        <button id="refreshVersions" class="secondaryButton" type="button">Actualizar tags</button>
+      </header>
+
+      <form id="buildForm" class="builderPanel">
+        <div class="signalRail" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+
+        <section class="formSection firstSection" aria-labelledby="buildHeading">
+          <div class="sectionHeader">
+            <div>
+              <h2 id="buildHeading">Compilacion</h2>
+              <p>Destino del firmware y correo de entrega.</p>
+            </div>
+          </div>
+          <div class="grid gridThree">
+            <label>
+              Dispositivo
+              <select id="deviceId" name="deviceId" required></select>
+            </label>
+            <label>
+              Version firmware
+              <select id="firmwareTag" name="firmwareTag" required></select>
+            </label>
+            <label>
+              Email
+              <input id="email" name="email" type="email" autocomplete="email" required placeholder="tu@email.com">
+            </label>
+          </div>
+        </section>
+
+        <section class="formSection" aria-labelledby="identityHeading">
+          <div class="sectionHeader">
+            <div>
+              <h2 id="identityHeading">Identidad del nodo</h2>
+              <p>Nombres visibles en la malla.</p>
+            </div>
+          </div>
+          <div class="grid gridTwo">
+            <label>
+              Nombre largo
+              <input id="longName" type="text" autocomplete="off" value="Mi nodo Meshtastic">
+            </label>
+            <label>
+              Nombre corto
+              <span class="inlineInput">
+                <input id="shortName" type="text" autocomplete="off" value="MESH" aria-describedby="shortNameBytes">
+                <span id="shortNameBytes" class="byteCounter">4/4 bytes</span>
+              </span>
+            </label>
+          </div>
+        </section>
+
+        <section class="formSection" aria-labelledby="radioHeading">
+          <div class="sectionHeader">
+            <div>
+              <h2 id="radioHeading">Radio LoRa</h2>
+              <p>Region, rol y preset de modem.</p>
+            </div>
+          </div>
+          <div class="grid gridThree">
+            <label>
+              Region LoRa
+              <select id="loraRegion"></select>
+            </label>
+            <label>
+              Device role
+              <select id="deviceRole"></select>
+            </label>
+            <label>
+              Preset
+              <select id="modemPreset"></select>
+            </label>
+          </div>
+        </section>
+
+        <section class="formSection" aria-labelledby="channelsHeading">
+          <div class="sectionHeader actionHeader">
+            <div>
+              <h2 id="channelsHeading">Canales</h2>
+              <p>Hasta tres canales escritos en el firmware.</p>
+            </div>
+            <button id="addChannel" class="secondaryButton" type="button">+ Canal</button>
+          </div>
+          <div id="channelRows" class="channelRows"></div>
+        </section>
+
+        <section class="formSection" aria-labelledby="servicesHeading">
+          <div class="sectionHeader">
+            <div>
+              <h2 id="servicesHeading">Servicios</h2>
+              <p>MQTT, TZ POSIX y llave de administracion.</p>
+            </div>
+          </div>
+          <div class="grid gridTwo">
+            <label>
+              TZ string POSIX
+              <span class="buttonInput">
+                <input id="tzString" type="text" value="CET-1CEST,M3.5.0,M10.5.0/3" autocomplete="off">
+                <button class="miniButton" type="button" data-tz="CET-1CEST,M3.5.0,M10.5.0/3">Peninsula</button>
+                <button class="miniButton" type="button" data-tz="WET0WEST,M3.5.0/1,M10.5.0">Canarias</button>
+              </span>
+            </label>
+            <label>
+              MQTT address
+              <input id="mqttAddress" type="text" value="mqtt.meshtastic.es" autocomplete="off">
+            </label>
+            <label class="checkLine">
+              <input id="mqttEnabled" type="checkbox">
+              <span>Activar MQTT</span>
+            </label>
+            <label>
+              Clave administracion remota (base64)
+              <input id="adminKey" type="text" inputmode="text" autocomplete="off" placeholder="AQIDBA...">
+            </label>
+          </div>
+        </section>
+
+        <details class="jsonPreview">
+          <summary>Ver userPrefs.jsonc generado</summary>
+          <textarea id="prefsJsonc" name="prefsJsonc" spellcheck="false" readonly></textarea>
+        </details>
+
+        <div class="actions">
+          <button id="submitBuild" type="submit">Enviar compilacion</button>
+          <span id="statusText" role="status"></span>
+        </div>
+      </form>
+
+      <section id="result" class="resultPanel" hidden>
+        <h2>Peticion creada</h2>
+        <dl>
+          <div><dt>Estado</dt><dd id="buildStatus"></dd></div>
+          <div><dt>Token</dt><dd id="buildToken"></dd></div>
+          <div><dt>Descarga</dt><dd><a id="downloadLink" href="#">Disponible al finalizar</a></dd></div>
+        </dl>
+      </section>
+    </main>
+    <script src="/static/app.js"></script>
+  </body>
+</html>

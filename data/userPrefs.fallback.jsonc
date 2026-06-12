@@ -1,0 +1,31 @@
+{
+  // Fallback template used only when the selected tag cannot be fetched.
+  // The server fetches https://raw.githubusercontent.com/meshtastic/firmware/<tag>/userPrefs.jsonc
+  // and validates submitted keys against the selected tag's template when available.
+  // "USERPREFS_CHANNELS_TO_WRITE": "1",
+  // "USERPREFS_CHANNEL_0_DOWNLINK_ENABLED": "false",
+  // "USERPREFS_CHANNEL_0_NAME": "LongFast",
+  // "USERPREFS_CHANNEL_0_PRECISION": "14",
+  // "USERPREFS_CHANNEL_0_PSK": "{ 0x01 }",
+  // "USERPREFS_CHANNEL_0_UPLINK_ENABLED": "true",
+  // "USERPREFS_CHANNEL_1_DOWNLINK_ENABLED": "false",
+  // "USERPREFS_CHANNEL_1_NAME": "NodeChat",
+  // "USERPREFS_CHANNEL_1_PRECISION": "14",
+  // "USERPREFS_CHANNEL_1_PSK": "{ 0x01 }",
+  // "USERPREFS_CHANNEL_1_UPLINK_ENABLED": "false",
+  // "USERPREFS_CHANNEL_2_DOWNLINK_ENABLED": "false",
+  // "USERPREFS_CHANNEL_2_NAME": "Telemetry",
+  // "USERPREFS_CHANNEL_2_PRECISION": "14",
+  // "USERPREFS_CHANNEL_2_PSK": "{ 0x01 }",
+  // "USERPREFS_CHANNEL_2_UPLINK_ENABLED": "false",
+  // "USERPREFS_LORACONFIG_MODEM_PRESET": "meshtastic_Config_LoRaConfig_ModemPreset_LONG_FAST",
+  // "USERPREFS_USE_ADMIN_KEY_0": "{ 0x01 }",
+  // "USERPREFS_MQTT_ENABLED": "1",
+  // "USERPREFS_MQTT_ADDRESS": "'mqtt.meshtastic.es'",
+  "USERPREFS_CONFIG_OWNER_LONG_NAME": "My Long Name",
+  "USERPREFS_CONFIG_OWNER_SHORT_NAME": "MLN",
+  "USERPREFS_CONFIG_LORA_REGION": "meshtastic_Config_LoRaConfig_RegionCode_EU_868",
+  "USERPREFS_CONFIG_DEVICE_ROLE": "meshtastic_Config_DeviceConfig_Role_CLIENT",
+  "USERPREFS_FIXED_BLUETOOTH": "121212",
+  "USERPREFS_TZ_STRING": "CET-1CEST,M3.5.0,M10.5.0/3"
+}

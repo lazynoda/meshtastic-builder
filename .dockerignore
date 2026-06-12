@@ -1,0 +1,11 @@
+.DS_Store
+.git
+.venv
+__pycache__
+*.py[cod]
+var
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+tests
+.env

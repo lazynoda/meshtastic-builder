@@ -1,0 +1,44 @@
+[
+  {
+    "id": "tbeam",
+    "label": "LILYGO T-Beam",
+    "platformio_env": "tbeam",
+    "family": "esp32",
+    "enabled": true
+  },
+  {
+    "id": "heltec-v3",
+    "label": "Heltec LoRa 32 V3",
+    "platformio_env": "heltec-v3",
+    "family": "esp32-s3",
+    "enabled": true
+  },
+  {
+    "id": "heltec-mesh-node-t114",
+    "label": "Heltec Mesh Node T114",
+    "platformio_env": "heltec-mesh-node-t114",
+    "family": "nrf52",
+    "enabled": true
+  },
+  {
+    "id": "tracker-t1000-e",
+    "label": "Seeed SenseCAP T1000-E",
+    "platformio_env": "tracker-t1000-e",
+    "family": "nrf52",
+    "enabled": true
+  },
+  {
+    "id": "heltec-wsl-v3",
+    "label": "Heltec Wireless Stick Lite V3",
+    "platformio_env": "heltec-wsl-v3",
+    "family": "esp32-s3",
+    "enabled": true
+  },
+  {
+    "id": "rak4631",
+    "label": "RAK4631 WisBlock",
+    "platformio_env": "rak4631",
+    "family": "nrf52",
+    "enabled": true
+  }
+]

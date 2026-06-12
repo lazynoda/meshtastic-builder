@@ -1,0 +1,231 @@
+from __future__ import annotations
+
+import json
+import mimetypes
+import time
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Any
+from urllib.parse import parse_qs, urlparse
+
+from .config import Config, ensure_directories, load_config
+from .cleanup import build_is_expired, expire_build_artifact
+from .db import get_build_by_token, initialize_database, public_build_view
+from .devices import enabled_devices
+from .firmware import (
+    FirmwareLookupError,
+    get_userprefs_template,
+    list_versions_with_refresh,
+    resolve_supported_version,
+)
+from .jsonc import JsoncValidationError
+from .security import validate_public_token
+from .submissions import create_build_submission
+
+
+RATE_LIMIT: dict[str, list[float]] = {}
+
+
+def _json_default(value: Any) -> Any:
+    if isinstance(value, Path):
+        return str(value)
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
+def _public_error(message: str) -> dict[str, str]:
+    return {"error": message}
+
+
+class MeshtasticBuilderHandler(BaseHTTPRequestHandler):
+    server_version = "MeshtasticBuilder/0.1"
+    config: Config
+
+    def log_message(self, fmt: str, *args: Any) -> None:
+        print(f"{self.address_string()} - {fmt % args}")
+
+    def do_GET(self) -> None:  # noqa: N802
+        return self.handle_get_like(send_body=True)
+
+    def do_HEAD(self) -> None:  # noqa: N802
+        return self.handle_get_like(send_body=False)
+
+    def handle_get_like(self, *, send_body: bool) -> None:
+        parsed = urlparse(self.path)
+        path = parsed.path
+        query = parse_qs(parsed.query)
+
+        try:
+            if path == "/":
+                return self.serve_static("index.html", send_body=send_body)
+            if path.startswith("/static/"):
+                return self.serve_static(path.removeprefix("/static/"), send_body=send_body)
+            if path == "/api/devices":
+                if not send_body:
+                    return self.head_not_allowed()
+                return self.json_response(
+                    {
+                        "devices": [
+                            {
+                                "id": device.id,
+                                "label": device.label,
+                                "platformioEnv": device.platformio_env,
+                                "family": device.family,
+                            }
+                            for device in enabled_devices(self.config.root_dir)
+                        ]
+                    }
+                )
+            if path == "/api/firmware-versions":
+                if not send_body:
+                    return self.head_not_allowed()
+                force_refresh = query.get("refresh", ["0"])[0] in {"1", "true", "yes"}
+                versions = list_versions_with_refresh(self.config, force_refresh=force_refresh)
+                return self.json_response({"versions": versions})
+            if path == "/api/prefs-template":
+                if not send_body:
+                    return self.head_not_allowed()
+                tag = query.get("tag", [""])[0]
+                if not tag:
+                    return self.error_response(HTTPStatus.BAD_REQUEST, "Falta el tag de firmware.")
+                resolve_supported_version(self.config, tag)
+                return self.text_response(get_userprefs_template(self.config, tag), "text/plain")
+            if path.startswith("/api/builds/"):
+                if not send_body:
+                    return self.head_not_allowed()
+                token = validate_public_token(path.removeprefix("/api/builds/"))
+                row = get_build_by_token(self.config, token)
+                if row is None:
+                    return self.error_response(HTTPStatus.NOT_FOUND, "Build no encontrado.")
+                return self.json_response({"build": public_build_view(row)})
+            if path.startswith("/download/"):
+                token = validate_public_token(path.removeprefix("/download/"))
+                return self.serve_download(token, send_body=send_body)
+
+            return self.error_response(HTTPStatus.NOT_FOUND, "Ruta no encontrada.")
+        except FirmwareLookupError as exc:
+            return self.error_response(HTTPStatus.BAD_GATEWAY, str(exc))
+        except ValueError as exc:
+            return self.error_response(HTTPStatus.BAD_REQUEST, str(exc))
+        except Exception as exc:  # noqa: BLE001
+            return self.error_response(HTTPStatus.INTERNAL_SERVER_ERROR, f"Error interno: {exc}")
+
+    def do_POST(self) -> None:  # noqa: N802
+        parsed = urlparse(self.path)
+        try:
+            if parsed.path == "/api/builds":
+                self.enforce_rate_limit()
+                payload = self.read_json_body()
+                submission = create_build_submission(self.config, payload)
+                return self.json_response(
+                    {
+                        "build": submission["public"],
+                        "statusUrl": submission["statusUrl"],
+                        "downloadUrl": submission["downloadUrl"],
+                    },
+                    status=HTTPStatus.CREATED,
+                )
+            return self.error_response(HTTPStatus.NOT_FOUND, "Ruta no encontrada.")
+        except (ValueError, JsoncValidationError, FirmwareLookupError) as exc:
+            return self.error_response(HTTPStatus.BAD_REQUEST, str(exc))
+        except Exception as exc:  # noqa: BLE001
+            return self.error_response(HTTPStatus.INTERNAL_SERVER_ERROR, f"Error interno: {exc}")
+
+    def enforce_rate_limit(self) -> None:
+        ip = self.client_address[0]
+        now = time.time()
+        window_start = now - 300
+        entries = [entry for entry in RATE_LIMIT.get(ip, []) if entry >= window_start]
+        if len(entries) >= 10:
+            raise ValueError("Demasiadas solicitudes. Intentalo de nuevo en unos minutos.")
+        entries.append(now)
+        RATE_LIMIT[ip] = entries
+
+    def read_json_body(self) -> dict[str, Any]:
+        length = int(self.headers.get("Content-Length", "0"))
+        if length <= 0 or length > 200000:
+            raise ValueError("Cuerpo de peticion invalido.")
+        raw = self.rfile.read(length).decode("utf-8")
+        payload = json.loads(raw)
+        if not isinstance(payload, dict):
+            raise ValueError("La peticion debe ser un objeto JSON.")
+        return payload
+
+    def serve_static(self, relative_name: str, *, send_body: bool = True) -> None:
+        static_root = self.config.root_dir / "static"
+        target = (static_root / relative_name).resolve()
+        if not str(target).startswith(str(static_root.resolve())) or not target.exists() or not target.is_file():
+            return self.error_response(HTTPStatus.NOT_FOUND, "Fichero no encontrado.")
+        content_type = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(target.stat().st_size))
+        self.end_headers()
+        if send_body:
+            with target.open("rb") as fh:
+                self.wfile.write(fh.read())
+
+    def serve_download(self, token: str, *, send_body: bool = True) -> None:
+        row = get_build_by_token(self.config, token)
+        if row is None or row["status"] not in {"succeeded", "expired"}:
+            return self.error_response(HTTPStatus.NOT_FOUND, "Artefacto no disponible.")
+        if row["status"] == "expired":
+            return self.error_response(HTTPStatus.GONE, "Artefacto expirado.")
+        if build_is_expired(row):
+            expire_build_artifact(self.config, row)
+            return self.error_response(HTTPStatus.GONE, "Artefacto expirado.")
+        artifact_path = row["artifact_path"]
+        if not artifact_path:
+            return self.error_response(HTTPStatus.NOT_FOUND, "Artefacto no disponible.")
+        path = Path(artifact_path)
+        if not path.exists() or not path.is_file():
+            return self.error_response(HTTPStatus.GONE, "Artefacto no encontrado en disco.")
+
+        filename = f"meshtastic-{row['firmware_tag']}-{row['platformio_env']}-{token[:8]}.zip"
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "application/zip")
+        self.send_header("Content-Length", str(path.stat().st_size))
+        self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+        self.end_headers()
+        if send_body:
+            with path.open("rb") as fh:
+                self.wfile.write(fh.read())
+
+    def json_response(self, payload: dict[str, Any], status: HTTPStatus = HTTPStatus.OK) -> None:
+        body = json.dumps(payload, default=_json_default).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def text_response(self, body_text: str, content_type: str, status: HTTPStatus = HTTPStatus.OK) -> None:
+        body = body_text.encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", f"{content_type}; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def error_response(self, status: HTTPStatus, message: str) -> None:
+        self.json_response(_public_error(message), status=status)
+
+    def head_not_allowed(self) -> None:
+        self.send_response(HTTPStatus.METHOD_NOT_ALLOWED)
+        self.send_header("Allow", "GET")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+
+def run_server(config: Config | None = None) -> None:
+    config = config or load_config()
+    ensure_directories(config)
+    initialize_database(config)
+    MeshtasticBuilderHandler.config = config
+    server = ThreadingHTTPServer((config.host, config.port), MeshtasticBuilderHandler)
+    print(f"Meshtastic Builder listening on http://{config.host}:{config.port}")
+    server.serve_forever()
+
+
+if __name__ == "__main__":
+    run_server()

@@ -1,0 +1,56 @@
+services:
+  web:
+    build: .
+    command: python -m meshtastic_builder.app
+    ports:
+      - "${MB_PORT:-8080}:8080"
+    environment:
+      MB_BASE_URL: ${MB_BASE_URL:-http://localhost:8080}
+      MB_HOST: 0.0.0.0
+      MB_PORT: 8080
+      MB_DATA_DIR: /data
+      MB_DB_PATH: /data/meshtastic-builder.sqlite
+      MB_ARTIFACT_DIR: /data/artifacts
+      MB_MAIL_DIR: /data/mail
+      MB_GITHUB_MAX_TAG_PAGES: ${MB_GITHUB_MAX_TAG_PAGES:-20}
+      MB_AUTO_SUPPORT_LATEST_TAGS: ${MB_AUTO_SUPPORT_LATEST_TAGS:-20}
+      MB_ARTIFACT_TTL_DAYS: ${MB_ARTIFACT_TTL_DAYS:-7}
+      MB_SMTP_HOST: ${MB_SMTP_HOST:-}
+      MB_SMTP_PORT: ${MB_SMTP_PORT:-587}
+      MB_SMTP_USERNAME: ${MB_SMTP_USERNAME:-}
+      MB_SMTP_PASSWORD: ${MB_SMTP_PASSWORD:-}
+      MB_SMTP_FROM: ${MB_SMTP_FROM:-Meshtastic Builder <no-reply@example.local>}
+      MB_SMTP_TLS: ${MB_SMTP_TLS:-1}
+    volumes:
+      - app-data:/data
+
+  worker:
+    build: .
+    command: python -m meshtastic_builder.worker
+    environment:
+      MB_BASE_URL: ${MB_BASE_URL:-http://localhost:8080}
+      MB_DATA_DIR: /data
+      MB_DB_PATH: /data/meshtastic-builder.sqlite
+      MB_ARTIFACT_DIR: /data/artifacts
+      MB_MAIL_DIR: /data/mail
+      MB_GITHUB_MAX_TAG_PAGES: ${MB_GITHUB_MAX_TAG_PAGES:-20}
+      MB_AUTO_SUPPORT_LATEST_TAGS: ${MB_AUTO_SUPPORT_LATEST_TAGS:-20}
+      MB_ARTIFACT_TTL_DAYS: ${MB_ARTIFACT_TTL_DAYS:-7}
+      MB_BUILDER_MODE: ${MB_BUILDER_MODE:-docker}
+      MB_BUILDER_IMAGE: ${MB_BUILDER_IMAGE:-meshtastic-firmware-builder:local}
+      MB_DOCKER_BINARY: ${MB_DOCKER_BINARY:-docker}
+      MB_DOCKER_NETWORK: ${MB_DOCKER_NETWORK:-bridge}
+      MB_DOCKER_TRANSPORT: ${MB_DOCKER_TRANSPORT:-auto}
+      MB_BUILD_TIMEOUT_SECONDS: ${MB_BUILD_TIMEOUT_SECONDS:-3600}
+      MB_SMTP_HOST: ${MB_SMTP_HOST:-}
+      MB_SMTP_PORT: ${MB_SMTP_PORT:-587}
+      MB_SMTP_USERNAME: ${MB_SMTP_USERNAME:-}
+      MB_SMTP_PASSWORD: ${MB_SMTP_PASSWORD:-}
+      MB_SMTP_FROM: ${MB_SMTP_FROM:-Meshtastic Builder <no-reply@example.local>}
+      MB_SMTP_TLS: ${MB_SMTP_TLS:-1}
+    volumes:
+      - app-data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  app-data:
