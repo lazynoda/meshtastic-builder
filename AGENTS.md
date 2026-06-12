@@ -91,9 +91,10 @@ Build the real firmware builder image:
 docker build -f docker/builder.Dockerfile -t meshtastic-firmware-builder:local .
 ```
 
-The Dockerfile default prewarms only `tbeam` to keep local/CI iteration bounded.
-Use `--build-arg PREWARM_ENVS="tbeam heltec-v3 rak4631"` when validating a wider
-production image.
+The Dockerfile default prewarms `tbeam` and `heltec-mesh-node-t114` so the
+common ESP32 and T114/nRF52 paths are both warmed in the single builder image.
+Use `--build-arg PREWARM_ENVS="tbeam heltec-v3 heltec-mesh-node-t114 tracker-t1000-e heltec-wsl-v3 rak4631"`
+when validating a wider production image.
 
 Run the Compose stack in fast fake mode:
 
@@ -173,6 +174,9 @@ the same filesystem paths as the worker.
 `MB_DOCKER_NETWORK` defaults to `bridge` so historical tags can download missing
 PlatformIO dependencies. Use `none` only when the image is prewarmed for the
 exact supported tag/device matrix.
+
+Builder containers keep resource limits. `MB_DOCKER_CPUS` defaults to `4`
+because real T114/nRF52 builds are CPU-bound; lower it on small hosts if needed.
 
 A real remote-Docker smoke test has passed for:
 

@@ -22,7 +22,7 @@ fi
 FIRMWARE_TAG="$1"
 FIRMWARE_SHA="$2"
 PIO_ENV="$3"
-WORK_DIR="/tmp/meshtastic-build-${PIO_ENV}-$$"
+WORK_DIR="${BASE_REPO}"
 OUTPUT_DIR="/work/output"
 INPUT_DIR="/work/input"
 
@@ -33,10 +33,7 @@ case "${PIO_ENV}" in
     ;;
 esac
 
-rm -rf "${WORK_DIR}"
-cp -a "${BASE_REPO}" "${WORK_DIR}"
 cd "${WORK_DIR}"
-
 git checkout --force "${FIRMWARE_SHA}" || git checkout --force "${FIRMWARE_TAG}"
 git submodule update --init --recursive
 
@@ -70,5 +67,3 @@ ZIP_NAME="meshtastic-${FIRMWARE_TAG}-${PIO_ENV}.zip"
   cd "${OUTPUT_DIR}/files"
   zip -r "${OUTPUT_DIR}/${ZIP_NAME}" .
 )
-
-rm -rf "${WORK_DIR}"

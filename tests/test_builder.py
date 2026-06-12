@@ -60,6 +60,9 @@ class BuilderTests(unittest.TestCase):
                 docker_binary="docker",
                 docker_network="none",
                 docker_transport="bind",
+                docker_cpus="3",
+                docker_memory="5g",
+                docker_pids_limit=256,
                 builder_image="builder:test",
                 build_timeout_seconds=123,
             )
@@ -76,6 +79,12 @@ class BuilderTests(unittest.TestCase):
             self.assertIn("--rm", command)
             self.assertIn("--network", command)
             self.assertIn("none", command)
+            self.assertIn("--cpus", command)
+            self.assertIn("3", command)
+            self.assertIn("--memory", command)
+            self.assertIn("5g", command)
+            self.assertIn("--pids-limit", command)
+            self.assertIn("256", command)
             self.assertIn("builder:test", command)
             self.assertEqual(command[-3:], ["v-test", "abc123", "tbeam"])
 
@@ -121,6 +130,9 @@ class BuilderTests(unittest.TestCase):
                 docker_binary="docker",
                 docker_network="none",
                 docker_transport="copy",
+                docker_cpus="3",
+                docker_memory="5g",
+                docker_pids_limit=256,
                 builder_image="builder:test",
                 build_timeout_seconds=123,
             )
@@ -146,6 +158,9 @@ class BuilderTests(unittest.TestCase):
             self.assertEqual(final_zip.read_bytes(), b"zip-content")
             commands = [call.args[0] for call in run.call_args_list]
             self.assertEqual(commands[0][:2], ["docker", "create"])
+            self.assertIn("3", commands[0])
+            self.assertIn("5g", commands[0])
+            self.assertIn("256", commands[0])
             self.assertEqual(commands[-1], ["docker", "rm", "-f", "cid123"])
 
 

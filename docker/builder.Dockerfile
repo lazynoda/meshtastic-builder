@@ -1,7 +1,7 @@
 FROM debian:trixie
 
 ARG MESHTASTIC_REPO=https://github.com/meshtastic/firmware.git
-ARG PREWARM_ENVS="tbeam"
+ARG PREWARM_ENVS="tbeam heltec-mesh-node-t114"
 
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=Etc/UTC \
@@ -30,7 +30,12 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
 
 COPY docker/build_firmware.sh /usr/local/bin/build-firmware
 RUN chmod +x /usr/local/bin/build-firmware \
-    && /usr/local/bin/build-firmware --prewarm ${PREWARM_ENVS}
+    && /usr/local/bin/build-firmware --prewarm ${PREWARM_ENVS} \
+    && rm -rf \
+      /opt/platformio/.cache/downloads \
+      /opt/platformio/.cache/tmp \
+      /root/.cache/pip \
+      /tmp/*
 
 WORKDIR /opt/firmware
 ENTRYPOINT ["/usr/local/bin/build-firmware"]

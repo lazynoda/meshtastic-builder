@@ -12,6 +12,7 @@ Start here:
 - [Configuration](configuration.md)
 - [API](api.md)
 - [Worker and Builder](worker-and-builder.md)
+- [userPrefs Support](userprefs-support.md)
 - [Database](database.md)
 - [Security Model](security.md)
 - [Testing](testing.md)

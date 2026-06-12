@@ -49,9 +49,9 @@ Docker mode supports two transports.
 ```bash
 docker run --rm \
   --network <MB_DOCKER_NETWORK> \
-  --cpus 2 \
-  --memory 4g \
-  --pids-limit 512 \
+  --cpus <MB_DOCKER_CPUS> \
+  --memory <MB_DOCKER_MEMORY> \
+  --pids-limit <MB_DOCKER_PIDS_LIMIT> \
   -v <job-input>:/work/input:ro \
   -v <job-output>:/work/output \
   <MB_BUILDER_IMAGE> \
@@ -74,6 +74,11 @@ matrix.
 
 Only the worker needs Docker access.
 
+Builder containers still run with CPU, memory, PID, and network limits. The CPU
+limit defaults to 4 because T114/nRF52 builds are CPU-bound and the old 2-CPU
+cap left the compiler saturated for several minutes longer on the remote test
+host.
+
 The remote Docker path has been validated with `DOCKER_HOST=ssh://docker-host.example`,
 `MB_DOCKER_TRANSPORT=copy`, and `MB_DOCKER_NETWORK=bridge`.
 
@@ -88,15 +93,22 @@ The remote Docker path has been validated with `DOCKER_HOST=ssh://docker-host.ex
 - prewarms PlatformIO dependencies for `PREWARM_ENVS` during image build,
 - installs `docker/build_firmware.sh` as the entrypoint.
 
-The default `PREWARM_ENVS` is `tbeam` to keep the development image build
-bounded. For production images, pass a wider list explicitly:
+The default `PREWARM_ENVS` is `tbeam heltec-mesh-node-t114` so the common ESP32
+path and the T114/nRF52 path are both warmed in the single builder image. For
+production images, pass a wider list explicitly:
 
 ```bash
 docker build \
-  --build-arg PREWARM_ENVS="tbeam heltec-v3 rak4631" \
+  --build-arg PREWARM_ENVS="tbeam heltec-v3 heltec-mesh-node-t114 tracker-t1000-e heltec-wsl-v3 rak4631" \
   -f docker/builder.Dockerfile \
   -t meshtastic-firmware-builder:local .
 ```
+
+At runtime, the entrypoint checks out the requested SHA/tag directly inside
+`/opt/firmware`. Each Docker build runs in its own ephemeral container
+filesystem, so this does not mutate shared service state, avoids copying the
+firmware checkout per request, and lets PlatformIO reuse warmed `.pio` artifacts
+from the single builder image when they are still valid.
 
 Entrypoint contract:
 

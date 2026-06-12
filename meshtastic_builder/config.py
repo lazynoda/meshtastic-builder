@@ -41,6 +41,9 @@ class Config:
     docker_binary: str
     docker_network: str
     docker_transport: str
+    docker_cpus: str
+    docker_memory: str
+    docker_pids_limit: int
     smtp_host: str
     smtp_port: int
     smtp_username: str
@@ -88,6 +91,9 @@ def load_config() -> Config:
         docker_binary=os.getenv("MB_DOCKER_BINARY", "docker"),
         docker_network=os.getenv("MB_DOCKER_NETWORK", "bridge"),
         docker_transport=os.getenv("MB_DOCKER_TRANSPORT", "auto"),
+        docker_cpus=os.getenv("MB_DOCKER_CPUS", "4"),
+        docker_memory=os.getenv("MB_DOCKER_MEMORY", "4g"),
+        docker_pids_limit=int(os.getenv("MB_DOCKER_PIDS_LIMIT", "512")),
         smtp_host=os.getenv("MB_SMTP_HOST", ""),
         smtp_port=int(os.getenv("MB_SMTP_PORT", "587")),
         smtp_username=os.getenv("MB_SMTP_USERNAME", ""),
