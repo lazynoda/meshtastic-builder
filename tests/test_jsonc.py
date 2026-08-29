@@ -1,3 +1,4 @@
+import json
 import unittest
 
 from meshtastic_builder.jsonc import (
@@ -34,6 +35,26 @@ class JsoncTests(unittest.TestCase):
             """
         )
         self.assertEqual(keys, {"USERPREFS_IGNORED", "USERPREFS_ALPHA", "USERPREFS_BETA_2"})
+
+    def test_merged_values_are_strings_for_the_firmware_build(self):
+        normalized, parsed = validate_and_merge_userprefs(
+            '{"USERPREFS_FLAG": true, "USERPREFS_COUNT": 3}',
+            '{"USERPREFS_FLAG": "false", "USERPREFS_COUNT": "1", "USERPREFS_KEPT": true}',
+            1000,
+        )
+        self.assertEqual(parsed["USERPREFS_FLAG"], "true")
+        self.assertEqual(parsed["USERPREFS_COUNT"], "3")
+        self.assertEqual(parsed["USERPREFS_KEPT"], "true")
+        for value in json.loads(normalized).values():
+            self.assertIsInstance(value, str)
+
+    def test_null_preference_values_are_rejected(self):
+        with self.assertRaises(JsoncValidationError):
+            validate_and_merge_userprefs(
+                '{"USERPREFS_FLAG": null}',
+                '{"USERPREFS_FLAG": "false"}',
+                1000,
+            )
 
     def test_commented_template_keys_can_be_submitted(self):
         normalized, parsed = validate_and_merge_userprefs(

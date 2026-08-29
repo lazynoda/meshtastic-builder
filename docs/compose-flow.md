@@ -137,6 +137,11 @@ payload = {
     "deviceId": "tbeam",
     "firmwareTag": tag,
     "prefsJsonc": prefs,
+    # Optional. Exercises the userPrefs patch path; drop it for a plain build.
+    "codeOptions": {
+        "okToMqtt": True,
+        "customLora": {"bandwidthKhz": 250, "spreadFactor": 11, "codingRate": 5},
+    },
 }
 
 req = urllib.request.Request(
@@ -159,6 +164,16 @@ PY
 ```
 
 If the final status is `succeeded`, open the printed `downloadUrl`.
+
+When `codeOptions` is included, verify the patch actually took effect:
+
+```bash
+unzip -p <artifact>.zip BUILD_INFO.txt | grep code_options
+unzip -p <artifact>.zip userPrefs.jsonc | grep -E 'USE_PRESET|OK_TO_MQTT|BANDWIDTH'
+```
+
+The build log should also show `git apply` succeeding and the corresponding
+`-DUSERPREFS_...` flags in the PlatformIO flag dump.
 
 ## Remote Docker Daemon
 

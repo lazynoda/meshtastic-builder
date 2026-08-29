@@ -20,16 +20,44 @@
 - Email via SMTP or local outbox.
 - 7-day artifact expiry.
 - Unit tests for core contracts.
+- Advanced build options (`ok_to_mqtt`, manual LoRa config) through a
+  repo-controlled firmware patch, with a verified `minFirmwareVersion` floor.
+- Frontend restyled on the shared meshtastic.es design system, with Spanish and
+  English UI and shareable `/?build=<token>` links.
+- Reverse-proxy readiness (`MB_TRUST_PROXY`) and a sample Caddyfile.
 
 ## Next Milestones
 
-1. Add automated smoke-test status for supported firmware tags and devices.
+1. Add automated smoke-test status for supported firmware tags and devices,
+   including `git apply --check` of the userPrefs patch per tag.
 2. Generate preference UI controls from a maintained schema.
 3. Add persistent rate limiting.
-4. Add production object storage support.
-5. Add Postgres backend if queue concurrency or deployment scale requires it.
+4. Configure a real SMTP relay for production.
+5. Add production object storage support.
+6. Add Postgres backend if queue concurrency or deployment scale requires it.
 
 ## Latest Local Validation
+
+On 2026-08-29:
+
+- `python3 -B -m unittest discover -s tests` passed with 52 tests.
+- `docker/patches/userprefs-ext.patch` verified with `git apply --check` against
+  the 40 newest tags: clean on every tag from `v2.6.4` to `v2.7.26`, failing on
+  `v2.2.x` and older. `minFirmwareVersion` set to `2.6.4` from that result.
+- Builder image rebuilt on `ssh://docker-host.example` (8.06 GB).
+- Real firmware build passed with advanced options enabled:
+  - tag `v2.7.25.104df5f`, device/env `tbeam`, transport `copy`
+  - options: `okToMqtt`, `customLora` bandwidth 125 / SF 9 / CR 6 / slot 20
+  - log showed `Applied patch src/mesh/NodeDB.cpp cleanly.` and every expected
+    `-DUSERPREFS_*` define
+  - artifact 10.6 MB, SHA256 `8816e055f9e04446edf9c1edbbc460621a93599dd25b34b6aa1ac4aea261f876`
+  - shipped `userPrefs.jsonc` contained all six synthetic macros as strings
+- Failure path verified: an unapplicable patch exits 3 with
+  `CODE_OPTIONS_PATCH_FAILED` before `pio run`.
+- Fake-mode browser run verified the restyled UI, the ES/EN toggle, advanced
+  option gating by firmware version, and `/?build=<token>` deep links.
+- `MB_TRUST_PROXY=1` verified: rate limiting keys on the first `X-Forwarded-For`
+  hop, and ignores the header when disabled.
 
 On 2026-06-12:
 

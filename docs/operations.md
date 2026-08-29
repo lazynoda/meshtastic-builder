@@ -100,16 +100,67 @@ If this command times out or fails, do not start a firmware build. Fix the Docke
 Back up:
 
 - SQLite database,
-- artifact directory if downloads must survive process moves,
-- mail outbox if SMTP is disabled.
+- mail outbox if SMTP is disabled,
+- `.env` and the reverse proxy config.
+
+Artifacts are not worth backing up: they expire after `MB_ARTIFACT_TTL_DAYS` and
+are reproducible from `firmware_sha` plus the stored `prefs_jsonc`.
 
 Do not back up temporary job directories.
+
+A WAL-safe daily backup is one line in cron:
+
+```bash
+0 4 * * * sqlite3 /srv/meshtastic-builder/data/meshtastic-builder.sqlite \
+  ".backup /srv/backups/mb-$(date +\%F).sqlite" \
+  && find /srv/backups -name 'mb-*.sqlite' -mtime +14 -delete
+```
+
+## Deployment
+
+The service runs behind a TLS-terminating reverse proxy. `Caddyfile.example`
+in the repo root is a working starting point:
+
+```caddyfile
+builder.meshtastic.es {
+    reverse_proxy web:8080
+}
+```
+
+Checklist for a fresh host:
+
+1. Point DNS at the host and open ports 80/443 for the proxy only.
+2. Set `MB_BASE_URL=https://builder.meshtastic.es` and `MB_TRUST_PROXY=1` in `.env`.
+   Enable `MB_TRUST_PROXY` only when the app port is not reachable directly, as
+   `X-Forwarded-For` is otherwise trivially spoofed.
+3. Stop publishing the `web` port to the public interface; let the proxy reach it
+   over the compose network.
+4. Build the firmware builder image on the host and pin it via `MB_BUILDER_IMAGE`.
+5. Run one real build end to end before announcing the service.
+
+Services already carry `restart: unless-stopped`, so Docker restores the stack on
+reboot. No systemd units are needed.
+
+## Concurrency
+
+The service ships configured for one build at a time. The queue claim is already
+transactional and builder containers are ephemeral, so scaling is purely
+operational:
+
+```bash
+docker compose up -d --scale worker=2
+```
+
+Budget roughly `MB_DOCKER_CPUS` cores per worker: at the default of 4, two
+workers want about 8 cores. No code change is required.
 
 ## Production Notes
 
 - Set `MB_BASE_URL` to the public HTTPS origin.
-- Configure SMTP.
+- Configure SMTP, or accept that emails only land in `outbox.jsonl`.
 - Build and pin a known-good builder image.
 - Decide which firmware tags are supported.
+- Re-verify `docker/patches/userprefs-ext.patch` when widening the supported tag
+  range. See [Advanced Build Options](build-options.md).
 - Run at least one real Docker build smoke test before accepting users.
-- Consider moving from SQLite to Postgres if multiple web/worker instances are needed.
+- Consider moving from SQLite to Postgres if multiple web instances are needed.

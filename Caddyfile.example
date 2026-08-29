@@ -1,0 +1,18 @@
+# Sample reverse proxy config for a production deployment.
+# Copy to Caddyfile, adjust the hostname, and mount it into a Caddy container
+# (or run Caddy on the host and point it at the published web port).
+#
+# Caddy obtains and renews the certificate automatically, so ports 80 and 443
+# must reach this host. Set MB_TRUST_PROXY=1 only when the app port is not
+# reachable directly, otherwise X-Forwarded-For can be spoofed.
+
+builder.meshtastic.es {
+	reverse_proxy web:8080
+
+	encode zstd gzip
+
+	# Firmware ZIPs are large and builds are slow; keep generous timeouts.
+	request_body {
+		max_size 1MB
+	}
+}

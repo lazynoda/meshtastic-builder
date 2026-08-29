@@ -12,6 +12,11 @@ from .config import Config
 from .db import iso_now
 
 
+PATCH_RELATIVE_PATH = Path("docker") / "patches" / "userprefs-ext.patch"
+
+PATCH_FAILURE_MARKER = "CODE_OPTIONS_PATCH_FAILED"
+
+
 @dataclass(frozen=True)
 class BuildArtifact:
     path: Path
@@ -38,6 +43,7 @@ def build_info(build: dict[str, object]) -> str:
             f"platformio_env={build['platformio_env']}",
             f"firmware_tag={build['firmware_tag']}",
             f"firmware_sha={build['firmware_sha']}",
+            f"code_options={build.get('code_options') or 'none'}",
             "source=https://github.com/meshtastic/firmware",
             "license=GPL-3.0-or-later",
             "",
@@ -59,6 +65,11 @@ def run_build(config: Config, build: dict[str, object]) -> BuildArtifact:
     output_dir.mkdir(parents=True, exist_ok=True)
     (input_dir / "userPrefs.jsonc").write_text(str(build["prefs_jsonc"]), encoding="utf-8")
     (input_dir / "BUILD_INFO.txt").write_text(build_info(build), encoding="utf-8")
+    if build.get("code_options"):
+        patch = config.root_dir / PATCH_RELATIVE_PATH
+        if not patch.is_file():
+            raise RuntimeError(f"Falta el parche de opciones avanzadas en {patch}.")
+        shutil.copyfile(patch, input_dir / "userprefs-ext.patch")
 
     try:
         if config.builder_mode == "fake":
@@ -100,6 +111,15 @@ def run_docker_build(
     if transport != "bind":
         raise ValueError(f"Unsupported Docker transport: {config.docker_transport}")
     return run_docker_build_bind(config, build, input_dir, output_dir, final_zip)
+
+
+def raise_build_failure(returncode: int, log: str) -> None:
+    if PATCH_FAILURE_MARKER in log:
+        raise RuntimeError(
+            "Las opciones avanzadas no se pudieron aplicar a esta version de firmware. "
+            "Prueba con una version mas reciente o desactiva las opciones avanzadas."
+        )
+    raise RuntimeError(f"Docker build failed with exit code {returncode}.\n{log[-4000:]}")
 
 
 def docker_transport(config: Config) -> str:
@@ -150,7 +170,7 @@ def run_docker_build_bind(
     )
     log = (proc.stdout or "") + ("\n" + proc.stderr if proc.stderr else "")
     if proc.returncode != 0:
-        raise RuntimeError(f"Docker build failed with exit code {proc.returncode}.\n{log[-4000:]}")
+        raise_build_failure(proc.returncode, log)
 
     zip_candidates = sorted(output_dir.glob("*.zip"), key=lambda path: path.stat().st_mtime, reverse=True)
     if zip_candidates:
@@ -232,9 +252,7 @@ def run_docker_build_copy(
         )
         logs.append((start_proc.stdout or "") + ("\n" + start_proc.stderr if start_proc.stderr else ""))
         if start_proc.returncode != 0:
-            raise RuntimeError(
-                f"Docker build failed with exit code {start_proc.returncode}.\n{''.join(logs)[-4000:]}"
-            )
+            raise_build_failure(start_proc.returncode, "".join(logs))
 
         copy_output = subprocess.run(
             [config.docker_binary, "cp", f"{container_id}:/work/output/.", str(output_dir.resolve())],

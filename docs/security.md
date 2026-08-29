@@ -13,6 +13,11 @@ The most important rule is separation: the web process accepts input, but only t
 - Unknown keys are rejected when a tag-specific template is available.
 - Preference values must be scalar.
 - Submitted preference files are size-limited.
+- `codeOptions` keys and values are allowlisted in `data/build_options.json`.
+- The firmware patch is repo-controlled. Users never supply patch content, only
+  which allowlisted options to enable.
+- Synthetic macros are merged after user overrides, so `prefsJsonc` cannot set
+  or override them.
 
 ## Download Tokens
 
@@ -54,7 +59,9 @@ Current implementation does not require user accounts or API keys. SMTP credenti
 
 ## Known Hardening Work
 
-- Run the app behind HTTPS and a reverse proxy in production.
+- Run the app behind HTTPS and a reverse proxy in production. Set
+  `MB_TRUST_PROXY=1` there so rate limiting keys on the real client IP, and only
+  when the app is not directly reachable, otherwise `X-Forwarded-For` is spoofable.
 - Add persistent IP/email rate limiting instead of in-memory rate limiting.
 - Add CSRF protection if cookies or sessions are introduced.
 - Run the worker under a restricted OS user.

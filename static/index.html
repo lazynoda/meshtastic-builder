@@ -3,158 +3,202 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Meshtastic Firmware Builder</title>
+    <title>Meshtastic Builder</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;600&display=swap"
+      rel="stylesheet">
     <link rel="stylesheet" href="/static/styles.css">
   </head>
   <body>
-    <main class="shell">
-      <header class="topbar">
-        <div class="brandBlock">
-          <span class="kicker">Firmware a medida</span>
-          <h1>Meshtastic Builder</h1>
-          <p>Elige dispositivo, version y preferencias sin editar JSON a mano.</p>
+    <div class="shell">
+      <header class="app-header">
+        <div class="logo">
+          <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="14" cy="14" r="3" fill="currentColor" />
+            <circle cx="6" cy="6" r="2" fill="currentColor" opacity=".6" />
+            <circle cx="22" cy="6" r="2" fill="currentColor" opacity=".6" />
+            <circle cx="6" cy="22" r="2" fill="currentColor" opacity=".4" />
+            <circle cx="22" cy="22" r="2" fill="currentColor" opacity=".4" />
+            <line x1="14" y1="14" x2="6" y2="6" stroke="currentColor" stroke-width="1" opacity=".5" />
+            <line x1="14" y1="14" x2="22" y2="6" stroke="currentColor" stroke-width="1" opacity=".5" />
+            <line x1="14" y1="14" x2="6" y2="22" stroke="currentColor" stroke-width="1" opacity=".3" />
+            <line x1="14" y1="14" x2="22" y2="22" stroke="currentColor" stroke-width="1" opacity=".3" />
+          </svg>
+          <span>MESHTASTIC ESPAÑA <em>/ Builder</em></span>
         </div>
-        <button id="refreshVersions" class="secondaryButton" type="button">Actualizar tags</button>
+        <div class="header-right">
+          <span class="tagline" data-i18n="header.tagline"></span>
+          <div class="lang-switch" role="group" aria-label="Language">
+            <button type="button" class="lang-button" data-lang="es">ES</button>
+            <button type="button" class="lang-button" data-lang="en">EN</button>
+          </div>
+          <button id="refreshVersions" class="btn" type="button" data-i18n="header.refresh"></button>
+        </div>
       </header>
 
-      <form id="buildForm" class="builderPanel">
-        <div class="signalRail" aria-hidden="true">
-          <span></span>
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
-
-        <section class="formSection firstSection" aria-labelledby="buildHeading">
-          <div class="sectionHeader">
-            <div>
-              <h2 id="buildHeading">Compilacion</h2>
-              <p>Destino del firmware y correo de entrega.</p>
+      <main class="app-main">
+        <form id="buildForm">
+          <section class="panel">
+            <h2><span class="step">1</span><span data-i18n="step1.title"></span></h2>
+            <div class="grid grid-two">
+              <label>
+                <span data-i18n="step1.device"></span>
+                <select id="deviceId" name="deviceId" required></select>
+              </label>
+              <label>
+                <span data-i18n="step1.version"></span>
+                <select id="firmwareTag" name="firmwareTag" required></select>
+              </label>
             </div>
-          </div>
-          <div class="grid gridThree">
-            <label>
-              Dispositivo
-              <select id="deviceId" name="deviceId" required></select>
-            </label>
-            <label>
-              Version firmware
-              <select id="firmwareTag" name="firmwareTag" required></select>
-            </label>
-            <label>
-              Email
-              <input id="email" name="email" type="email" autocomplete="email" required placeholder="tu@email.com">
-            </label>
-          </div>
-        </section>
+          </section>
 
-        <section class="formSection" aria-labelledby="identityHeading">
-          <div class="sectionHeader">
-            <div>
-              <h2 id="identityHeading">Identidad del nodo</h2>
-              <p>Nombres visibles en la malla.</p>
+          <section class="panel">
+            <h2><span class="step">2</span><span data-i18n="step2.title"></span></h2>
+            <div class="grid grid-two">
+              <label>
+                <span data-i18n="step2.longName"></span>
+                <input id="longName" type="text" autocomplete="off" value="Mi nodo Meshtastic">
+              </label>
+              <label>
+                <span data-i18n="step2.shortName"></span>
+                <span class="inline-input">
+                  <input id="shortName" type="text" autocomplete="off" value="MESH" aria-describedby="shortNameBytes">
+                  <span id="shortNameBytes" class="byte-counter">4/4 bytes</span>
+                </span>
+              </label>
             </div>
-          </div>
-          <div class="grid gridTwo">
-            <label>
-              Nombre largo
-              <input id="longName" type="text" autocomplete="off" value="Mi nodo Meshtastic">
-            </label>
-            <label>
-              Nombre corto
-              <span class="inlineInput">
-                <input id="shortName" type="text" autocomplete="off" value="MESH" aria-describedby="shortNameBytes">
-                <span id="shortNameBytes" class="byteCounter">4/4 bytes</span>
-              </span>
-            </label>
-          </div>
-        </section>
+          </section>
 
-        <section class="formSection" aria-labelledby="radioHeading">
-          <div class="sectionHeader">
-            <div>
-              <h2 id="radioHeading">Radio LoRa</h2>
-              <p>Region, rol y preset de modem.</p>
+          <section class="panel">
+            <h2><span class="step">3</span><span data-i18n="step3.title"></span></h2>
+            <div class="grid grid-three">
+              <label>
+                <span data-i18n="step3.region"></span>
+                <select id="loraRegion"></select>
+              </label>
+              <label>
+                <span data-i18n="step3.role"></span>
+                <select id="deviceRole"></select>
+              </label>
+              <label>
+                <span data-i18n="step3.preset"></span>
+                <select id="modemPreset"></select>
+                <small id="presetDisabledHint" class="field-hint" data-i18n="step3.presetDisabled" hidden></small>
+              </label>
             </div>
-          </div>
-          <div class="grid gridThree">
-            <label>
-              Region LoRa
-              <select id="loraRegion"></select>
-            </label>
-            <label>
-              Device role
-              <select id="deviceRole"></select>
-            </label>
-            <label>
-              Preset
-              <select id="modemPreset"></select>
-            </label>
-          </div>
-        </section>
+          </section>
 
-        <section class="formSection" aria-labelledby="channelsHeading">
-          <div class="sectionHeader actionHeader">
-            <div>
-              <h2 id="channelsHeading">Canales</h2>
-              <p>Hasta tres canales escritos en el firmware.</p>
+          <section class="panel">
+            <h2>
+              <span class="step">4</span><span data-i18n="step4.title"></span>
+              <button id="addChannel" class="btn btn-mini" type="button" data-i18n="step4.add"></button>
+            </h2>
+            <p class="status-line" data-i18n="step4.hint"></p>
+            <div id="channelRows"></div>
+          </section>
+
+          <section class="panel">
+            <h2><span class="step">5</span><span data-i18n="step5.title"></span></h2>
+            <div class="grid grid-two">
+              <label class="span-two">
+                <span data-i18n="step5.tz"></span>
+                <span class="inline-input">
+                  <input id="tzString" type="text" value="CET-1CEST,M3.5.0,M10.5.0/3" autocomplete="off">
+                  <button class="btn btn-mini" type="button" data-tz="CET-1CEST,M3.5.0,M10.5.0/3" data-i18n="step5.tzPeninsula"></button>
+                  <button class="btn btn-mini" type="button" data-tz="WET0WEST,M3.5.0/1,M10.5.0" data-i18n="step5.tzCanarias"></button>
+                </span>
+              </label>
+              <label>
+                <span data-i18n="step5.mqttAddress"></span>
+                <input id="mqttAddress" type="text" value="mqtt.meshtastic.es" autocomplete="off">
+              </label>
+              <label>
+                <span data-i18n="step5.adminKey"></span>
+                <input id="adminKey" type="text" autocomplete="off" placeholder="AQIDBA...">
+              </label>
+              <label class="check-line">
+                <input id="mqttEnabled" type="checkbox">
+                <span data-i18n="step5.mqttEnabled"></span>
+              </label>
             </div>
-            <button id="addChannel" class="secondaryButton" type="button">+ Canal</button>
-          </div>
-          <div id="channelRows" class="channelRows"></div>
-        </section>
+          </section>
 
-        <section class="formSection" aria-labelledby="servicesHeading">
-          <div class="sectionHeader">
-            <div>
-              <h2 id="servicesHeading">Servicios</h2>
-              <p>MQTT, TZ POSIX y llave de administracion.</p>
+          <section id="advancedPanel" class="panel panel-experimental">
+            <h2>
+              <span class="step">6</span><span data-i18n="step6.title"></span>
+              <span class="badge" data-i18n="step6.badge"></span>
+            </h2>
+            <p class="status-line" data-i18n="step6.warning"></p>
+            <p id="advancedUnavailable" class="status-line status-warn" data-i18n="step6.unavailable" hidden></p>
+            <div id="advancedControls">
+              <label class="check-line">
+                <input id="okToMqtt" type="checkbox" checked>
+                <span data-i18n="step6.okToMqtt"></span>
+              </label>
+              <label class="check-line">
+                <input id="customLoraEnabled" type="checkbox">
+                <span data-i18n="step6.customLora"></span>
+              </label>
+              <div id="customLoraFields" hidden>
+                <p class="status-line" data-i18n="step6.customLoraHint"></p>
+                <div class="grid grid-four">
+                  <label>
+                    <span data-i18n="step6.bandwidth"></span>
+                    <select id="loraBandwidth"></select>
+                  </label>
+                  <label>
+                    <span data-i18n="step6.spreadFactor"></span>
+                    <select id="loraSpreadFactor"></select>
+                  </label>
+                  <label>
+                    <span data-i18n="step6.codingRate"></span>
+                    <select id="loraCodingRate"></select>
+                  </label>
+                  <label>
+                    <span data-i18n="step6.channelNum"></span>
+                    <input id="loraChannelNum" type="number" min="0" max="255" value="0">
+                    <small class="field-hint" data-i18n="step6.channelNumHint"></small>
+                  </label>
+                </div>
+              </div>
             </div>
-          </div>
-          <div class="grid gridTwo">
-            <label>
-              TZ string POSIX
-              <span class="buttonInput">
-                <input id="tzString" type="text" value="CET-1CEST,M3.5.0,M10.5.0/3" autocomplete="off">
-                <button class="miniButton" type="button" data-tz="CET-1CEST,M3.5.0,M10.5.0/3">Peninsula</button>
-                <button class="miniButton" type="button" data-tz="WET0WEST,M3.5.0/1,M10.5.0">Canarias</button>
-              </span>
-            </label>
-            <label>
-              MQTT address
-              <input id="mqttAddress" type="text" value="mqtt.meshtastic.es" autocomplete="off">
-            </label>
-            <label class="checkLine">
-              <input id="mqttEnabled" type="checkbox">
-              <span>Activar MQTT</span>
-            </label>
-            <label>
-              Clave administracion remota (base64)
-              <input id="adminKey" type="text" inputmode="text" autocomplete="off" placeholder="AQIDBA...">
-            </label>
-          </div>
+          </section>
+
+          <section class="panel">
+            <h2><span class="step">7</span><span data-i18n="step7.title"></span></h2>
+            <details class="json-preview">
+              <summary data-i18n="step7.preview"></summary>
+              <textarea id="prefsJsonc" name="prefsJsonc" spellcheck="false" readonly></textarea>
+            </details>
+            <div class="grid grid-two submit-row">
+              <label>
+                <span data-i18n="step7.email"></span>
+                <input id="email" name="email" type="email" autocomplete="email" required placeholder="tu@email.com">
+              </label>
+              <div class="submit-cell">
+                <button id="submitBuild" class="btn btn-primary" type="submit" data-i18n="step7.submit"></button>
+              </div>
+            </div>
+            <p id="statusText" class="status-line" role="status"></p>
+          </section>
+        </form>
+
+        <section id="result" class="panel" hidden>
+          <h2><span data-i18n="result.title"></span></h2>
+          <dl class="result-list">
+            <div><dt data-i18n="result.status"></dt><dd id="buildStatus"></dd></div>
+            <div><dt data-i18n="result.token"></dt><dd id="buildToken"></dd></div>
+            <div id="buildOptionsRow" hidden><dt data-i18n="result.options"></dt><dd id="buildOptions"></dd></div>
+            <div><dt data-i18n="result.download"></dt><dd><a id="downloadLink" href="#"></a></dd></div>
+          </dl>
+          <p class="status-line"><span data-i18n="result.share"></span> <code id="shareLink"></code></p>
         </section>
-
-        <details class="jsonPreview">
-          <summary>Ver userPrefs.jsonc generado</summary>
-          <textarea id="prefsJsonc" name="prefsJsonc" spellcheck="false" readonly></textarea>
-        </details>
-
-        <div class="actions">
-          <button id="submitBuild" type="submit">Enviar compilacion</button>
-          <span id="statusText" role="status"></span>
-        </div>
-      </form>
-
-      <section id="result" class="resultPanel" hidden>
-        <h2>Peticion creada</h2>
-        <dl>
-          <div><dt>Estado</dt><dd id="buildStatus"></dd></div>
-          <div><dt>Token</dt><dd id="buildToken"></dd></div>
-          <div><dt>Descarga</dt><dd><a id="downloadLink" href="#">Disponible al finalizar</a></dd></div>
-        </dl>
-      </section>
-    </main>
+      </main>
+    </div>
+    <script src="/static/i18n.js"></script>
     <script src="/static/app.js"></script>
   </body>
 </html>

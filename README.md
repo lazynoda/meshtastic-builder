@@ -4,13 +4,24 @@ Web app and worker for requesting custom Meshtastic firmware builds.
 
 The current implementation is intentionally dependency-light: it uses Python standard library modules, SQLite, vanilla HTML/CSS/JS, SMTP, and a Docker-based firmware builder image. Users can select a Meshtastic firmware tag, choose an allowed device, configure common `userPrefs.jsonc` fields through form controls, submit an email address, and later receive a private download link for a ZIP artifact that expires after 7 days.
 
+A few settings that `userPrefs.jsonc` cannot express, such as `ok_to_mqtt` and
+manual (non-preset) LoRa parameters, are offered as advanced build options
+backed by a small repo-controlled firmware patch. See
+[docs/build-options.md](docs/build-options.md).
+
+The UI is available in Spanish and English.
+
 ## Components
 
 - `meshtastic_builder.app`: HTTP server and API.
 - `meshtastic_builder.worker`: queue worker that claims builds and runs Docker.
+- `meshtastic_builder.code_options`: advanced build option allowlist.
 - `meshtastic_builder.cleanup`: expires old artifacts.
 - `docker/builder.Dockerfile`: PlatformIO/Meshtastic build image.
+- `docker/patches/userprefs-ext.patch`: adds the missing `USERPREFS_*` reads.
 - `data/devices.json`: allowlisted devices and PlatformIO environments.
+- `data/build_options.json`: allowlisted advanced build options.
+- `static/`: the frontend, served as-is with no build step.
 
 Full documentation lives in [docs/README.md](docs/README.md).
 
@@ -94,6 +105,7 @@ The tag sync follows GitHub pagination up to `MB_GITHUB_MAX_TAG_PAGES`. If the n
 - Firmware versions must be selected from cached GitHub tags.
 - `userPrefs.jsonc` is parsed and normalized before storage.
 - Unknown preference keys are rejected based on the selected tag's `userPrefs.jsonc` template.
+- Advanced build options are allowlisted in `data/build_options.json`; the firmware patch is repo-controlled and never user-supplied.
 - Public download paths use cryptographically random tokens, not DB ids.
 - ZIPs expire after `MB_ARTIFACT_TTL_DAYS` days, are blocked at download time after expiry, and are deleted by cleanup.
 - The web process never invokes Docker; only the worker does.

@@ -12,6 +12,8 @@ End state:
 - The user selects a supported Meshtastic device.
 - The user selects a Meshtastic firmware version from `meshtastic/firmware` Git tags.
 - The user edits `userPrefs.jsonc`.
+- The user optionally enables advanced build options that `userPrefs.jsonc`
+  cannot express.
 - The user enters an email address and submits a build request.
 - The request is stored in a simple database.
 - A separate worker claims queued requests one by one.
@@ -27,7 +29,7 @@ The implementation is intentionally dependency-light:
 
 - Python standard library HTTP server.
 - SQLite database.
-- Vanilla HTML/CSS/JS frontend.
+- Vanilla HTML/CSS/JS frontend, no build step, Spanish and English.
 - SMTP or local JSONL outbox.
 - Docker image for the real Meshtastic/PlatformIO build.
 - Fake builder mode for fast local verification without Docker.
@@ -36,6 +38,7 @@ Core modules:
 
 - `meshtastic_builder.app`: web server, API, static files, downloads.
 - `meshtastic_builder.submissions`: validates and creates build requests.
+- `meshtastic_builder.code_options`: advanced build option allowlist and macro expansion.
 - `meshtastic_builder.db`: schema, queue state transitions, artifact metadata.
 - `meshtastic_builder.firmware`: GitHub tag sync and userPrefs template cache.
 - `meshtastic_builder.worker`: queue loop and build lifecycle.
@@ -47,6 +50,15 @@ Submitted `userPrefs.jsonc` is validated as JSONC, checked against the selected
 tag's template keys, and merged onto that template before storage. This prevents
 partial override payloads from producing firmware builds with missing
 `USERPREFS_*` macros.
+
+Settings that upstream firmware never reads from a `USERPREFS_*` macro
+(`ok_to_mqtt`, manual non-preset LoRa parameters) are exposed as advanced build
+options. They are allowlisted in `data/build_options.json`, expanded into
+server-injected synthetic macros, and enabled by a repo-controlled patch,
+`docker/patches/userprefs-ext.patch`, applied inside the builder container
+before `pio run`. The patch is verified to apply from `v2.6.4` to `v2.7.26`;
+older tags are rejected via `minFirmwareVersion`. Full details in
+`docs/build-options.md`. Users never supply patch content.
 
 Current enabled device IDs and PlatformIO environments:
 
@@ -190,6 +202,22 @@ A real remote-Docker smoke test has passed for:
 The resulting ZIP contained firmware `.bin`, `.factory.bin`, `.elf`, `.map`,
 LittleFS, bootloader, partitions, `BUILD_INFO.txt`, and `userPrefs.jsonc`.
 
+Re-validated on 2026-08-29 with advanced build options enabled
+(`okToMqtt` plus `customLora` bandwidth 125 / SF 9 / CR 6 / slot 20). The build
+log showed `Applied patch src/mesh/NodeDB.cpp cleanly.`, the PlatformIO flag dump
+included every `-DUSERPREFS_LORACONFIG_*` and `-DUSERPREFS_CONFIG_LORA_OK_TO_MQTT`
+define, and the patched `NodeDB.cpp` compiled without errors. Artifact was
+10.6 MB, SHA256
+`8816e055f9e04446edf9c1edbbc460621a93599dd25b34b6aa1ac4aea261f876`.
+
+The failure path was verified separately by feeding the builder a deliberately
+unapplicable patch: it exited 3 with `CODE_OPTIONS_PATCH_FAILED` before `pio run`.
+
+Note the builder image had to be rebuilt from scratch on that host
+(about one hour, 8.06 GB). It prewarms against `master`, so older tags still
+download extra PlatformIO packages at build time and therefore need
+`MB_DOCKER_NETWORK=bridge`.
+
 Run cleanup:
 
 ```bash
@@ -239,10 +267,15 @@ Fake mode is useful but does not prove real Meshtastic builds. A production-read
 
 These are the current main unfinished items:
 
-1. Add automated smoke-test status for firmware tags and devices.
+1. Add automated smoke-test status for firmware tags and devices, including
+   `git apply --check` of `docker/patches/userprefs-ext.patch` per tag.
 2. Add persistent rate limiting before public deployment.
 3. Configure and verify real SMTP or Mailpit in compose.
 4. Consider S3/MinIO or another persistent artifact store for production.
+
+Deployment to `https://builder.meshtastic.es` is done manually by the user on a
+VPS. Keep the app proxy-ready (`MB_TRUST_PROXY`, `Caddyfile.example`) but do not
+attempt to provision DNS, TLS, or backups from here.
 
 ## Meshtastic Notes
 
@@ -266,6 +299,10 @@ Keep these invariants:
 - The worker is the only component that runs Docker.
 - Device IDs must map to allowlisted PlatformIO environments.
 - Users must not submit arbitrary PlatformIO environments or Git refs.
+- Users must not supply firmware patches; only allowlisted option flags.
+- Synthetic `USERPREFS_*` macros must be merged after user overrides so
+  `prefsJsonc` cannot set them.
+- A failed `git apply` must fail the build before `pio run`, never continue.
 - Public URLs must use cryptographically random tokens, not DB IDs.
 - Public status endpoints must not expose email addresses or full `userPrefs.jsonc`.
 - Downloads must fail after expiry.

@@ -37,6 +37,13 @@ cd "${WORK_DIR}"
 git checkout --force "${FIRMWARE_SHA}" || git checkout --force "${FIRMWARE_TAG}"
 git submodule update --init --recursive
 
+if [[ -f "${INPUT_DIR}/userprefs-ext.patch" ]]; then
+  if ! git apply --verbose "${INPUT_DIR}/userprefs-ext.patch"; then
+    echo "CODE_OPTIONS_PATCH_FAILED: esta version de firmware no admite las opciones de compilacion seleccionadas." >&2
+    exit 3
+  fi
+fi
+
 cp "${INPUT_DIR}/userPrefs.jsonc" ./userPrefs.jsonc
 
 pio run -e "${PIO_ENV}"

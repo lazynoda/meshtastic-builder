@@ -23,6 +23,10 @@ python3 -B -m unittest discover -s tests
 - Admin firmware support toggles.
 - Device allowlist validation against Meshtastic `variants/**`.
 - Docker daemon diagnostics.
+- Advanced build option validation, version gating, and macro expansion.
+- Patch shipping into job inputs and `code_options` in `BUILD_INFO.txt`.
+- `code_options` column migration on pre-existing databases.
+- Client IP resolution behind a reverse proxy (`MB_TRUST_PROXY`).
 
 ## Test Files
 
@@ -35,6 +39,8 @@ python3 -B -m unittest discover -s tests
 - `tests/test_builder.py`
 - `tests/test_mailer.py`
 - `tests/test_admin.py`
+- `tests/test_code_options.py`
+- `tests/test_app.py`
 
 ## Why Fake Mode Exists
 
@@ -51,8 +57,8 @@ Fake mode does not replace a real builder smoke test before deployment.
 
 ## Recommended Future Tests
 
-- Real Docker builder smoke test for one supported environment.
 - Browser-level form test.
 - SMTP integration test using Mailpit.
-- Migration test if schema migrations are introduced.
 - Concurrency test for multiple workers once concurrency increases.
+- Automated `git apply --check` of `docker/patches/userprefs-ext.patch` across
+  every supported tag, so the `minFirmwareVersion` floor cannot silently rot.

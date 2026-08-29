@@ -1,0 +1,36 @@
+{
+  "minFirmwareVersion": "2.6.4",
+  "patchFile": "docker/patches/userprefs-ext.patch",
+  "okToMqtt": {
+    "macro": "USERPREFS_CONFIG_LORA_OK_TO_MQTT",
+    "default": true
+  },
+  "customLora": {
+    "usePresetMacro": "USERPREFS_LORACONFIG_USE_PRESET",
+    "fields": {
+      "bandwidthKhz": {
+        "macro": "USERPREFS_LORACONFIG_BANDWIDTH",
+        "choices": [31, 62, 125, 250, 500],
+        "default": 250
+      },
+      "spreadFactor": {
+        "macro": "USERPREFS_LORACONFIG_SPREAD_FACTOR",
+        "min": 7,
+        "max": 12,
+        "default": 11
+      },
+      "codingRate": {
+        "macro": "USERPREFS_LORACONFIG_CODING_RATE",
+        "min": 5,
+        "max": 8,
+        "default": 5
+      },
+      "channelNum": {
+        "macro": "USERPREFS_LORACONFIG_CHANNEL_NUM",
+        "min": 0,
+        "max": 255,
+        "default": 0
+      }
+    }
+  }
+}

@@ -1,0 +1,282 @@
+import json
+import sqlite3
+import tempfile
+import unittest
+import zipfile
+from dataclasses import replace
+from pathlib import Path
+from unittest.mock import patch
+
+from meshtastic_builder.builder import (
+    PATCH_FAILURE_MARKER,
+    raise_build_failure,
+    run_build,
+    run_fake_build,
+)
+from meshtastic_builder.code_options import parse_version, validate_code_options
+from meshtastic_builder.config import load_config
+from meshtastic_builder.db import initialize_database, public_build_view, upsert_firmware_versions
+from meshtastic_builder.firmware import userprefs_cache_path
+from meshtastic_builder.jsonc import JsoncValidationError
+from meshtastic_builder.submissions import create_build_submission
+
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+SUPPORTED_TAG = "v2.7.25.104df5f"
+OLD_TAG = "v2.2.21.7f7c5cb"
+
+
+def temp_config(tmp_path: Path):
+    return replace(
+        load_config(),
+        data_dir=tmp_path,
+        db_path=tmp_path / "test.sqlite",
+        artifact_dir=tmp_path / "artifacts",
+        job_dir=tmp_path / "jobs",
+        cache_dir=tmp_path / "cache",
+        mail_dir=tmp_path / "mail",
+        base_url="http://example.test",
+    )
+
+
+def seed_template(config, tag: str) -> None:
+    upsert_firmware_versions(
+        config,
+        [{"tag": tag, "sha": "abc123", "release_name": tag, "supported": 1}],
+    )
+    path = userprefs_cache_path(config, tag)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        '{"USERPREFS_CONFIG_OWNER_SHORT_NAME": "DEF"}',
+        encoding="utf-8",
+    )
+
+
+class CodeOptionValidationTests(unittest.TestCase):
+    def test_parse_version_handles_meshtastic_tags(self):
+        self.assertEqual(parse_version("v2.7.25.104df5f"), (2, 7, 25))
+        self.assertEqual(parse_version("2.6.4"), (2, 6, 4))
+        self.assertIsNone(parse_version("v-test"))
+
+    def test_no_options_returns_nothing(self):
+        self.assertEqual(validate_code_options(ROOT_DIR, None, SUPPORTED_TAG), (None, {}))
+        self.assertEqual(validate_code_options(ROOT_DIR, {}, SUPPORTED_TAG), (None, {}))
+
+    def test_ok_to_mqtt_emits_string_macro(self):
+        canonical, macros = validate_code_options(ROOT_DIR, {"okToMqtt": True}, SUPPORTED_TAG)
+        self.assertEqual(canonical, {"okToMqtt": True})
+        self.assertEqual(macros, {"USERPREFS_CONFIG_LORA_OK_TO_MQTT": "true"})
+
+    def test_custom_lora_fills_defaults_and_disables_preset(self):
+        canonical, macros = validate_code_options(
+            ROOT_DIR,
+            {"customLora": {"spreadFactor": 9}},
+            SUPPORTED_TAG,
+        )
+        self.assertEqual(canonical["customLora"]["spreadFactor"], 9)
+        self.assertEqual(canonical["customLora"]["bandwidthKhz"], 250)
+        self.assertEqual(macros["USERPREFS_LORACONFIG_USE_PRESET"], "false")
+        self.assertEqual(macros["USERPREFS_LORACONFIG_SPREAD_FACTOR"], "9")
+        self.assertEqual(macros["USERPREFS_LORACONFIG_BANDWIDTH"], "250")
+        for value in macros.values():
+            self.assertIsInstance(value, str)
+
+    def test_rejects_out_of_range_and_unknown_values(self):
+        cases = [
+            {"okToMqtt": "yes"},
+            {"customLora": {"spreadFactor": 13}},
+            {"customLora": {"codingRate": 4}},
+            {"customLora": {"bandwidthKhz": 300}},
+            {"customLora": {"channelNum": 256}},
+            {"customLora": {"nope": 1}},
+            {"unknownOption": True},
+            {"customLora": "wide"},
+        ]
+        for payload in cases:
+            with self.subTest(payload=payload):
+                with self.assertRaises(ValueError):
+                    validate_code_options(ROOT_DIR, payload, SUPPORTED_TAG)
+
+    def test_rejects_firmware_below_minimum_version(self):
+        with self.assertRaises(ValueError) as ctx:
+            validate_code_options(ROOT_DIR, {"okToMqtt": True}, OLD_TAG)
+        self.assertIn("2.6.4", str(ctx.exception))
+
+
+class CodeOptionSubmissionTests(unittest.TestCase):
+    def test_submission_stores_options_and_injects_macros(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config = temp_config(Path(tmp))
+            initialize_database(config)
+            seed_template(config, SUPPORTED_TAG)
+
+            result = create_build_submission(
+                config,
+                {
+                    "email": "user@example.com",
+                    "deviceId": "tbeam",
+                    "firmwareTag": SUPPORTED_TAG,
+                    "prefsJsonc": '{"USERPREFS_CONFIG_OWNER_SHORT_NAME": "TST"}',
+                    "codeOptions": {"okToMqtt": True, "customLora": {"bandwidthKhz": 125}},
+                },
+            )
+
+            prefs = json.loads(result["row"]["prefs_jsonc"])
+            self.assertEqual(prefs["USERPREFS_CONFIG_LORA_OK_TO_MQTT"], "true")
+            self.assertEqual(prefs["USERPREFS_LORACONFIG_USE_PRESET"], "false")
+            self.assertEqual(prefs["USERPREFS_LORACONFIG_BANDWIDTH"], "125")
+            self.assertEqual(prefs["USERPREFS_CONFIG_OWNER_SHORT_NAME"], "TST")
+            self.assertEqual(
+                json.loads(result["row"]["code_options"])["customLora"]["bandwidthKhz"],
+                125,
+            )
+            self.assertEqual(result["public"]["codeOptions"]["okToMqtt"], True)
+
+    def test_submission_without_options_leaves_column_empty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config = temp_config(Path(tmp))
+            initialize_database(config)
+            seed_template(config, SUPPORTED_TAG)
+
+            result = create_build_submission(
+                config,
+                {
+                    "email": "user@example.com",
+                    "deviceId": "tbeam",
+                    "firmwareTag": SUPPORTED_TAG,
+                    "prefsJsonc": "{}",
+                },
+            )
+
+            self.assertIsNone(result["row"]["code_options"])
+            self.assertIsNone(result["public"]["codeOptions"])
+            self.assertNotIn("USERPREFS_LORACONFIG_USE_PRESET", result["row"]["prefs_jsonc"])
+
+    def test_users_cannot_set_synthetic_macros_directly(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config = temp_config(Path(tmp))
+            initialize_database(config)
+            seed_template(config, SUPPORTED_TAG)
+
+            with self.assertRaises(JsoncValidationError):
+                create_build_submission(
+                    config,
+                    {
+                        "email": "user@example.com",
+                        "deviceId": "tbeam",
+                        "firmwareTag": SUPPORTED_TAG,
+                        "prefsJsonc": '{"USERPREFS_CONFIG_LORA_OK_TO_MQTT": "true"}',
+                    },
+                )
+
+
+class CodeOptionBuilderTests(unittest.TestCase):
+    def build_row(self, code_options=None):
+        return {
+            "public_token": "token-123",
+            "device_id": "tbeam",
+            "platformio_env": "tbeam",
+            "firmware_tag": SUPPORTED_TAG,
+            "firmware_sha": "abc123",
+            "prefs_jsonc": '{"USERPREFS_ALLOWED": "true"}\n',
+            "code_options": code_options,
+        }
+
+    def run_and_capture_inputs(self, code_options):
+        """Run a fake build and return (input dir listing, BUILD_INFO.txt contents)."""
+        seen: list[str] = []
+        real_fake_build = run_fake_build
+
+        def spy(build, input_dir, final_zip):
+            seen.extend(sorted(path.name for path in input_dir.iterdir()))
+            return real_fake_build(build, input_dir, final_zip)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            config = replace(temp_config(Path(tmp)), builder_mode="fake")
+            with patch("meshtastic_builder.builder.run_fake_build", side_effect=spy):
+                artifact = run_build(config, self.build_row(code_options))
+            with zipfile.ZipFile(artifact.path) as zf:
+                return seen, zf.read("BUILD_INFO.txt").decode("utf-8")
+
+    def test_patch_is_shipped_and_recorded_when_options_present(self):
+        inputs, info = self.run_and_capture_inputs('{"okToMqtt": true}')
+        self.assertIn("userprefs-ext.patch", inputs)
+        self.assertIn('code_options={"okToMqtt": true}', info)
+
+    def test_no_patch_shipped_without_code_options(self):
+        inputs, info = self.run_and_capture_inputs(None)
+        self.assertNotIn("userprefs-ext.patch", inputs)
+        self.assertIn("code_options=none", info)
+
+    def test_patch_failure_marker_becomes_readable_error(self):
+        with self.assertRaises(RuntimeError) as ctx:
+            raise_build_failure(3, f"...\n{PATCH_FAILURE_MARKER}: nope\n")
+        self.assertIn("opciones avanzadas", str(ctx.exception))
+        self.assertNotIn(PATCH_FAILURE_MARKER, str(ctx.exception))
+
+
+class CodeOptionMigrationTests(unittest.TestCase):
+    def test_initialize_database_adds_missing_column(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config = temp_config(Path(tmp))
+            config.db_path.parent.mkdir(parents=True, exist_ok=True)
+            legacy = sqlite3.connect(config.db_path)
+            legacy.executescript(
+                """
+                CREATE TABLE build_requests (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  public_token TEXT NOT NULL UNIQUE,
+                  email TEXT NOT NULL,
+                  device_id TEXT NOT NULL,
+                  platformio_env TEXT NOT NULL,
+                  firmware_tag TEXT NOT NULL,
+                  firmware_sha TEXT NOT NULL,
+                  prefs_jsonc TEXT NOT NULL,
+                  prefs_hash TEXT NOT NULL,
+                  status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'succeeded', 'failed', 'expired')),
+                  attempts INTEGER NOT NULL DEFAULT 0,
+                  artifact_path TEXT,
+                  artifact_sha256 TEXT,
+                  artifact_size_bytes INTEGER,
+                  error_message TEXT,
+                  build_log TEXT,
+                  worker_id TEXT,
+                  created_at TEXT NOT NULL,
+                  started_at TEXT,
+                  finished_at TEXT,
+                  expires_at TEXT
+                );
+                """
+            )
+            legacy.commit()
+            legacy.close()
+
+            initialize_database(config)
+
+            conn = sqlite3.connect(config.db_path)
+            columns = {row[1] for row in conn.execute("PRAGMA table_info(build_requests)")}
+            conn.close()
+            self.assertIn("code_options", columns)
+
+    def test_public_view_tolerates_rows_without_code_options(self):
+        row = {
+            "public_token": "t",
+            "status": "queued",
+            "device_id": "tbeam",
+            "platformio_env": "tbeam",
+            "firmware_tag": SUPPORTED_TAG,
+            "firmware_sha": "abc",
+            "attempts": 0,
+            "created_at": "now",
+            "started_at": None,
+            "finished_at": None,
+            "expires_at": None,
+            "artifact_sha256": None,
+            "artifact_size_bytes": None,
+            "error_message": None,
+        }
+        self.assertIsNone(public_build_view(row)["codeOptions"])
+
+
+if __name__ == "__main__":
+    unittest.main()

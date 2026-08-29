@@ -1,0 +1,45 @@
+Extended userPrefs support for Meshtastic Builder.
+
+Upstream firmware turns every key in userPrefs.jsonc into a compiler define
+(see bin/platformio-custom.py), but installDefaultConfig() only reads a subset
+of them. This patch adds the missing #ifdef blocks so the following build-time
+macros are honoured:
+
+  USERPREFS_CONFIG_LORA_OK_TO_MQTT   -> config.lora.config_ok_to_mqtt
+  USERPREFS_LORACONFIG_USE_PRESET    -> config.lora.use_preset
+  USERPREFS_LORACONFIG_BANDWIDTH     -> config.lora.bandwidth
+  USERPREFS_LORACONFIG_SPREAD_FACTOR -> config.lora.spread_factor
+  USERPREFS_LORACONFIG_CODING_RATE   -> config.lora.coding_rate
+
+The block is inserted after the existing USERPREFS_LORACONFIG_MODEM_PRESET
+handling so it overrides the unconditional config_ok_to_mqtt default set
+earlier in the same function.
+
+Verified to apply cleanly on every tag from v2.6.4 to v2.7.26. Older tags are
+rejected by data/build_options.json (minFirmwareVersion).
+
+diff --git a/src/mesh/NodeDB.cpp b/src/mesh/NodeDB.cpp
+--- a/src/mesh/NodeDB.cpp
++++ b/src/mesh/NodeDB.cpp
+@@ -626,6 +626,21 @@ void NodeDB::installDefaultConfig(bool preserveKey = false)
+     config.lora.modem_preset = USERPREFS_LORACONFIG_MODEM_PRESET;
+ #else
+     config.lora.modem_preset = meshtastic_Config_LoRaConfig_ModemPreset_LONG_FAST;
++#endif
++#ifdef USERPREFS_CONFIG_LORA_OK_TO_MQTT
++    config.lora.config_ok_to_mqtt = USERPREFS_CONFIG_LORA_OK_TO_MQTT;
++#endif
++#ifdef USERPREFS_LORACONFIG_USE_PRESET
++    config.lora.use_preset = USERPREFS_LORACONFIG_USE_PRESET;
++#endif
++#ifdef USERPREFS_LORACONFIG_BANDWIDTH
++    config.lora.bandwidth = USERPREFS_LORACONFIG_BANDWIDTH;
++#endif
++#ifdef USERPREFS_LORACONFIG_SPREAD_FACTOR
++    config.lora.spread_factor = USERPREFS_LORACONFIG_SPREAD_FACTOR;
++#endif
++#ifdef USERPREFS_LORACONFIG_CODING_RATE
++    config.lora.coding_rate = USERPREFS_LORACONFIG_CODING_RATE;
+ #endif
+     config.lora.hop_limit = HOP_RELIABLE;
+ #ifdef USERPREFS_CONFIG_LORA_IGNORE_MQTT

@@ -13,6 +13,8 @@ Start here:
 - [API](api.md)
 - [Worker and Builder](worker-and-builder.md)
 - [userPrefs Support](userprefs-support.md)
+- [Advanced Build Options](build-options.md)
+- [Frontend](frontend.md)
 - [Database](database.md)
 - [Security Model](security.md)
 - [Testing](testing.md)

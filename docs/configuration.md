@@ -9,6 +9,7 @@ Configuration is read from environment variables.
 | `MB_BASE_URL` | `http://localhost:8080` | Public base URL used in email links. |
 | `MB_HOST` | `127.0.0.1` | HTTP bind host. |
 | `MB_PORT` | `8080` | HTTP bind port. |
+| `MB_TRUST_PROXY` | `0` | Trust the first `X-Forwarded-For` hop for rate limiting. Enable only when the app is reachable exclusively through a reverse proxy, otherwise clients can spoof the header. |
 | `MB_DATA_DIR` | `./var` | Runtime data root. |
 | `MB_DB_PATH` | `./var/meshtastic-builder.sqlite` | SQLite database path. |
 | `MB_ARTIFACT_DIR` | `./var/artifacts` | ZIP artifact directory. |
@@ -46,6 +47,12 @@ Configuration is read from environment variables.
 | Variable | Default | Description |
 | --- | --- | --- |
 | `MB_MAX_PREFS_BYTES` | `65536` | Maximum submitted `userPrefs.jsonc` size. |
+
+## Advanced Build Options
+
+Options that `userPrefs.jsonc` cannot express are allowlisted in
+`data/build_options.json`, not in environment variables. See
+[Advanced Build Options](build-options.md).
 
 ## Supported Devices
 

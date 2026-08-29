@@ -30,8 +30,9 @@ Important columns:
 - `platformio_env`: allowlisted PlatformIO environment.
 - `firmware_tag`: selected Meshtastic tag.
 - `firmware_sha`: resolved commit SHA.
-- `prefs_jsonc`: normalized submitted preferences.
+- `prefs_jsonc`: normalized submitted preferences, including any synthetic macros generated from `code_options`.
 - `prefs_hash`: SHA256 of normalized preferences.
+- `code_options`: JSON text of the requested advanced build options, or `NULL`. See [Advanced Build Options](build-options.md).
 - `status`: `queued`, `running`, `succeeded`, `failed`, `expired`.
 - `artifact_path`: ZIP path.
 - `artifact_sha256`: ZIP digest.
@@ -48,7 +49,15 @@ Important columns:
 4. Set `worker_id` and `started_at`.
 5. Commit.
 
-This keeps concurrency conservative for the initial single-worker design.
+This keeps concurrency conservative for the initial single-worker design. The
+claim itself is already race-free, so raising throughput is a matter of running
+more workers (`docker compose up -d --scale worker=N`) rather than changing code.
+
+## Migrations
+
+`initialize_database` runs the schema script and then adds any missing column it
+knows about (currently `code_options`) with `ALTER TABLE`. Existing databases
+upgrade in place on the next start; there is no migration tool.
 
 ## Expiry
 

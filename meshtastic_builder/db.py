@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import sqlite3
 from contextlib import closing, contextmanager
 from datetime import datetime, timedelta, timezone
@@ -39,6 +40,7 @@ CREATE TABLE IF NOT EXISTS build_requests (
   firmware_sha TEXT NOT NULL,
   prefs_jsonc TEXT NOT NULL,
   prefs_hash TEXT NOT NULL,
+  code_options TEXT,
   status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'succeeded', 'failed', 'expired')),
   attempts INTEGER NOT NULL DEFAULT 0,
   artifact_path TEXT,
@@ -95,6 +97,9 @@ def initialize_database(config: Config | None = None) -> None:
     ensure_directories(config)
     with connection(config) as conn:
         conn.executescript(SCHEMA)
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(build_requests)")}
+        if "code_options" not in columns:
+            conn.execute("ALTER TABLE build_requests ADD COLUMN code_options TEXT")
 
 
 def row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
@@ -176,6 +181,7 @@ def create_build_request(
     firmware_tag: str,
     firmware_sha: str,
     prefs_jsonc: str,
+    code_options: str | None = None,
 ) -> dict[str, Any]:
     initialize_database(config)
     created_at = iso_now()
@@ -186,9 +192,9 @@ def create_build_request(
             """
             INSERT INTO build_requests
               (public_token, email, device_id, platformio_env, firmware_tag, firmware_sha,
-               prefs_jsonc, prefs_hash, status, created_at)
+               prefs_jsonc, prefs_hash, code_options, status, created_at)
             VALUES
-              (?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?)
+              (?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?)
             """,
             (
                 token,
@@ -199,6 +205,7 @@ def create_build_request(
                 firmware_sha,
                 prefs_jsonc,
                 prefs_hash,
+                code_options,
                 created_at,
             ),
         )
@@ -222,6 +229,15 @@ def get_build_by_token(config: Config, token: str) -> dict[str, Any] | None:
     return row_to_dict(row)
 
 
+def decode_code_options(raw: Any) -> dict[str, Any] | None:
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+
+
 def public_build_view(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "token": row["public_token"],
@@ -230,6 +246,7 @@ def public_build_view(row: dict[str, Any]) -> dict[str, Any]:
         "platformioEnv": row["platformio_env"],
         "firmwareTag": row["firmware_tag"],
         "firmwareSha": row["firmware_sha"],
+        "codeOptions": decode_code_options(row.get("code_options")),
         "attempts": row["attempts"],
         "createdAt": row["created_at"],
         "startedAt": row["started_at"],

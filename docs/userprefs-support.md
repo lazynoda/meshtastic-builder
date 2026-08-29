@@ -21,6 +21,14 @@ The backend still validates submitted JSONC because users can bypass the page.
 | Remote admin key | `USERPREFS_USE_ADMIN_KEY_0` | Entered as base64 and serialized to a 32-byte brace array. |
 | Timezone | `USERPREFS_TZ_STRING` | Must be a POSIX TZ string, not an IANA name. Examples: peninsula Spain `CET-1CEST,M3.5.0,M10.5.0/3`, Canary Islands `WET0WEST,M3.5.0/1,M10.5.0`. |
 
+## Beyond userPrefs
+
+Some settings have no `USERPREFS_*` key because upstream `installDefaultConfig()`
+never reads one, even though the build would happily define the macro. Those are
+offered separately as advanced build options backed by a small firmware patch:
+`ok_to_mqtt` and manual (non-preset) LoRa parameters. See
+[Advanced Build Options](build-options.md).
+
 ## Rejected Or Hidden
 
 | Area | Status | Reason |
@@ -58,4 +66,9 @@ The backend validates:
 - POSIX-looking timezone strings, rejecting obvious IANA names,
 - channel count `1..3`,
 - channel precision `0..32`.
+
+Merged values are always serialized as JSON strings. Upstream
+`bin/platformio-custom.py` calls string methods on every value, so a submitted
+JSON number or boolean would otherwise abort the firmware build with an
+AttributeError instead of a useful message. Null values are rejected.
 

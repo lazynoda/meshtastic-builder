@@ -21,6 +21,12 @@ Response:
 }
 ```
 
+## `GET /api/build-options`
+
+Returns the advanced build option allowlist from `data/build_options.json`. The
+frontend uses it to render controls and to hide the advanced panel on firmware
+versions below `minFirmwareVersion`. See [Advanced Build Options](build-options.md).
+
 ## `GET /api/firmware-versions`
 
 Returns supported cached firmware versions. If the cache is empty, the server attempts to fetch tags from GitHub.
@@ -64,9 +70,23 @@ Request:
   "email": "user@example.com",
   "deviceId": "tbeam",
   "firmwareTag": "v2.x.y",
-  "prefsJsonc": "{\"USERPREFS_CONFIG_OWNER_SHORT_NAME\":\"ABC\"}"
+  "prefsJsonc": "{\"USERPREFS_CONFIG_OWNER_SHORT_NAME\":\"ABC\"}",
+  "codeOptions": {
+    "okToMqtt": true,
+    "customLora": {
+      "bandwidthKhz": 250,
+      "spreadFactor": 11,
+      "codingRate": 5,
+      "channelNum": 0
+    }
+  }
 }
 ```
+
+`codeOptions` is optional. Both sub-options are independent, missing
+`customLora` fields fall back to their documented defaults, and the whole object
+is rejected for firmware older than `minFirmwareVersion`. See
+[Advanced Build Options](build-options.md).
 
 Validation:
 
@@ -77,6 +97,10 @@ Validation:
 - Preference keys must start with `USERPREFS_`.
 - Preference keys must exist in the selected tag's `userPrefs.jsonc` template when keys can be extracted.
 - Values must be scalar.
+- `codeOptions` keys and values must match `data/build_options.json`.
+
+Synthetic macros generated from `codeOptions` are merged last, so they cannot be
+set or overridden through `prefsJsonc`.
 
 The submitted preferences are merged onto the selected tag's cached
 `userPrefs.jsonc` template before storage. This allows partial overrides while
@@ -94,6 +118,7 @@ Response:
     "platformioEnv": "tbeam",
     "firmwareTag": "v2.x.y",
     "firmwareSha": "commit-sha",
+    "codeOptions": null,
     "attempts": 0,
     "createdAt": "2026-06-12T00:00:00+00:00",
     "startedAt": null,

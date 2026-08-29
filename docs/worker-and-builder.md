@@ -8,11 +8,13 @@ The worker loop:
 2. Claims the oldest `queued` job transactionally.
 3. Creates a temporary job directory.
 4. Writes `userPrefs.jsonc` and `BUILD_INFO.txt`.
-5. Runs either fake mode or Docker mode.
-6. Stores the ZIP under `artifact_dir/<public_token>.zip`.
-7. Records SHA256, size, finish time, and expiry time.
-8. Sends a success or failure email.
-9. Periodically expires old artifacts.
+5. Copies `docker/patches/userprefs-ext.patch` into the job input when the build
+   has advanced options (see [Advanced Build Options](build-options.md)).
+6. Runs either fake mode or Docker mode.
+7. Stores the ZIP under `artifact_dir/<public_token>.zip`.
+8. Records SHA256, size, finish time, and expiry time.
+9. Sends a success or failure email.
+10. Periodically expires old artifacts.
 
 Run once:
 
@@ -120,6 +122,12 @@ Inputs:
 
 - `/work/input/userPrefs.jsonc`
 - `/work/input/BUILD_INFO.txt`
+- `/work/input/userprefs-ext.patch` (optional)
+
+The optional patch is applied with `git apply` after checkout and before
+`pio run`. Its presence is the only signal; the positional argument contract is
+unchanged. A failed `git apply` exits 3 with `CODE_OPTIONS_PATCH_FAILED` so a
+build can never compile with the defines present but unread.
 
 Output:
 

@@ -28,6 +28,7 @@ class Config:
     host: str
     port: int
     base_url: str
+    trust_proxy: bool
     github_tags_url: str
     github_max_tag_pages: int
     auto_support_latest_tags: int
@@ -72,6 +73,7 @@ def load_config() -> Config:
         host=os.getenv("MB_HOST", "127.0.0.1"),
         port=int(os.getenv("MB_PORT", "8080")),
         base_url=os.getenv("MB_BASE_URL", "http://localhost:8080").rstrip("/"),
+        trust_proxy=_bool_env("MB_TRUST_PROXY", False),
         github_tags_url=os.getenv(
             "MB_GITHUB_TAGS_URL",
             "https://api.github.com/repos/meshtastic/firmware/tags?per_page=100",

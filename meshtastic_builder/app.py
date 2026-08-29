@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+from .code_options import load_build_options
 from .config import Config, ensure_directories, load_config
 from .cleanup import build_is_expired, expire_build_artifact
 from .db import get_build_by_token, initialize_database, public_build_view
@@ -76,6 +77,10 @@ class MeshtasticBuilderHandler(BaseHTTPRequestHandler):
                         ]
                     }
                 )
+            if path == "/api/build-options":
+                if not send_body:
+                    return self.head_not_allowed()
+                return self.json_response(load_build_options(self.config.root_dir))
             if path == "/api/firmware-versions":
                 if not send_body:
                     return self.head_not_allowed()
@@ -131,8 +136,16 @@ class MeshtasticBuilderHandler(BaseHTTPRequestHandler):
         except Exception as exc:  # noqa: BLE001
             return self.error_response(HTTPStatus.INTERNAL_SERVER_ERROR, f"Error interno: {exc}")
 
+    def client_ip(self) -> str:
+        if self.config.trust_proxy:
+            forwarded = self.headers.get("X-Forwarded-For", "")
+            first_hop = forwarded.split(",")[0].strip()
+            if first_hop:
+                return first_hop
+        return self.client_address[0]
+
     def enforce_rate_limit(self) -> None:
-        ip = self.client_address[0]
+        ip = self.client_ip()
         now = time.time()
         window_start = now - 300
         entries = [entry for entry in RATE_LIMIT.get(ip, []) if entry >= window_start]

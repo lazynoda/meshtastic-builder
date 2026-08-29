@@ -28,6 +28,17 @@ Open:
 http://localhost:8080
 ```
 
+## Frontend Changes
+
+The frontend has no build step. Edit files under `static/` and reload the page.
+See [Frontend](frontend.md) for the layout, styling rules, and how the
+Spanish/English dictionary works.
+
+Rebuilding the firmware builder image is only needed when
+`docker/build_firmware.sh` or the Dockerfile change; the userPrefs patch is
+copied in at build time from the repo, so editing
+`docker/patches/userprefs-ext.patch` needs no image rebuild.
+
 ## Run The Worker
 
 Real Docker builder mode:

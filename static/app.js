@@ -4,6 +4,11 @@ const state = {
   templateKeys: new Set(),
   channels: [],
   statusIsError: false,
+  statusKey: null,
+  buildOptions: null,
+  codeOptionsAvailable: false,
+  lastBuild: null,
+  lastDownloadUrl: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -69,6 +74,9 @@ const PRESET_OPTIONS = [
   ["NARROW_SLOW", "Narrow slow"],
 ];
 
+// Firmware bandwidth codes are not all the real value in kHz.
+const BANDWIDTH_LABELS = { 31: "31.25", 62: "62.5" };
+
 async function fetchJson(url, options = {}) {
   const response = await fetch(url, options);
   const payload = await response.json();
@@ -78,11 +86,16 @@ async function fetchJson(url, options = {}) {
   return payload;
 }
 
-function setStatus(message, isError = false) {
+function setStatus(message, isError = false, key = null) {
   const el = $("statusText");
   el.textContent = message;
-  el.style.color = isError ? "var(--danger)" : "var(--muted)";
+  el.classList.toggle("status-error", isError);
   state.statusIsError = isError;
+  state.statusKey = key;
+}
+
+function setStatusKey(key) {
+  setStatus(t(key), false, key);
 }
 
 function escapeHtml(value) {
@@ -122,6 +135,74 @@ function populateStaticSelects() {
   );
 }
 
+function numericOptionHtml(values, selected, labeller = String) {
+  return values
+    .map(
+      (value) =>
+        `<option value="${value}" ${value === selected ? "selected" : ""}>${escapeHtml(labeller(value))}</option>`,
+    )
+    .join("");
+}
+
+function range(min, max) {
+  return Array.from({ length: max - min + 1 }, (_, index) => min + index);
+}
+
+async function loadBuildOptions() {
+  state.buildOptions = await fetchJson("/api/build-options");
+  const fields = state.buildOptions.customLora.fields;
+  $("loraBandwidth").innerHTML = numericOptionHtml(
+    fields.bandwidthKhz.choices,
+    fields.bandwidthKhz.default,
+    (value) => BANDWIDTH_LABELS[value] || String(value),
+  );
+  $("loraSpreadFactor").innerHTML = numericOptionHtml(
+    range(fields.spreadFactor.min, fields.spreadFactor.max),
+    fields.spreadFactor.default,
+  );
+  $("loraCodingRate").innerHTML = numericOptionHtml(
+    range(fields.codingRate.min, fields.codingRate.max),
+    fields.codingRate.default,
+    (value) => `4/${value}`,
+  );
+  $("loraChannelNum").min = fields.channelNum.min;
+  $("loraChannelNum").max = fields.channelNum.max;
+  $("loraChannelNum").value = fields.channelNum.default;
+  $("okToMqtt").checked = state.buildOptions.okToMqtt.default;
+}
+
+function parseVersion(tag) {
+  const match = /^v?(\d+)\.(\d+)\.(\d+)/.exec(String(tag).trim());
+  return match ? [Number(match[1]), Number(match[2]), Number(match[3])] : null;
+}
+
+function versionAtLeast(tag, minimum) {
+  const current = parseVersion(tag);
+  const floor = parseVersion(minimum);
+  if (!current || !floor) return false;
+  for (let i = 0; i < 3; i += 1) {
+    if (current[i] !== floor[i]) return current[i] > floor[i];
+  }
+  return true;
+}
+
+function syncAdvancedAvailability() {
+  const tag = $("firmwareTag").value;
+  state.codeOptionsAvailable = Boolean(
+    state.buildOptions && versionAtLeast(tag, state.buildOptions.minFirmwareVersion),
+  );
+  $("advancedControls").hidden = !state.codeOptionsAvailable;
+  $("advancedUnavailable").hidden = state.codeOptionsAvailable;
+  syncCustomLora();
+}
+
+function syncCustomLora() {
+  const enabled = state.codeOptionsAvailable && $("customLoraEnabled").checked;
+  $("customLoraFields").hidden = !enabled;
+  $("modemPreset").disabled = enabled;
+  $("presetDisabledHint").hidden = !enabled;
+}
+
 async function loadDevices() {
   const { devices } = await fetchJson("/api/devices");
   $("deviceId").innerHTML = devices
@@ -130,16 +211,17 @@ async function loadDevices() {
 }
 
 async function loadVersions(forceRefresh = false) {
-  setStatus(forceRefresh ? "Actualizando tags..." : "Cargando tags...");
+  setStatusKey(forceRefresh ? "status.refreshingTags" : "status.loadingTags");
   const { versions } = await fetchJson(`/api/firmware-versions${forceRefresh ? "?refresh=1" : ""}`);
   if (!versions.length) {
-    throw new Error("No hay versiones soportadas en cache.");
+    throw new Error(t("error.noVersions"));
   }
   $("firmwareTag").innerHTML = versions
     .map((version) => `<option value="${escapeHtml(version.tag)}">${escapeHtml(version.tag)}</option>`)
     .join("");
+  syncAdvancedAvailability();
   await loadTemplate();
-  setStatus("Listo.");
+  setStatusKey("status.ready");
 }
 
 async function loadTemplate() {
@@ -148,7 +230,7 @@ async function loadTemplate() {
   const response = await fetch(`/api/prefs-template?tag=${encodeURIComponent(tag)}`);
   if (!response.ok) {
     const payload = await response.json();
-    throw new Error(payload.error || "No se pudo cargar userPrefs.jsonc.");
+    throw new Error(payload.error || t("error.template"));
   }
   const template = await response.text();
   state.templateKeys = extractTemplateKeys(template);
@@ -175,28 +257,28 @@ function defaultChannel() {
 
 function renderChannels() {
   $("channelRows").innerHTML = state.channels.map((channel, index) => `
-    <div class="channelRow" data-index="${index}">
+    <div class="channel-row" data-index="${index}">
       <label>
-        Nombre
+        ${escapeHtml(t("channel.name"))}
         <input data-field="name" type="text" value="${escapeHtml(channel.name)}" autocomplete="off" required>
       </label>
       <label>
-        Clave (base64)
+        ${escapeHtml(t("channel.psk"))}
         <input data-field="psk" type="text" value="${escapeHtml(channel.psk)}" autocomplete="off" placeholder="AQ==">
       </label>
       <label>
-        Precision
+        ${escapeHtml(t("channel.precision"))}
         <input data-field="precision" type="number" min="0" max="32" value="${escapeHtml(channel.precision)}">
       </label>
-      <label class="toggleCell">
+      <label class="check-line">
         <input data-field="downlink" type="checkbox" ${channel.downlink ? "checked" : ""}>
-        Downlink
+        <span>${escapeHtml(t("channel.downlink"))}</span>
       </label>
-      <label class="toggleCell">
+      <label class="check-line">
         <input data-field="uplink" type="checkbox" ${channel.uplink ? "checked" : ""}>
-        Uplink
+        <span>${escapeHtml(t("channel.uplink"))}</span>
       </label>
-      <button class="removeChannel" type="button" data-action="remove" ${state.channels.length === 1 ? "disabled" : ""}>Quitar</button>
+      <button class="btn btn-mini" type="button" data-action="remove" ${state.channels.length === 1 ? "disabled" : ""}>${escapeHtml(t("channel.remove"))}</button>
     </div>
   `).join("");
   $("addChannel").disabled = state.channels.length >= 3;
@@ -204,7 +286,7 @@ function renderChannels() {
 }
 
 function syncChannelFromInput(input) {
-  const row = input.closest(".channelRow");
+  const row = input.closest(".channel-row");
   if (!row) return;
   const channel = state.channels[Number(row.dataset.index)];
   if (!channel) return;
@@ -232,8 +314,11 @@ function base64ToBytes(value, label, expectedLength = null) {
     }
     return bytes;
   } catch (error) {
-    const suffix = expectedLength === null ? "valido" : `valido de ${expectedLength} bytes`;
-    throw new Error(`${label} debe estar en base64 ${suffix}.`);
+    throw new Error(
+      expectedLength === null
+        ? t("error.base64", { label })
+        : t("error.base64Length", { label, bytes: expectedLength }),
+    );
   }
 }
 
@@ -249,22 +334,21 @@ function validateShortName() {
   $("shortNameBytes").textContent = `${byteLength}/4 bytes`;
   input.classList.toggle("fieldError", byteLength > 4);
   if (byteLength > 4) {
-    throw new Error("El nombre corto no puede superar 4 bytes.");
+    throw new Error(t("error.shortName"));
   }
 }
 
 function validateChannel(channel, index) {
-  const label = `La clave del canal ${index + 1}`;
   const precision = Number(channel.precision);
   if (!channel.name.trim()) {
-    throw new Error(`El canal ${index + 1} necesita nombre.`);
+    throw new Error(t("error.channelName", { n: index + 1 }));
   }
   if (!Number.isInteger(precision) || precision < 0 || precision > 32) {
-    throw new Error(`La precision del canal ${index + 1} debe estar entre 0 y 32.`);
+    throw new Error(t("error.channelPrecision", { n: index + 1 }));
   }
   return {
     name: channel.name.trim(),
-    pskBytes: base64ToBytes(channel.psk, label),
+    pskBytes: base64ToBytes(channel.psk, t("label.channelKey", { n: index + 1 })),
     precision: String(precision),
   };
 }
@@ -288,7 +372,7 @@ function buildPrefs() {
     setPref(prefs, "USERPREFS_MQTT_ENABLED", "1");
   }
 
-  const adminKey = base64ToBytes($("adminKey").value, "La clave de administracion remota", 32);
+  const adminKey = base64ToBytes($("adminKey").value, t("label.adminKey"), 32);
   if (adminKey) {
     setPref(prefs, "USERPREFS_USE_ADMIN_KEY_0", bytesToByteArray(adminKey));
   }
@@ -308,12 +392,40 @@ function buildPrefs() {
   return prefs;
 }
 
+function buildCodeOptions() {
+  if (!state.codeOptionsAvailable) return null;
+  const options = { okToMqtt: $("okToMqtt").checked };
+  if ($("customLoraEnabled").checked) {
+    options.customLora = {
+      bandwidthKhz: Number($("loraBandwidth").value),
+      spreadFactor: Number($("loraSpreadFactor").value),
+      codingRate: Number($("loraCodingRate").value),
+      channelNum: Number($("loraChannelNum").value),
+    };
+  }
+  return options;
+}
+
+function describeCodeOptions(options) {
+  if (!options) return "";
+  const parts = [];
+  if (options.okToMqtt !== undefined) {
+    parts.push(`ok_to_mqtt=${options.okToMqtt}`);
+  }
+  if (options.customLora) {
+    const lora = options.customLora;
+    const bandwidth = BANDWIDTH_LABELS[lora.bandwidthKhz] || lora.bandwidthKhz;
+    parts.push(`BW ${bandwidth} kHz / SF ${lora.spreadFactor} / CR 4/${lora.codingRate} / slot ${lora.channelNum}`);
+  }
+  return parts.join(" · ");
+}
+
 function updatePrefsPreview() {
   try {
     const prefs = buildPrefs();
     $("prefsJsonc").value = `${JSON.stringify(prefs, null, 2)}\n`;
     if (state.statusIsError) {
-      setStatus("Listo.");
+      setStatusKey("status.ready");
     }
     return true;
   } catch (error) {
@@ -327,21 +439,26 @@ async function submitBuild(event) {
   if (!updatePrefsPreview()) return;
   $("submitBuild").disabled = true;
   try {
-    setStatus("Creando peticion...");
+    setStatusKey("status.creating");
     const payload = {
       email: $("email").value,
       deviceId: $("deviceId").value,
       firmwareTag: $("firmwareTag").value,
       prefsJsonc: $("prefsJsonc").value,
     };
+    const codeOptions = buildCodeOptions();
+    if (codeOptions) {
+      payload.codeOptions = codeOptions;
+    }
     const result = await fetchJson("/api/builds", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+    history.replaceState(null, "", `/?build=${encodeURIComponent(result.build.token)}`);
     showBuild(result.build, result.downloadUrl);
     startPolling(result.build.token);
-    setStatus("Peticion en cola.");
+    setStatusKey("status.queued");
   } catch (error) {
     setStatus(error.message, true);
   } finally {
@@ -350,18 +467,26 @@ async function submitBuild(event) {
 }
 
 function showBuild(build, downloadUrl = null) {
+  state.lastBuild = build;
+  if (downloadUrl) state.lastDownloadUrl = downloadUrl;
   $("result").hidden = false;
   $("buildStatus").textContent = build.status;
   $("buildToken").textContent = build.token;
+  $("shareLink").textContent = `${location.origin}/?build=${build.token}`;
+
+  const summary = describeCodeOptions(build.codeOptions);
+  $("buildOptionsRow").hidden = !summary;
+  $("buildOptions").textContent = summary;
+
   const link = $("downloadLink");
   if (build.status === "succeeded") {
-    link.textContent = "Descargar ZIP";
-    link.href = downloadUrl || `/download/${build.token}`;
+    link.textContent = t("result.downloadZip");
+    link.href = state.lastDownloadUrl || `/download/${build.token}`;
   } else if (build.status === "failed") {
-    link.textContent = build.error || "La compilacion fallo";
+    link.textContent = build.error || t("result.failed");
     link.removeAttribute("href");
   } else {
-    link.textContent = "Disponible al finalizar";
+    link.textContent = t("result.pending");
     link.removeAttribute("href");
   }
 }
@@ -382,13 +507,31 @@ function startPolling(token) {
   }, 5000);
 }
 
+async function loadExistingBuild(token) {
+  setStatusKey("status.loadingBuild");
+  const { build } = await fetchJson(`/api/builds/${encodeURIComponent(token)}`);
+  showBuild(build);
+  if (!["succeeded", "failed", "expired"].includes(build.status)) {
+    startPolling(build.token);
+  }
+  setStatusKey("status.ready");
+}
+
 function bindEvents() {
   $("buildForm").addEventListener("submit", submitBuild);
-  $("firmwareTag").addEventListener("change", () => loadTemplate().catch((error) => setStatus(error.message, true)));
+  $("firmwareTag").addEventListener("change", () => {
+    syncAdvancedAvailability();
+    loadTemplate().catch((error) => setStatus(error.message, true));
+  });
   $("refreshVersions").addEventListener("click", () => loadVersions(true).catch((error) => setStatus(error.message, true)));
+  $("customLoraEnabled").addEventListener("change", syncCustomLora);
   $("addChannel").addEventListener("click", () => {
     if (state.channels.length >= 3) return;
-    state.channels.push({ ...defaultChannel(), name: `Canal ${state.channels.length + 1}`, uplink: false });
+    state.channels.push({
+      ...defaultChannel(),
+      name: `${t("channel.defaultName")} ${state.channels.length + 1}`,
+      uplink: false,
+    });
     renderChannels();
   });
   $("channelRows").addEventListener("input", (event) => {
@@ -404,7 +547,7 @@ function bindEvents() {
   $("channelRows").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-action='remove']");
     if (!button) return;
-    state.channels.splice(Number(button.closest(".channelRow").dataset.index), 1);
+    state.channels.splice(Number(button.closest(".channel-row").dataset.index), 1);
     renderChannels();
   });
   document.querySelectorAll("input, select").forEach((input) => {
@@ -418,10 +561,24 @@ function bindEvents() {
       updatePrefsPreview();
     });
   });
+  document.querySelectorAll("[data-lang]").forEach((button) => {
+    button.addEventListener("click", () => setLang(button.dataset.lang));
+  });
+  document.addEventListener("languagechange", () => {
+    renderChannels();
+    if (state.statusKey) setStatusKey(state.statusKey);
+    if (state.lastBuild) showBuild(state.lastBuild);
+  });
 }
 
+applyI18n();
 populateStaticSelects();
 bindEvents();
 state.channels = [defaultChannel()];
 renderChannels();
-Promise.all([loadDevices(), loadVersions(false)]).catch((error) => setStatus(error.message, true));
+
+const requestedBuild = new URLSearchParams(location.search).get("build");
+Promise.all([loadDevices(), loadBuildOptions()])
+  .then(() => loadVersions(false))
+  .then(() => (requestedBuild ? loadExistingBuild(requestedBuild) : undefined))
+  .catch((error) => setStatus(error.message, true));

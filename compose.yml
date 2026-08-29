@@ -2,12 +2,14 @@ services:
   web:
     build: .
     command: python -m meshtastic_builder.app
+    restart: unless-stopped
     ports:
       - "${MB_PORT:-8080}:8080"
     environment:
       MB_BASE_URL: ${MB_BASE_URL:-http://localhost:8080}
       MB_HOST: 0.0.0.0
       MB_PORT: 8080
+      MB_TRUST_PROXY: ${MB_TRUST_PROXY:-0}
       MB_DATA_DIR: /data
       MB_DB_PATH: /data/meshtastic-builder.sqlite
       MB_ARTIFACT_DIR: /data/artifacts
@@ -27,6 +29,7 @@ services:
   worker:
     build: .
     command: python -m meshtastic_builder.worker
+    restart: unless-stopped
     environment:
       MB_BASE_URL: ${MB_BASE_URL:-http://localhost:8080}
       MB_DATA_DIR: /data

@@ -182,7 +182,23 @@ def _parse_int_string(value: Any, key: str) -> int:
     raise JsoncValidationError(f"La clave {key} debe ser un numero entero.")
 
 
+def to_firmware_value(value: Any) -> str:
+    """Render a scalar the way the firmware build expects it.
+
+    Upstream `bin/platformio-custom.py` calls string methods on every value in
+    `userPrefs.jsonc`, so a JSON number or boolean would abort the build with an
+    AttributeError instead of a useful message.
+    """
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, str):
+        return value
+    return str(value)
+
+
 def validate_userpref_value(key: str, value: Any) -> None:
+    if value is None:
+        raise JsoncValidationError(f"La clave {key} no puede ser nula.")
     if key == "USERPREFS_CONFIG_DEVICE_ROLE" and value not in ALLOWED_DEVICE_ROLES:
         raise JsoncValidationError(f"Rol de dispositivo no permitido: {value}.")
     if key == "USERPREFS_CONFIG_LORA_REGION" and value not in ALLOWED_LORA_REGIONS:
@@ -237,7 +253,13 @@ def validate_and_merge_userprefs(
     text: str,
     template_text: str,
     max_bytes: int,
+    extra_keys: dict[str, Any] | None = None,
 ) -> tuple[str, dict[str, Any]]:
+    """Merge validated user overrides onto the tag template.
+
+    `extra_keys` are server-generated macros that may not exist in the template.
+    They are applied last so users cannot override them from prefsJsonc.
+    """
     allowed_keys = extract_userpref_keys(template_text)
     _override_text, overrides = validate_and_normalize_userprefs(text, allowed_keys, max_bytes)
     template = parse_jsonc(template_text)
@@ -255,5 +277,8 @@ def validate_and_merge_userprefs(
         merged[key] = value
 
     merged.update(overrides)
+    if extra_keys:
+        merged.update(extra_keys)
+    merged = {key: to_firmware_value(value) for key, value in merged.items()}
     normalized_text = json.dumps(merged, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
     return normalized_text, merged
