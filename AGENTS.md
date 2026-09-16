@@ -145,7 +145,7 @@ docker compose -f compose.yml logs -f worker
 
 The complete operational checklist is in `docs/compose-flow.md`.
 
-Current remote Compose handoff state as of 2026-09-12:
+Current remote Compose handoff state as of 2026-09-16:
 
 - Remote Docker daemon: `ssh://docker-host.example`
 - Public test URL for phone/browser: `http://docker-host.example:9990`
@@ -153,9 +153,15 @@ Current remote Compose handoff state as of 2026-09-12:
 - Published port: `9990 -> web:8080`
 - Services are named `meshtastic-builder-web-1` and `meshtastic-builder-worker-1`
 - Builder image `meshtastic-firmware-builder:local` rebuilt on that host,
-  7.95 GB, prewarmed for `tbeam` and `nrf52_promicro_diy_tcxo`
-- The worker has completed a real build for `nrf52_promicro_diy_tcxo` at
-  `v2.8.0.47db0e3` in about 3 minutes
+  7.86 GB, PlatformIO 6.1.19, checked out at `v2.8.0.7239fe8`, prewarmed for
+  `heltec-v4` and `nrf52_promicro_diy_tcxo`
+- Real builds verified through the web at `v2.8.0.7239fe8`:
+  `nrf52_promicro_diy_tcxo` (about 5 minutes) and `heltec-v4` with manual LoRa
+  parameters plus `okToMqtt` (about 7 minutes, 23 MB ZIP with `.bin`,
+  `.factory.bin`, bootloader, partitions, LittleFS, `.elf`, `.map`)
+- The image was pruned from that host once already (found 2026-09-16); if
+  `docker images meshtastic-firmware-builder` is empty, rebuild before
+  expecting real builds to pass
 
 The stack is left running in this mode. The tag cache only refreshes when it is
 empty or when the client asks for it, so after redeploying onto an existing
