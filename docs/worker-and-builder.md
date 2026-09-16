@@ -13,8 +13,7 @@ The worker loop:
 6. Runs either fake mode or Docker mode.
 7. Stores the ZIP under `artifact_dir/<public_token>.zip`.
 8. Records SHA256, size, finish time, and expiry time.
-9. Sends a success or failure email.
-10. Periodically expires old artifacts.
+9. Periodically expires old artifacts.
 
 Run once:
 
@@ -30,7 +29,7 @@ python3 -m meshtastic_builder.worker
 
 ## Fake Mode
 
-Fake mode exercises the queue, ZIP creation, status update, and mailer without Docker:
+Fake mode exercises the queue, ZIP creation, and status update without Docker:
 
 ```bash
 MB_BUILDER_MODE=fake python3 -m meshtastic_builder.worker --once
@@ -69,6 +68,11 @@ then removes the container.
 `MB_DOCKER_TRANSPORT=auto` selects `copy` when `DOCKER_HOST` starts with
 `ssh://`, `tcp://`, `http://`, or `https://`; otherwise it selects `bind`.
 
+`auto` cannot detect one important case: a worker running *inside* a container
+with the host Docker socket mounted. There `DOCKER_HOST` is unset, so `auto`
+picks `bind`, but the daemon resolves the job paths on the host, not in the
+worker container. `compose.yml` therefore pins `copy` for its worker.
+
 `MB_DOCKER_NETWORK` defaults to `bridge` because users can select historical
 firmware tags whose PlatformIO dependencies may differ from the image build ref.
 Set it to `none` only for a prewarmed image that covers the supported tag/device
@@ -101,13 +105,15 @@ production images, pass a wider list explicitly:
 
 ```bash
 docker build \
-  --build-arg PREWARM_ENVS="tbeam heltec-v3 heltec-mesh-node-t114 tracker-t1000-e heltec-wsl-v3 rak4631" \
+  --build-arg PREWARM_ENVS="tbeam heltec-v3 heltec-mesh-node-t114 tracker-t1000-e heltec-wsl-v3 rak4631 nrf52_promicro_diy_tcxo" \
   -f docker/builder.Dockerfile \
   -t meshtastic-firmware-builder:local .
 ```
 
-At runtime, the entrypoint checks out the requested SHA/tag directly inside
-`/opt/firmware`. Each Docker build runs in its own ephemeral container
+At runtime, the entrypoint fetches tags and then checks out the requested
+SHA/tag directly inside `/opt/firmware`. The fetch is what lets the image build
+firmware tags released after the image itself; it is best-effort, so a
+prewarmed offline image still works for the tags it already has. Each Docker build runs in its own ephemeral container
 filesystem, so this does not mutate shared service state, avoids copying the
 firmware checkout per request, and lets PlatformIO reuse warmed `.pio` artifacts
 from the single builder image when they are still valid.

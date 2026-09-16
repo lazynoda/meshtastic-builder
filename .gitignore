@@ -11,3 +11,4 @@ graphify-out/cache/
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+.codegraph/

@@ -125,6 +125,7 @@ class MeshtasticBuilderHandler(BaseHTTPRequestHandler):
                 return self.json_response(
                     {
                         "build": submission["public"],
+                        "buildUrl": submission["buildUrl"],
                         "statusUrl": submission["statusUrl"],
                         "downloadUrl": submission["downloadUrl"],
                     },

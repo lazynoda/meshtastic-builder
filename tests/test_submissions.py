@@ -20,7 +20,6 @@ class SubmissionTests(unittest.TestCase):
                 artifact_dir=tmp_path / "artifacts",
                 job_dir=tmp_path / "jobs",
                 cache_dir=tmp_path / "cache",
-                mail_dir=tmp_path / "mail",
                 base_url="http://example.test",
             )
             initialize_database(config)
@@ -38,7 +37,6 @@ class SubmissionTests(unittest.TestCase):
             result = create_build_submission(
                 config,
                 {
-                    "email": " USER@Example.COM ",
                     "deviceId": "tbeam",
                     "firmwareTag": "v-test",
                     "prefsJsonc": '{"USERPREFS_CONFIG_OWNER_SHORT_NAME": "TST",}',
@@ -46,7 +44,7 @@ class SubmissionTests(unittest.TestCase):
             )
 
             self.assertEqual(result["public"]["firmwareTag"], "v-test")
-            self.assertEqual(result["row"]["email"], "user@example.com")
+            self.assertIn(result["public"]["token"], result["buildUrl"])
             self.assertIn(result["public"]["token"], result["downloadUrl"])
             self.assertIn('"USERPREFS_CONFIG_OWNER_SHORT_NAME": "TST"', result["row"]["prefs_jsonc"])
             self.assertIn('"USERPREFS_TZ_STRING": "CET-1CEST,M3.5.0,M10.5.0/3"', result["row"]["prefs_jsonc"])
@@ -61,7 +59,6 @@ class SubmissionTests(unittest.TestCase):
                 artifact_dir=tmp_path / "artifacts",
                 job_dir=tmp_path / "jobs",
                 cache_dir=tmp_path / "cache",
-                mail_dir=tmp_path / "mail",
             )
             initialize_database(config)
             upsert_firmware_versions(
@@ -76,7 +73,6 @@ class SubmissionTests(unittest.TestCase):
                 create_build_submission(
                     config,
                     {
-                        "email": "user@example.com",
                         "deviceId": "tbeam",
                         "firmwareTag": "v-test",
                         "prefsJsonc": '{"USERPREFS_UNKNOWN": true}',

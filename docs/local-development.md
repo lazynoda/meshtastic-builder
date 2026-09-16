@@ -37,7 +37,9 @@ Spanish/English dictionary works.
 Rebuilding the firmware builder image is only needed when
 `docker/build_firmware.sh` or the Dockerfile change; the userPrefs patch is
 copied in at build time from the repo, so editing
-`docker/patches/userprefs-ext.patch` needs no image rebuild.
+`docker/patches/userprefs-ext.patch` needs no image rebuild. The entrypoint
+fetches tags before checkout, so an existing image can still build firmware
+tags released after it.
 
 ## Run The Worker
 
@@ -106,7 +108,6 @@ Suggested panes:
 ```bash
 python3 -m meshtastic_builder.app
 MB_BUILDER_MODE=fake python3 -m meshtastic_builder.worker
-tail -f var/mail/outbox.jsonl
 ```
 
 Kill the session when done:

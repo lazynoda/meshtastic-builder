@@ -56,7 +56,6 @@ class AdminTests(unittest.TestCase):
                 artifact_dir=tmp_path / "artifacts",
                 job_dir=tmp_path / "jobs",
                 cache_dir=tmp_path / "cache",
-                mail_dir=tmp_path / "mail",
             )
             initialize_database(config)
             upsert_firmware_versions(

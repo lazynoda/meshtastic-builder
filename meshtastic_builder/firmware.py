@@ -7,6 +7,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from .code_options import parse_version
 from .config import Config
 from .db import get_firmware_version, list_firmware_versions, upsert_firmware_versions
 from .security import safe_tag_for_path
@@ -99,7 +100,10 @@ def list_versions_with_refresh(config: Config, *, force_refresh: bool = False) -
                 raise FirmwareLookupError(
                     "No se pudieron obtener tags de Meshtastic y no hay cache local."
                 )
-    return list_firmware_versions(config, supported_only=True)
+    versions = list_firmware_versions(config, supported_only=True)
+    # Newest first: rows are stored in insertion order, so tags added by a later refresh would sink to the bottom.
+    versions.sort(key=lambda item: parse_version(item["tag"]) or (0, 0, 0), reverse=True)
+    return versions
 
 
 def resolve_supported_version(config: Config, tag: str) -> dict[str, Any]:

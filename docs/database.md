@@ -25,7 +25,6 @@ Stores user requests and build lifecycle state.
 Important columns:
 
 - `public_token`: cryptographically random token used in status/download URLs.
-- `email`: recipient for build completion email.
 - `device_id`: UI device id.
 - `platformio_env`: allowlisted PlatformIO environment.
 - `firmware_tag`: selected Meshtastic tag.
@@ -55,9 +54,10 @@ more workers (`docker compose up -d --scale worker=N`) rather than changing code
 
 ## Migrations
 
-`initialize_database` runs the schema script and then adds any missing column it
-knows about (currently `code_options`) with `ALTER TABLE`. Existing databases
-upgrade in place on the next start; there is no migration tool.
+`initialize_database` runs the schema script and then reconciles columns with
+`ALTER TABLE`: it adds `code_options` when missing and drops the legacy `email`
+column when present. Existing databases upgrade in place on the next start;
+there is no migration tool.
 
 ## Expiry
 

@@ -33,7 +33,6 @@ CREATE TABLE IF NOT EXISTS firmware_versions (
 CREATE TABLE IF NOT EXISTS build_requests (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   public_token TEXT NOT NULL UNIQUE,
-  email TEXT NOT NULL,
   device_id TEXT NOT NULL,
   platformio_env TEXT NOT NULL,
   firmware_tag TEXT NOT NULL,
@@ -100,6 +99,13 @@ def initialize_database(config: Config | None = None) -> None:
         columns = {row[1] for row in conn.execute("PRAGMA table_info(build_requests)")}
         if "code_options" not in columns:
             conn.execute("ALTER TABLE build_requests ADD COLUMN code_options TEXT")
+        if "email" in columns:
+            try:
+                conn.execute("ALTER TABLE build_requests DROP COLUMN email")
+            except sqlite3.OperationalError:
+                # DROP COLUMN needs SQLite >= 3.35. On older engines the column
+                # simply stays; it is unused and nullable inserts never touch it.
+                print("Could not drop the legacy email column; SQLite is too old. Leaving it in place.")
 
 
 def row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
@@ -175,7 +181,6 @@ def get_firmware_version(config: Config, tag: str) -> dict[str, Any] | None:
 def create_build_request(
     config: Config,
     *,
-    email: str,
     device_id: str,
     platformio_env: str,
     firmware_tag: str,
@@ -191,14 +196,13 @@ def create_build_request(
         conn.execute(
             """
             INSERT INTO build_requests
-              (public_token, email, device_id, platformio_env, firmware_tag, firmware_sha,
+              (public_token, device_id, platformio_env, firmware_tag, firmware_sha,
                prefs_jsonc, prefs_hash, code_options, status, created_at)
             VALUES
-              (?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?)
+              (?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?)
             """,
             (
                 token,
-                email,
                 device_id,
                 platformio_env,
                 firmware_tag,

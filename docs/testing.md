@@ -12,13 +12,12 @@ python3 -B -m unittest discover -s tests
 
 - JSONC parsing, comments, trailing commas, and normalization.
 - Preference key extraction with comments ignored.
-- Email and public token validation.
+- Public token validation.
 - Firmware tag pagination.
 - Automatic support policy for latest firmware tags.
 - Submission validation and tag/SHA resolution.
 - Worker fake-mode lifecycle.
 - ZIP artifact creation.
-- Outbox email writing.
 - Artifact expiry and deletion.
 - Admin firmware support toggles.
 - Device allowlist validation against Meshtastic `variants/**`.
@@ -27,6 +26,10 @@ python3 -B -m unittest discover -s tests
 - Patch shipping into job inputs and `code_options` in `BUILD_INFO.txt`.
 - `code_options` column migration on pre-existing databases.
 - Client IP resolution behind a reverse proxy (`MB_TRUST_PROXY`).
+- Value hardening for keys that reach the compiler unquoted.
+- Channel cap (3 vs 8) by firmware version.
+- Advanced-option macro naming and patch skipping on native firmware.
+- Newest-first firmware version ordering.
 
 ## Test Files
 
@@ -37,7 +40,6 @@ python3 -B -m unittest discover -s tests
 - `tests/test_fake_worker_flow.py`
 - `tests/test_cleanup.py`
 - `tests/test_builder.py`
-- `tests/test_mailer.py`
 - `tests/test_admin.py`
 - `tests/test_code_options.py`
 - `tests/test_app.py`
@@ -50,15 +52,13 @@ Real Meshtastic builds require Docker, network, PlatformIO packages, and signifi
 2. claim job,
 3. write inputs,
 4. produce ZIP,
-5. update DB,
-6. send email.
+5. update DB.
 
 Fake mode does not replace a real builder smoke test before deployment.
 
 ## Recommended Future Tests
 
 - Browser-level form test.
-- SMTP integration test using Mailpit.
 - Concurrency test for multiple workers once concurrency increases.
 - Automated `git apply --check` of `docker/patches/userprefs-ext.patch` across
   every supported tag, so the `minFirmwareVersion` floor cannot silently rot.

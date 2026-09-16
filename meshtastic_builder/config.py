@@ -24,7 +24,6 @@ class Config:
     artifact_dir: Path
     job_dir: Path
     cache_dir: Path
-    mail_dir: Path
     host: str
     port: int
     base_url: str
@@ -45,12 +44,6 @@ class Config:
     docker_cpus: str
     docker_memory: str
     docker_pids_limit: int
-    smtp_host: str
-    smtp_port: int
-    smtp_username: str
-    smtp_password: str
-    smtp_from: str
-    smtp_tls: bool
 
 
 def load_config() -> Config:
@@ -60,7 +53,6 @@ def load_config() -> Config:
     artifact_dir = _path_env("MB_ARTIFACT_DIR", str(data_dir / "artifacts"))
     job_dir = _path_env("MB_JOB_DIR", str(data_dir / "jobs"))
     cache_dir = _path_env("MB_CACHE_DIR", str(data_dir / "cache"))
-    mail_dir = _path_env("MB_MAIL_DIR", str(data_dir / "mail"))
 
     return Config(
         root_dir=root_dir,
@@ -69,7 +61,6 @@ def load_config() -> Config:
         artifact_dir=artifact_dir,
         job_dir=job_dir,
         cache_dir=cache_dir,
-        mail_dir=mail_dir,
         host=os.getenv("MB_HOST", "127.0.0.1"),
         port=int(os.getenv("MB_PORT", "8080")),
         base_url=os.getenv("MB_BASE_URL", "http://localhost:8080").rstrip("/"),
@@ -96,12 +87,6 @@ def load_config() -> Config:
         docker_cpus=os.getenv("MB_DOCKER_CPUS", "4"),
         docker_memory=os.getenv("MB_DOCKER_MEMORY", "4g"),
         docker_pids_limit=int(os.getenv("MB_DOCKER_PIDS_LIMIT", "512")),
-        smtp_host=os.getenv("MB_SMTP_HOST", ""),
-        smtp_port=int(os.getenv("MB_SMTP_PORT", "587")),
-        smtp_username=os.getenv("MB_SMTP_USERNAME", ""),
-        smtp_password=os.getenv("MB_SMTP_PASSWORD", ""),
-        smtp_from=os.getenv("MB_SMTP_FROM", "Meshtastic Builder <no-reply@example.local>"),
-        smtp_tls=_bool_env("MB_SMTP_TLS", True),
     )
 
 
@@ -111,7 +96,6 @@ def ensure_directories(config: Config) -> None:
         config.artifact_dir,
         config.job_dir,
         config.cache_dir,
-        config.mail_dir,
         config.db_path.parent,
     ):
         path.mkdir(parents=True, exist_ok=True)

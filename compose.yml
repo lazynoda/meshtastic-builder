@@ -13,16 +13,9 @@ services:
       MB_DATA_DIR: /data
       MB_DB_PATH: /data/meshtastic-builder.sqlite
       MB_ARTIFACT_DIR: /data/artifacts
-      MB_MAIL_DIR: /data/mail
       MB_GITHUB_MAX_TAG_PAGES: ${MB_GITHUB_MAX_TAG_PAGES:-20}
       MB_AUTO_SUPPORT_LATEST_TAGS: ${MB_AUTO_SUPPORT_LATEST_TAGS:-20}
       MB_ARTIFACT_TTL_DAYS: ${MB_ARTIFACT_TTL_DAYS:-7}
-      MB_SMTP_HOST: ${MB_SMTP_HOST:-}
-      MB_SMTP_PORT: ${MB_SMTP_PORT:-587}
-      MB_SMTP_USERNAME: ${MB_SMTP_USERNAME:-}
-      MB_SMTP_PASSWORD: ${MB_SMTP_PASSWORD:-}
-      MB_SMTP_FROM: ${MB_SMTP_FROM:-Meshtastic Builder <no-reply@example.local>}
-      MB_SMTP_TLS: ${MB_SMTP_TLS:-1}
     volumes:
       - app-data:/data
 
@@ -35,7 +28,6 @@ services:
       MB_DATA_DIR: /data
       MB_DB_PATH: /data/meshtastic-builder.sqlite
       MB_ARTIFACT_DIR: /data/artifacts
-      MB_MAIL_DIR: /data/mail
       MB_GITHUB_MAX_TAG_PAGES: ${MB_GITHUB_MAX_TAG_PAGES:-20}
       MB_AUTO_SUPPORT_LATEST_TAGS: ${MB_AUTO_SUPPORT_LATEST_TAGS:-20}
       MB_ARTIFACT_TTL_DAYS: ${MB_ARTIFACT_TTL_DAYS:-7}
@@ -43,17 +35,14 @@ services:
       MB_BUILDER_IMAGE: ${MB_BUILDER_IMAGE:-meshtastic-firmware-builder:local}
       MB_DOCKER_BINARY: ${MB_DOCKER_BINARY:-docker}
       MB_DOCKER_NETWORK: ${MB_DOCKER_NETWORK:-bridge}
-      MB_DOCKER_TRANSPORT: ${MB_DOCKER_TRANSPORT:-auto}
+      # copy, not auto: the worker talks to the host daemon through the mounted socket,
+      # so a bind mount of /data/jobs/... would be resolved against the host filesystem,
+      # where that path does not exist. Copy streams the inputs into the container instead.
+      MB_DOCKER_TRANSPORT: ${MB_DOCKER_TRANSPORT:-copy}
       MB_DOCKER_CPUS: ${MB_DOCKER_CPUS:-4}
       MB_DOCKER_MEMORY: ${MB_DOCKER_MEMORY:-4g}
       MB_DOCKER_PIDS_LIMIT: ${MB_DOCKER_PIDS_LIMIT:-512}
       MB_BUILD_TIMEOUT_SECONDS: ${MB_BUILD_TIMEOUT_SECONDS:-3600}
-      MB_SMTP_HOST: ${MB_SMTP_HOST:-}
-      MB_SMTP_PORT: ${MB_SMTP_PORT:-587}
-      MB_SMTP_USERNAME: ${MB_SMTP_USERNAME:-}
-      MB_SMTP_PASSWORD: ${MB_SMTP_PASSWORD:-}
-      MB_SMTP_FROM: ${MB_SMTP_FROM:-Meshtastic Builder <no-reply@example.local>}
-      MB_SMTP_TLS: ${MB_SMTP_TLS:-1}
     volumes:
       - app-data:/data
       - /var/run/docker.sock:/var/run/docker.sock

@@ -7,7 +7,19 @@ from typing import Any
 
 KEY_RE = re.compile(r"^[A-Z0-9_]+$")
 IANA_TZ_RE = re.compile(r"^[A-Za-z_]+/[A-Za-z_]+$")
-CHANNEL_PRECISION_RE = re.compile(r"^USERPREFS_CHANNEL_[0-2]_PRECISION$")
+# Firmware >= 2.8.0 reads channels 0..7 even though userPrefs.jsonc only lists the first few.
+CHANNEL_KEY_RE = re.compile(
+    r"^USERPREFS_CHANNEL_([0-7])_(NAME|PSK|PRECISION|IS_MUTED|UPLINK_ENABLED|DOWNLINK_ENABLED)$"
+)
+CHANNEL_PRECISION_RE = re.compile(r"^USERPREFS_CHANNEL_[0-7]_PRECISION$")
+CHANNEL_BOOL_RE = re.compile(r"^USERPREFS_CHANNEL_[0-7]_(IS_MUTED|UPLINK_ENABLED|DOWNLINK_ENABLED)$")
+
+# bin/platformio-custom.py passes values starting with `meshtastic_` or `{` unquoted into -D flags,
+# and the flags reach the compiler through a shell. Everything else is quoted, but " \ $ ` would
+# still break out of those quotes.
+ENUM_VALUE_RE = re.compile(r"^meshtastic_[A-Za-z0-9_]+$")
+BYTE_ARRAY_RE = re.compile(r"^\{\s*(0x[0-9a-fA-F]{1,2}(\s*,\s*0x[0-9a-fA-F]{1,2})*)?\s*\}$")
+UNSAFE_STRING_RE = re.compile(r'["\\$`\x00-\x1f\x7f]')
 
 ALLOWED_DEVICE_ROLES = {
     "meshtastic_Config_DeviceConfig_Role_CLIENT",
@@ -19,6 +31,7 @@ ALLOWED_DEVICE_ROLES = {
     "meshtastic_Config_DeviceConfig_Role_TAK_TRACKER",
 }
 
+# Superset across supported tags; the UI hides identifiers the selected firmware does not know.
 ALLOWED_LORA_REGIONS = {
     "meshtastic_Config_LoRaConfig_RegionCode_US",
     "meshtastic_Config_LoRaConfig_RegionCode_EU_433",
@@ -48,6 +61,12 @@ ALLOWED_LORA_REGIONS = {
     "meshtastic_Config_LoRaConfig_RegionCode_BR_902",
     "meshtastic_Config_LoRaConfig_RegionCode_ITU1_2M",
     "meshtastic_Config_LoRaConfig_RegionCode_ITU23_2M",
+    "meshtastic_Config_LoRaConfig_RegionCode_ITU2_2M",
+    "meshtastic_Config_LoRaConfig_RegionCode_ITU3_2M",
+    "meshtastic_Config_LoRaConfig_RegionCode_ITU1_70CM",
+    "meshtastic_Config_LoRaConfig_RegionCode_ITU2_70CM",
+    "meshtastic_Config_LoRaConfig_RegionCode_ITU3_70CM",
+    "meshtastic_Config_LoRaConfig_RegionCode_ITU2_125CM",
     "meshtastic_Config_LoRaConfig_RegionCode_EU_866",
     "meshtastic_Config_LoRaConfig_RegionCode_EU_874",
     "meshtastic_Config_LoRaConfig_RegionCode_EU_917",
@@ -58,6 +77,7 @@ ALLOWED_MODEM_PRESETS = {
     "meshtastic_Config_LoRaConfig_ModemPreset_LONG_FAST",
     "meshtastic_Config_LoRaConfig_ModemPreset_MEDIUM_SLOW",
     "meshtastic_Config_LoRaConfig_ModemPreset_MEDIUM_FAST",
+    "meshtastic_Config_LoRaConfig_ModemPreset_MEDIUM_TURBO",
     "meshtastic_Config_LoRaConfig_ModemPreset_SHORT_SLOW",
     "meshtastic_Config_LoRaConfig_ModemPreset_SHORT_FAST",
     "meshtastic_Config_LoRaConfig_ModemPreset_LONG_MODERATE",
@@ -67,6 +87,49 @@ ALLOWED_MODEM_PRESETS = {
     "meshtastic_Config_LoRaConfig_ModemPreset_LITE_SLOW",
     "meshtastic_Config_LoRaConfig_ModemPreset_NARROW_FAST",
     "meshtastic_Config_LoRaConfig_ModemPreset_NARROW_SLOW",
+    "meshtastic_Config_LoRaConfig_ModemPreset_TINY_FAST",
+    "meshtastic_Config_LoRaConfig_ModemPreset_TINY_SLOW",
+}
+
+ALLOWED_REBROADCAST_MODES = {
+    f"meshtastic_Config_DeviceConfig_RebroadcastMode_{mode}"
+    for mode in ("ALL", "ALL_SKIP_DECODING", "LOCAL_ONLY", "KNOWN_ONLY", "NONE", "CORE_PORTNUMS_ONLY")
+}
+
+ALLOWED_SIGNATURE_POLICIES = {
+    f"meshtastic_Config_SecurityConfig_PacketSignaturePolicy_PACKET_SIGNATURE_POLICY_{policy}"
+    for policy in ("COMPATIBLE", "BALANCED", "STRICT")
+}
+
+ENUM_KEYS = {
+    "USERPREFS_CONFIG_DEVICE_ROLE": (ALLOWED_DEVICE_ROLES, "Rol de dispositivo no permitido"),
+    "USERPREFS_CONFIG_LORA_REGION": (ALLOWED_LORA_REGIONS, "Region LoRa no permitida"),
+    "USERPREFS_LORACONFIG_MODEM_PRESET": (ALLOWED_MODEM_PRESETS, "Preset LoRa no permitido"),
+    "USERPREFS_CONFIG_DEVICE_REBROADCAST_MODE": (ALLOWED_REBROADCAST_MODES, "Modo de retransmision no permitido"),
+    "USERPREFS_CONFIG_SECURITY_PACKET_SIGNATURE_POLICY": (ALLOWED_SIGNATURE_POLICIES, "Politica de firma no permitida"),
+}
+
+BOOL_KEYS = {
+    "USERPREFS_CONFIG_ENVIRONMENT_MEASUREMENT_ENABLED",
+    "USERPREFS_CONFIG_SECURITY_IS_MANAGED",
+    "USERPREFS_MQTT_TLS_ENABLED",
+    "USERPREFS_MQTT_ENCRYPTION_ENABLED",
+}
+
+# Inclusive (min, max); None means unbounded. Firmware clamps node-info to >= 3600 itself.
+INT_RANGE_KEYS = {
+    "USERPREFS_LORACONFIG_TX_POWER": (0, 30),
+    "USERPREFS_CONFIG_DEVICE_NODE_INFO_BROADCAST_SECS": (3600, None),
+    "USERPREFS_CONFIG_DEVICE_TELEM_UPDATE_INTERVAL": (0, None),
+    "USERPREFS_CONFIG_ENV_TELEM_UPDATE_INTERVAL": (0, None),
+}
+
+# nanopb buffer sizes from module_config.pb.h minus the terminator.
+MAX_BYTES_KEYS = {
+    "USERPREFS_MQTT_ADDRESS": 63,
+    "USERPREFS_MQTT_USERNAME": 63,
+    "USERPREFS_MQTT_PASSWORD": 31,
+    "USERPREFS_MQTT_ROOT_TOPIC": 31,
 }
 
 
@@ -175,11 +238,26 @@ def extract_userpref_keys(template_text: str) -> set[str]:
 
 
 def _parse_int_string(value: Any, key: str) -> int:
+    if isinstance(value, bool):
+        raise JsoncValidationError(f"La clave {key} debe ser un numero entero.")
     if isinstance(value, int):
         return value
     if isinstance(value, str) and value.isdigit():
         return int(value)
     raise JsoncValidationError(f"La clave {key} debe ser un numero entero.")
+
+
+def _parse_bool_string(value: Any, key: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value in ("true", "false"):
+        return value == "true"
+    raise JsoncValidationError(f"La clave {key} debe ser true o false.")
+
+
+def _channel_key_allowed(key: str, max_channels: int) -> bool:
+    match = CHANNEL_KEY_RE.match(key)
+    return match is not None and int(match.group(1)) < max_channels
 
 
 def to_firmware_value(value: Any) -> str:
@@ -196,15 +274,36 @@ def to_firmware_value(value: Any) -> str:
     return str(value)
 
 
-def validate_userpref_value(key: str, value: Any) -> None:
+def _validate_string_shape(key: str, value: str) -> None:
+    if value.startswith("meshtastic_"):
+        if not ENUM_VALUE_RE.match(value):
+            raise JsoncValidationError(f"El valor de {key} no es un identificador valido.")
+    elif value.startswith("{"):
+        if not BYTE_ARRAY_RE.match(value):
+            raise JsoncValidationError(f"El valor de {key} debe ser una lista de bytes como {{ 0x01, 0x02 }}.")
+    elif UNSAFE_STRING_RE.search(value):
+        raise JsoncValidationError(f"El valor de {key} contiene caracteres no permitidos.")
+
+
+def validate_userpref_value(key: str, value: Any, max_channels: int = 3) -> None:
     if value is None:
         raise JsoncValidationError(f"La clave {key} no puede ser nula.")
-    if key == "USERPREFS_CONFIG_DEVICE_ROLE" and value not in ALLOWED_DEVICE_ROLES:
-        raise JsoncValidationError(f"Rol de dispositivo no permitido: {value}.")
-    if key == "USERPREFS_CONFIG_LORA_REGION" and value not in ALLOWED_LORA_REGIONS:
-        raise JsoncValidationError(f"Region LoRa no permitida: {value}.")
-    if key == "USERPREFS_LORACONFIG_MODEM_PRESET" and value not in ALLOWED_MODEM_PRESETS:
-        raise JsoncValidationError(f"Preset LoRa no permitido: {value}.")
+    if isinstance(value, str):
+        _validate_string_shape(key, value)
+    if key in ENUM_KEYS:
+        allowed, message = ENUM_KEYS[key]
+        if value not in allowed:
+            raise JsoncValidationError(f"{message}: {value}.")
+    if key in BOOL_KEYS or CHANNEL_BOOL_RE.match(key):
+        _parse_bool_string(value, key)
+    if key in INT_RANGE_KEYS:
+        low, high = INT_RANGE_KEYS[key]
+        number = _parse_int_string(value, key)
+        if number < low or (high is not None and number > high):
+            limit = f"entre {low} y {high}" if high is not None else f"mayor o igual que {low}"
+            raise JsoncValidationError(f"{key} debe estar {limit}.")
+    if key in MAX_BYTES_KEYS and isinstance(value, str) and len(value.encode("utf-8")) > MAX_BYTES_KEYS[key]:
+        raise JsoncValidationError(f"{key} no puede superar {MAX_BYTES_KEYS[key]} bytes.")
     if key == "USERPREFS_TZ_STRING":
         if not isinstance(value, str) or not value.strip():
             raise JsoncValidationError("USERPREFS_TZ_STRING debe contener un TZ POSIX.")
@@ -212,8 +311,8 @@ def validate_userpref_value(key: str, value: Any) -> None:
             raise JsoncValidationError("USERPREFS_TZ_STRING debe ser un TZ POSIX, no un nombre IANA como Europe/Madrid.")
     if key == "USERPREFS_CHANNELS_TO_WRITE":
         channel_count = _parse_int_string(value, key)
-        if channel_count < 1 or channel_count > 3:
-            raise JsoncValidationError("USERPREFS_CHANNELS_TO_WRITE debe estar entre 1 y 3.")
+        if channel_count < 1 or channel_count > max_channels:
+            raise JsoncValidationError(f"USERPREFS_CHANNELS_TO_WRITE debe estar entre 1 y {max_channels}.")
     if CHANNEL_PRECISION_RE.match(key):
         precision = _parse_int_string(value, key)
         if precision < 0 or precision > 32:
@@ -224,6 +323,7 @@ def validate_and_normalize_userprefs(
     text: str,
     allowed_keys: set[str],
     max_bytes: int,
+    max_channels: int = 3,
 ) -> tuple[str, dict[str, Any]]:
     if len(text.encode("utf-8")) > max_bytes:
         raise JsoncValidationError("El fichero userPrefs.jsonc es demasiado grande.")
@@ -236,13 +336,13 @@ def validate_and_normalize_userprefs(
     for key, value in parsed.items():
         if not isinstance(key, str) or not KEY_RE.match(key) or not key.startswith("USERPREFS_"):
             raise JsoncValidationError(f"Clave no permitida: {key!r}.")
-        if allowed_keys and key not in allowed_keys:
+        if allowed_keys and key not in allowed_keys and not _channel_key_allowed(key, max_channels):
             raise JsoncValidationError(f"La clave {key} no existe en userPrefs.jsonc para esta version.")
         if isinstance(value, (dict, list)):
             raise JsoncValidationError(f"La clave {key} debe ser escalar, no objeto ni lista.")
         if isinstance(value, str) and len(value) > 8192:
             raise JsoncValidationError(f"El valor de {key} es demasiado largo.")
-        validate_userpref_value(key, value)
+        validate_userpref_value(key, value, max_channels)
         normalized[key] = value
 
     normalized_text = json.dumps(normalized, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
@@ -254,14 +354,17 @@ def validate_and_merge_userprefs(
     template_text: str,
     max_bytes: int,
     extra_keys: dict[str, Any] | None = None,
+    max_channels: int = 3,
 ) -> tuple[str, dict[str, Any]]:
     """Merge validated user overrides onto the tag template.
 
     `extra_keys` are server-generated macros that may not exist in the template.
     They are applied last so users cannot override them from prefsJsonc.
+    `max_channels` widens the accepted `USERPREFS_CHANNEL_<n>_*` keys beyond the
+    template for firmware that reads more channel slots than it documents.
     """
     allowed_keys = extract_userpref_keys(template_text)
-    _override_text, overrides = validate_and_normalize_userprefs(text, allowed_keys, max_bytes)
+    _override_text, overrides = validate_and_normalize_userprefs(text, allowed_keys, max_bytes, max_channels)
     template = parse_jsonc(template_text)
     if not isinstance(template, dict):
         raise JsoncValidationError("El template userPrefs.jsonc debe contener un objeto JSON.")

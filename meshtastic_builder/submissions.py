@@ -3,13 +3,12 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from .code_options import validate_code_options
+from .code_options import load_build_options, max_channels, validate_code_options
 from .config import Config
 from .db import create_build_request, public_build_view
 from .devices import get_enabled_device
 from .firmware import get_userprefs_template, resolve_supported_version
 from .jsonc import validate_and_merge_userprefs
-from .security import validate_email
 
 
 def _required_str(payload: dict[str, Any], key: str) -> str:
@@ -20,7 +19,6 @@ def _required_str(payload: dict[str, Any], key: str) -> str:
 
 
 def create_build_submission(config: Config, payload: dict[str, Any]) -> dict[str, Any]:
-    email = validate_email(_required_str(payload, "email"))
     device = get_enabled_device(config.root_dir, _required_str(payload, "deviceId"))
     firmware_tag = _required_str(payload, "firmwareTag")
     version = resolve_supported_version(config, firmware_tag)
@@ -36,10 +34,10 @@ def create_build_submission(config: Config, payload: dict[str, Any]) -> dict[str
         template,
         config.max_prefs_bytes,
         extra_keys=code_macros,
+        max_channels=max_channels(load_build_options(config.root_dir), version["tag"]),
     )
     row = create_build_request(
         config,
-        email=email,
         device_id=device.id,
         platformio_env=device.platformio_env,
         firmware_tag=version["tag"],
@@ -51,6 +49,7 @@ def create_build_submission(config: Config, payload: dict[str, Any]) -> dict[str
     return {
         "row": row,
         "public": public_build_view(row),
+        "buildUrl": f"{config.base_url}/?build={token}",
         "statusUrl": f"{config.base_url}/api/builds/{token}",
         "downloadUrl": f"{config.base_url}/download/{token}",
     }

@@ -21,12 +21,25 @@ def parse_version(tag: str) -> tuple[int, int, int] | None:
     return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
 
 
-def firmware_supports_code_options(options: dict[str, Any], firmware_tag: str) -> bool:
-    minimum = parse_version(str(options["minFirmwareVersion"]))
+def firmware_at_least(firmware_tag: str, minimum: str) -> bool:
+    floor = parse_version(minimum)
     current = parse_version(firmware_tag)
-    if minimum is None or current is None:
+    if floor is None or current is None:
         return False
-    return current >= minimum
+    return current >= floor
+
+
+def firmware_supports_code_options(options: dict[str, Any], firmware_tag: str) -> bool:
+    return firmware_at_least(firmware_tag, str(options["minFirmwareVersion"]))
+
+
+def code_options_need_patch(options: dict[str, Any], firmware_tag: str) -> bool:
+    """Firmware >= nativeSinceFirmwareVersion reads the macros itself; the patch does not even apply there."""
+    return not firmware_at_least(firmware_tag, str(options["nativeSinceFirmwareVersion"]))
+
+
+def max_channels(options: dict[str, Any], firmware_tag: str) -> int:
+    return 8 if firmware_at_least(firmware_tag, str(options["eightChannelsSinceFirmwareVersion"])) else 3
 
 
 def _bool_field(payload: dict[str, Any], key: str) -> bool:
@@ -86,7 +99,9 @@ def validate_code_options(
     if "okToMqtt" in payload:
         ok_to_mqtt = _bool_field(payload, "okToMqtt")
         canonical["okToMqtt"] = ok_to_mqtt
-        macros[options["okToMqtt"]["macro"]] = "true" if ok_to_mqtt else "false"
+        ok_spec = options["okToMqtt"]
+        macro = ok_spec["macro"] if code_options_need_patch(options, firmware_tag) else ok_spec["nativeMacro"]
+        macros[macro] = "true" if ok_to_mqtt else "false"
 
     custom_lora = payload.get("customLora")
     if custom_lora is not None:

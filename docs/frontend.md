@@ -9,7 +9,7 @@ development loop.
 
 | File | Purpose |
 | --- | --- |
-| `static/index.html` | Page shell and the seven-step form. |
+| `static/index.html` | Page shell and the step form. |
 | `static/styles.css` | Design tokens, shell, panels, buttons, form controls. |
 | `static/i18n.js` | Spanish/English dictionary, `t()`, language toggle. |
 | `static/app.js` | Form logic, `userPrefs.jsonc` generation, submit and polling. |
@@ -32,6 +32,8 @@ Design rules worth keeping:
 - Dark theme only, by design.
 - Two button emphasis levels: `.btn` and `.btn.btn-primary`.
 - Radius 10px for panels, 8px (`--radius`) for controls.
+- Step numbers come from a CSS counter on `#buildForm .panel h2::before`, so
+  panels can be added, hidden or reordered without renumbering markup.
 
 ## Internationalization
 
@@ -50,13 +52,34 @@ Backend error messages are still Spanish only and are shown verbatim.
 A build is addressable as `/?build=<token>`. The token is a query parameter
 rather than a path segment so no server routing is needed. After a successful
 submit the URL is rewritten with `history.replaceState`, and the result panel
-shows the shareable link. On load, a `build` parameter fetches that build and
-resumes polling if it is still running.
+shows that URL as its headline with a copy button. Nothing else records the
+build for the user, so the panel says so explicitly. On load, a `build`
+parameter fetches that build and resumes polling if it is still running.
+
+## Version Gating
+
+Two independent mechanisms keep the form honest across firmware versions:
+
+- **Template gating.** Any element carrying `data-pref-key="USERPREFS_..."` is
+  hidden when the selected tag's `userPrefs.jsonc` template does not define that
+  key. `setPref` drops such keys anyway, so the hiding is cosmetic but keeps the
+  form from promising settings the build would ignore.
+- **Enum gating.** `REGION_OPTIONS` and `PRESET_OPTIONS` carry an optional third
+  element, the firmware version that introduced the value. `populateStaticSelects(tag)`
+  filters on it and preserves the current selection when it survives. This
+  matters because protobuf enum names change: `ITU23_2M` existed only in
+  2.7.23–2.7.24 and became `ITU2_2M`/`ITU3_2M`, and an unknown identifier fails
+  at compile time, not at submit time.
+
+The channel cap (3, or 8 from `eightChannelsSinceFirmwareVersion`) comes from
+`/api/build-options` as well.
 
 ## Advanced Options Panel
 
-Step 6 is visually separated: warn-tinted border and an
-`EXPERIMENTAL / SOURCE PATCH` badge. It is populated from
+The advanced panel is visually separated: warn-tinted border and an
+`EXPERIMENTAL / SOURCE PATCH` badge. From `nativeSinceFirmwareVersion` the
+firmware reads those macros itself, so the badge and warning are replaced by a
+neutral "native" note and the panel loses its experimental styling. It is populated from
 `GET /api/build-options`, so value ranges live in `data/build_options.json` and
 are never duplicated in JavaScript. The panel hides itself when the selected
 firmware tag is below `minFirmwareVersion`, and enabling manual LoRa

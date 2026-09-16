@@ -7,20 +7,24 @@ const state = {
   statusKey: null,
   buildOptions: null,
   codeOptionsAvailable: false,
+  codeOptionsNative: false,
+  maxChannels: 3,
   lastBuild: null,
   lastDownloadUrl: null,
+  lastBuildUrl: null,
 };
 
 const $ = (id) => document.getElementById(id);
 const encoder = new TextEncoder();
 
+// Third element is the firmware version that introduced the enum value.
 const REGION_OPTIONS = [
   ["EU_868", "EU 868 MHz"],
   ["EU_433", "EU 433 MHz"],
-  ["EU_866", "EU 866 MHz"],
-  ["EU_874", "EU 874 MHz"],
-  ["EU_917", "EU 917 MHz"],
-  ["EU_N_868", "EU narrow 868 MHz"],
+  ["EU_866", "EU 866 MHz", "2.7.23"],
+  ["EU_874", "EU 874 MHz", "2.7.23"],
+  ["EU_917", "EU 917 MHz", "2.7.23"],
+  ["EU_N_868", "EU narrow 868 MHz", "2.7.23"],
   ["US", "US 915 MHz"],
   ["ANZ", "Australia / New Zealand 915 MHz"],
   ["ANZ_433", "Australia / New Zealand 433 MHz"],
@@ -45,8 +49,13 @@ const REGION_OPTIONS = [
   ["UA_433", "Ukraine 433 MHz"],
   ["UA_868", "Ukraine 868 MHz"],
   ["LORA_24", "2.4 GHz"],
-  ["ITU1_2M", "ITU region 1, 2 m"],
-  ["ITU23_2M", "ITU region 2/3, 2 m"],
+  ["ITU1_2M", "ITU region 1, 2 m", "2.7.23"],
+  ["ITU2_2M", "ITU region 2, 2 m", "2.7.25"],
+  ["ITU3_2M", "ITU region 3, 2 m", "2.7.25"],
+  ["ITU1_70CM", "ITU region 1, 70 cm", "2.8.0"],
+  ["ITU2_70CM", "ITU region 2, 70 cm", "2.8.0"],
+  ["ITU3_70CM", "ITU region 3, 70 cm", "2.8.0"],
+  ["ITU2_125CM", "ITU region 2, 1.25 m", "2.8.0"],
 ];
 
 const ROLE_OPTIONS = [
@@ -64,14 +73,32 @@ const PRESET_OPTIONS = [
   ["LONG_MODERATE", "Long moderate"],
   ["MEDIUM_FAST", "Medium fast"],
   ["MEDIUM_SLOW", "Medium slow"],
+  ["MEDIUM_TURBO", "Medium turbo", "2.8.0"],
   ["SHORT_FAST", "Short fast"],
   ["SHORT_SLOW", "Short slow"],
   ["SHORT_TURBO", "Short turbo"],
   ["LONG_TURBO", "Long turbo"],
-  ["LITE_FAST", "Lite fast"],
-  ["LITE_SLOW", "Lite slow"],
-  ["NARROW_FAST", "Narrow fast"],
-  ["NARROW_SLOW", "Narrow slow"],
+  ["LITE_FAST", "Lite fast", "2.7.23"],
+  ["LITE_SLOW", "Lite slow", "2.7.23"],
+  ["NARROW_FAST", "Narrow fast", "2.7.23"],
+  ["NARROW_SLOW", "Narrow slow", "2.7.23"],
+  ["TINY_FAST", "Tiny fast", "2.8.0"],
+  ["TINY_SLOW", "Tiny slow", "2.8.0"],
+];
+
+const REBROADCAST_OPTIONS = [
+  ["ALL", "All"],
+  ["ALL_SKIP_DECODING", "All, skip decoding"],
+  ["LOCAL_ONLY", "Local only"],
+  ["KNOWN_ONLY", "Known only"],
+  ["CORE_PORTNUMS_ONLY", "Core portnums only"],
+  ["NONE", "None"],
+];
+
+const SIGNATURE_POLICY_OPTIONS = [
+  ["PACKET_SIGNATURE_POLICY_COMPATIBLE", "Compatible"],
+  ["PACKET_SIGNATURE_POLICY_BALANCED", "Balanced"],
+  ["PACKET_SIGNATURE_POLICY_STRICT", "Strict"],
 ];
 
 // Firmware bandwidth codes are not all the real value in kHz.
@@ -108,8 +135,24 @@ function escapeHtml(value) {
   })[char]);
 }
 
-function optionHtml(options, selectedId, valuePrefix) {
+function parseVersion(tag) {
+  const match = /^v?(\d+)\.(\d+)\.(\d+)/.exec(String(tag).trim());
+  return match ? [Number(match[1]), Number(match[2]), Number(match[3])] : null;
+}
+
+function versionAtLeast(tag, minimum) {
+  const current = parseVersion(tag);
+  const floor = parseVersion(minimum);
+  if (!current || !floor) return false;
+  for (let i = 0; i < 3; i += 1) {
+    if (current[i] !== floor[i]) return current[i] > floor[i];
+  }
+  return true;
+}
+
+function optionHtml(options, selectedId, valuePrefix, tag = null) {
   return options
+    .filter(([, , minVersion]) => !minVersion || !tag || versionAtLeast(tag, minVersion))
     .map(([id, label]) => {
       const value = `${valuePrefix}${id}`;
       return `<option value="${value}" ${id === selectedId ? "selected" : ""}>${escapeHtml(label)}</option>`;
@@ -117,21 +160,31 @@ function optionHtml(options, selectedId, valuePrefix) {
     .join("");
 }
 
-function populateStaticSelects() {
-  $("loraRegion").innerHTML = optionHtml(
-    REGION_OPTIONS,
-    "EU_868",
-    "meshtastic_Config_LoRaConfig_RegionCode_",
+function fillSelect(el, options, prefix, fallbackId, tag) {
+  const previous = el.value;
+  el.innerHTML = optionHtml(options, fallbackId, prefix, tag);
+  if (previous && Array.from(el.options).some((option) => option.value === previous)) {
+    el.value = previous;
+  }
+}
+
+function populateStaticSelects(tag = null) {
+  fillSelect($("loraRegion"), REGION_OPTIONS, "meshtastic_Config_LoRaConfig_RegionCode_", "EU_868", tag);
+  fillSelect($("deviceRole"), ROLE_OPTIONS, "meshtastic_Config_DeviceConfig_Role_", "CLIENT", tag);
+  fillSelect($("modemPreset"), PRESET_OPTIONS, "meshtastic_Config_LoRaConfig_ModemPreset_", "LONG_FAST", tag);
+  fillSelect(
+    $("rebroadcastMode"),
+    REBROADCAST_OPTIONS,
+    "meshtastic_Config_DeviceConfig_RebroadcastMode_",
+    "ALL",
+    tag,
   );
-  $("deviceRole").innerHTML = optionHtml(
-    ROLE_OPTIONS,
-    "CLIENT",
-    "meshtastic_Config_DeviceConfig_Role_",
-  );
-  $("modemPreset").innerHTML = optionHtml(
-    PRESET_OPTIONS,
-    "LONG_FAST",
-    "meshtastic_Config_LoRaConfig_ModemPreset_",
+  fillSelect(
+    $("signaturePolicy"),
+    SIGNATURE_POLICY_OPTIONS,
+    "meshtastic_Config_SecurityConfig_PacketSignaturePolicy_",
+    "PACKET_SIGNATURE_POLICY_BALANCED",
+    tag,
   );
 }
 
@@ -171,28 +224,18 @@ async function loadBuildOptions() {
   $("okToMqtt").checked = state.buildOptions.okToMqtt.default;
 }
 
-function parseVersion(tag) {
-  const match = /^v?(\d+)\.(\d+)\.(\d+)/.exec(String(tag).trim());
-  return match ? [Number(match[1]), Number(match[2]), Number(match[3])] : null;
-}
-
-function versionAtLeast(tag, minimum) {
-  const current = parseVersion(tag);
-  const floor = parseVersion(minimum);
-  if (!current || !floor) return false;
-  for (let i = 0; i < 3; i += 1) {
-    if (current[i] !== floor[i]) return current[i] > floor[i];
-  }
-  return true;
-}
-
 function syncAdvancedAvailability() {
   const tag = $("firmwareTag").value;
-  state.codeOptionsAvailable = Boolean(
-    state.buildOptions && versionAtLeast(tag, state.buildOptions.minFirmwareVersion),
-  );
+  const options = state.buildOptions;
+  state.codeOptionsAvailable = Boolean(options && versionAtLeast(tag, options.minFirmwareVersion));
+  state.codeOptionsNative = Boolean(options && versionAtLeast(tag, options.nativeSinceFirmwareVersion));
+  state.maxChannels = options && versionAtLeast(tag, options.eightChannelsSinceFirmwareVersion) ? 8 : 3;
   $("advancedControls").hidden = !state.codeOptionsAvailable;
   $("advancedUnavailable").hidden = state.codeOptionsAvailable;
+  $("advancedBadge").hidden = state.codeOptionsNative;
+  $("advancedWarning").hidden = state.codeOptionsNative;
+  $("advancedNative").hidden = !state.codeOptionsNative;
+  $("advancedPanel").classList.toggle("panel-experimental", !state.codeOptionsNative);
   syncCustomLora();
 }
 
@@ -201,6 +244,23 @@ function syncCustomLora() {
   $("customLoraFields").hidden = !enabled;
   $("modemPreset").disabled = enabled;
   $("presetDisabledHint").hidden = !enabled;
+}
+
+function syncManagedMode() {
+  const hasAdminKey = ["adminKey", "adminKey1", "adminKey2"].some((id) => $(id).value.trim() !== "");
+  const checkbox = $("securityIsManaged");
+  checkbox.disabled = !hasAdminKey;
+  if (!hasAdminKey) checkbox.checked = false;
+}
+
+// Controls for keys the selected firmware template does not define are hidden; setPref drops them anyway.
+function syncTemplateGatedControls() {
+  for (const el of document.querySelectorAll("[data-pref-key]")) {
+    el.hidden = state.templateKeys.size > 0 && !state.templateKeys.has(el.dataset.prefKey);
+  }
+  $("behaviourPanel").hidden = Array.from(
+    $("behaviourPanel").querySelectorAll("[data-pref-key]"),
+  ).every((el) => el.hidden);
 }
 
 async function loadDevices() {
@@ -219,9 +279,14 @@ async function loadVersions(forceRefresh = false) {
   $("firmwareTag").innerHTML = versions
     .map((version) => `<option value="${escapeHtml(version.tag)}">${escapeHtml(version.tag)}</option>`)
     .join("");
+  await onFirmwareTagChange();
+  setStatusKey("status.ready");
+}
+
+async function onFirmwareTagChange() {
+  populateStaticSelects($("firmwareTag").value);
   syncAdvancedAvailability();
   await loadTemplate();
-  setStatusKey("status.ready");
 }
 
 async function loadTemplate() {
@@ -234,15 +299,22 @@ async function loadTemplate() {
   }
   const template = await response.text();
   state.templateKeys = extractTemplateKeys(template);
+  syncTemplateGatedControls();
   if (!state.channels.length) {
     state.channels = [defaultChannel()];
-    renderChannels();
   }
-  updatePrefsPreview();
+  if (state.channels.length > state.maxChannels) {
+    state.channels = state.channels.slice(0, state.maxChannels);
+  }
+  renderChannels();
 }
 
 function extractTemplateKeys(template) {
   return new Set(Array.from(template.matchAll(/"(USERPREFS_[A-Z0-9_]+)"\s*:/g), (match) => match[1]));
+}
+
+function channelMuteSupported() {
+  return state.maxChannels === 8 || state.templateKeys.has("USERPREFS_CHANNEL_0_IS_MUTED");
 }
 
 function defaultChannel() {
@@ -252,10 +324,12 @@ function defaultChannel() {
     precision: "14",
     downlink: false,
     uplink: true,
+    muted: false,
   };
 }
 
 function renderChannels() {
+  const withMute = channelMuteSupported();
   $("channelRows").innerHTML = state.channels.map((channel, index) => `
     <div class="channel-row" data-index="${index}">
       <label>
@@ -278,10 +352,16 @@ function renderChannels() {
         <input data-field="uplink" type="checkbox" ${channel.uplink ? "checked" : ""}>
         <span>${escapeHtml(t("channel.uplink"))}</span>
       </label>
+      ${withMute ? `
+      <label class="check-line">
+        <input data-field="muted" type="checkbox" ${channel.muted ? "checked" : ""}>
+        <span>${escapeHtml(t("channel.muted"))}</span>
+      </label>` : ""}
       <button class="btn btn-mini" type="button" data-action="remove" ${state.channels.length === 1 ? "disabled" : ""}>${escapeHtml(t("channel.remove"))}</button>
     </div>
   `).join("");
-  $("addChannel").disabled = state.channels.length >= 3;
+  $("addChannel").disabled = state.channels.length >= state.maxChannels;
+  $("channelHint").textContent = t("step4.hint", { max: state.maxChannels });
   updatePrefsPreview();
 }
 
@@ -323,9 +403,19 @@ function base64ToBytes(value, label, expectedLength = null) {
 }
 
 function setPref(prefs, key, value) {
-  if (!state.templateKeys.size || state.templateKeys.has(key)) {
+  if (!state.templateKeys.size || state.templateKeys.has(key) || isExtraChannelKey(key)) {
     prefs[key] = value;
   }
+}
+
+// Firmware >= 2.8.0 reads channels 0..7 even though the template only documents the first three.
+function isExtraChannelKey(key) {
+  return state.maxChannels === 8 && /^USERPREFS_CHANNEL_[0-7]_[A-Z_]+$/.test(key);
+}
+
+function setOptionalPref(prefs, key, rawValue) {
+  const value = String(rawValue).trim();
+  if (value !== "") setPref(prefs, key, value);
 }
 
 function validateShortName() {
@@ -336,6 +426,13 @@ function validateShortName() {
   if (byteLength > 4) {
     throw new Error(t("error.shortName"));
   }
+}
+
+function validateMaxBytes(value, label, maxBytes) {
+  if (encoder.encode(value).length > maxBytes) {
+    throw new Error(t("error.maxBytes", { label, bytes: maxBytes }));
+  }
+  return value;
 }
 
 function validateChannel(channel, index) {
@@ -363,21 +460,54 @@ function buildPrefs() {
   setPref(prefs, "USERPREFS_CONFIG_DEVICE_ROLE", $("deviceRole").value);
   setPref(prefs, "USERPREFS_LORACONFIG_MODEM_PRESET", $("modemPreset").value);
   setPref(prefs, "USERPREFS_TZ_STRING", $("tzString").value.trim());
+  setOptionalPref(prefs, "USERPREFS_LORACONFIG_TX_POWER", $("loraTxPower").value);
+
+  setPref(prefs, "USERPREFS_CONFIG_DEVICE_REBROADCAST_MODE", $("rebroadcastMode").value);
+  setOptionalPref(prefs, "USERPREFS_CONFIG_DEVICE_NODE_INFO_BROADCAST_SECS", $("nodeInfoSecs").value);
+  setOptionalPref(prefs, "USERPREFS_CONFIG_DEVICE_TELEM_UPDATE_INTERVAL", $("deviceTelemInterval").value);
+  setOptionalPref(prefs, "USERPREFS_CONFIG_ENV_TELEM_UPDATE_INTERVAL", $("envTelemInterval").value);
+  if ($("envMeasurementEnabled").checked) {
+    setPref(prefs, "USERPREFS_CONFIG_ENVIRONMENT_MEASUREMENT_ENABLED", "true");
+  }
 
   const mqttAddress = $("mqttAddress").value.trim();
   if (mqttAddress) {
+    validateMaxBytes(mqttAddress, t("label.mqttAddress"), 61);
     setPref(prefs, "USERPREFS_MQTT_ADDRESS", `'${mqttAddress.replace(/'/g, "")}'`);
   }
   if ($("mqttEnabled").checked) {
     setPref(prefs, "USERPREFS_MQTT_ENABLED", "1");
   }
+  const mqttUsername = $("mqttUsername").value.trim();
+  if (mqttUsername) {
+    setPref(prefs, "USERPREFS_MQTT_USERNAME", validateMaxBytes(mqttUsername, t("label.mqttUsername"), 63));
+  }
+  const mqttPassword = $("mqttPassword").value;
+  if (mqttPassword) {
+    setPref(prefs, "USERPREFS_MQTT_PASSWORD", validateMaxBytes(mqttPassword, t("label.mqttPassword"), 31));
+  }
+  const mqttRoot = $("mqttRootTopic").value.trim();
+  if (mqttRoot) {
+    setPref(prefs, "USERPREFS_MQTT_ROOT_TOPIC", validateMaxBytes(mqttRoot, t("label.mqttRoot"), 31));
+  }
+  setPref(prefs, "USERPREFS_MQTT_ENCRYPTION_ENABLED", String($("mqttEncryption").checked));
+  setPref(prefs, "USERPREFS_MQTT_TLS_ENABLED", String($("mqttTls").checked));
 
-  const adminKey = base64ToBytes($("adminKey").value, t("label.adminKey"), 32);
-  if (adminKey) {
-    setPref(prefs, "USERPREFS_USE_ADMIN_KEY_0", bytesToByteArray(adminKey));
+  [
+    ["adminKey", "USERPREFS_USE_ADMIN_KEY_0", t("label.adminKey")],
+    ["adminKey1", "USERPREFS_USE_ADMIN_KEY_1", t("label.adminKey1")],
+    ["adminKey2", "USERPREFS_USE_ADMIN_KEY_2", t("label.adminKey2")],
+  ].forEach(([id, key, label]) => {
+    const bytes = base64ToBytes($(id).value, label, 32);
+    if (bytes) setPref(prefs, key, bytesToByteArray(bytes));
+  });
+  setPref(prefs, "USERPREFS_CONFIG_SECURITY_PACKET_SIGNATURE_POLICY", $("signaturePolicy").value);
+  if ($("securityIsManaged").checked) {
+    setPref(prefs, "USERPREFS_CONFIG_SECURITY_IS_MANAGED", "true");
   }
 
   setPref(prefs, "USERPREFS_CHANNELS_TO_WRITE", String(state.channels.length));
+  const withMute = channelMuteSupported();
   state.channels.forEach((channel, index) => {
     const valid = validateChannel(channel, index);
     setPref(prefs, `USERPREFS_CHANNEL_${index}_NAME`, valid.name);
@@ -387,6 +517,9 @@ function buildPrefs() {
     }
     setPref(prefs, `USERPREFS_CHANNEL_${index}_DOWNLINK_ENABLED`, String(Boolean(channel.downlink)));
     setPref(prefs, `USERPREFS_CHANNEL_${index}_UPLINK_ENABLED`, String(Boolean(channel.uplink)));
+    if (withMute) {
+      setPref(prefs, `USERPREFS_CHANNEL_${index}_IS_MUTED`, String(Boolean(channel.muted)));
+    }
   });
 
   return prefs;
@@ -422,6 +555,7 @@ function describeCodeOptions(options) {
 
 function updatePrefsPreview() {
   try {
+    syncManagedMode();
     const prefs = buildPrefs();
     $("prefsJsonc").value = `${JSON.stringify(prefs, null, 2)}\n`;
     if (state.statusIsError) {
@@ -441,7 +575,6 @@ async function submitBuild(event) {
   try {
     setStatusKey("status.creating");
     const payload = {
-      email: $("email").value,
       deviceId: $("deviceId").value,
       firmwareTag: $("firmwareTag").value,
       prefsJsonc: $("prefsJsonc").value,
@@ -456,7 +589,7 @@ async function submitBuild(event) {
       body: JSON.stringify(payload),
     });
     history.replaceState(null, "", `/?build=${encodeURIComponent(result.build.token)}`);
-    showBuild(result.build, result.downloadUrl);
+    showBuild(result.build, result.downloadUrl, result.buildUrl);
     startPolling(result.build.token);
     setStatusKey("status.queued");
   } catch (error) {
@@ -466,13 +599,17 @@ async function submitBuild(event) {
   }
 }
 
-function showBuild(build, downloadUrl = null) {
+function showBuild(build, downloadUrl = null, buildUrl = null) {
   state.lastBuild = build;
   if (downloadUrl) state.lastDownloadUrl = downloadUrl;
+  if (buildUrl) state.lastBuildUrl = buildUrl;
   $("result").hidden = false;
   $("buildStatus").textContent = build.status;
   $("buildToken").textContent = build.token;
-  $("shareLink").textContent = `${location.origin}/?build=${build.token}`;
+
+  const url = state.lastBuildUrl || `${location.origin}/?build=${build.token}`;
+  $("buildUrl").textContent = url;
+  $("buildUrl").href = url;
 
   const summary = describeCodeOptions(build.codeOptions);
   $("buildOptionsRow").hidden = !summary;
@@ -520,13 +657,20 @@ async function loadExistingBuild(token) {
 function bindEvents() {
   $("buildForm").addEventListener("submit", submitBuild);
   $("firmwareTag").addEventListener("change", () => {
-    syncAdvancedAvailability();
-    loadTemplate().catch((error) => setStatus(error.message, true));
+    onFirmwareTagChange().catch((error) => setStatus(error.message, true));
   });
   $("refreshVersions").addEventListener("click", () => loadVersions(true).catch((error) => setStatus(error.message, true)));
   $("customLoraEnabled").addEventListener("change", syncCustomLora);
+  $("copyBuildUrl").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText($("buildUrl").textContent);
+      setStatusKey("result.copied");
+    } catch (error) {
+      setStatus(error.message, true);
+    }
+  });
   $("addChannel").addEventListener("click", () => {
-    if (state.channels.length >= 3) return;
+    if (state.channels.length >= state.maxChannels) return;
     state.channels.push({
       ...defaultChannel(),
       name: `${t("channel.defaultName")} ${state.channels.length + 1}`,

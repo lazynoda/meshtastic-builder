@@ -2,11 +2,12 @@
 
 Web app and worker for requesting custom Meshtastic firmware builds.
 
-The current implementation is intentionally dependency-light: it uses Python standard library modules, SQLite, vanilla HTML/CSS/JS, SMTP, and a Docker-based firmware builder image. Users can select a Meshtastic firmware tag, choose an allowed device, configure common `userPrefs.jsonc` fields through form controls, submit an email address, and later receive a private download link for a ZIP artifact that expires after 7 days.
+The current implementation is intentionally dependency-light: it uses Python standard library modules, SQLite, vanilla HTML/CSS/JS, and a Docker-based firmware builder image. Users select a Meshtastic firmware tag, choose an allowed device, configure common `userPrefs.jsonc` fields through form controls, and submit. The page then shows a private build URL where progress is tracked and the ZIP can be downloaded for 7 days. No email address is asked for and none is sent.
 
 A few settings that `userPrefs.jsonc` cannot express, such as `ok_to_mqtt` and
-manual (non-preset) LoRa parameters, are offered as advanced build options
-backed by a small repo-controlled firmware patch. See
+manual (non-preset) LoRa parameters, are offered as advanced build options.
+Firmware 2.8.0 and newer reads those macros itself; older supported tags get a
+small repo-controlled firmware patch. See
 [docs/build-options.md](docs/build-options.md).
 
 The UI is available in Spanish and English.
@@ -70,12 +71,10 @@ docker build -f docker/builder.Dockerfile -t meshtastic-firmware-builder:local .
 MB_BUILDER_MODE=docker docker compose -f compose.yml up --build
 ```
 
-Then open `http://localhost:8080`, submit a build, watch worker logs, and read
-the local email outbox:
+Then open `http://localhost:8080`, submit a build, and watch worker logs:
 
 ```bash
 docker compose -f compose.yml logs -f worker
-docker compose -f compose.yml exec web tail -n 20 /data/mail/outbox.jsonl
 ```
 
 Detailed Compose instructions, including remote Docker via
@@ -88,8 +87,8 @@ Current remote phone-test stack:
 http://docker-host.example:9990
 ```
 
-It is intentionally running in `MB_BUILDER_MODE=fake` for quick UI, queue,
-outbox, and download testing from a phone.
+It is intentionally running in `MB_BUILDER_MODE=fake` for quick UI, queue, and
+download testing from a phone.
 
 ## Firmware Version Handling
 
@@ -108,6 +107,7 @@ The tag sync follows GitHub pagination up to `MB_GITHUB_MAX_TAG_PAGES`. If the n
 - Advanced build options are allowlisted in `data/build_options.json`; the firmware patch is repo-controlled and never user-supplied.
 - Public download paths use cryptographically random tokens, not DB ids.
 - ZIPs expire after `MB_ARTIFACT_TTL_DAYS` days, are blocked at download time after expiry, and are deleted by cleanup.
+- Submitted preference values are shape-checked before they reach the compiler, because the firmware build turns them into `-D` defines.
 - The web process never invokes Docker; only the worker does.
 
 ## Artifact Contents

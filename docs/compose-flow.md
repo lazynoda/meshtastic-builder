@@ -23,15 +23,14 @@ Runtime data in Compose:
 
 - SQLite DB: `/data/meshtastic-builder.sqlite`
 - artifacts: `/data/artifacts`
-- local email outbox: `/data/mail/outbox.jsonl`
 
 The worker mounts `/var/run/docker.sock` so it can create ephemeral firmware
 builder containers. The web service does not need Docker socket access.
 
 ## Fast End-To-End Test With Fake Builds
 
-Use this first when validating the web app, queue, worker, download links, and
-email outbox without compiling Meshtastic firmware.
+Use this first when validating the web app, queue, worker, and download links
+without compiling Meshtastic firmware.
 
 ```bash
 MB_BUILDER_MODE=fake docker compose -f compose.yml up --build
@@ -43,15 +42,16 @@ Open:
 http://localhost:8080
 ```
 
-Submit a build from the UI. The worker should complete it quickly.
+Submit a build from the UI. The page shows a private build URL; keep it open or
+reopen it later. The worker should complete the build quickly.
 
-Read the local email outbox:
+Follow the worker:
 
 ```bash
-docker compose -f compose.yml exec web tail -n 20 /data/mail/outbox.jsonl
+docker compose -f compose.yml logs -f worker
 ```
 
-Open the download URL from the email body and verify that a ZIP downloads.
+Open the download link on the build page and verify that a ZIP downloads.
 
 Stop the stack:
 
@@ -96,8 +96,7 @@ Submit a build with:
 
 - device: `LILYGO T-Beam`
 - PlatformIO env: `tbeam`
-- firmware tag: `v2.7.25.104df5f` if available and supported
-- email: any valid address, for example `user@example.com`
+- firmware tag: `v2.8.0.47db0e3` if available and supported
 - preferences: set the visible form controls; the page generates `userPrefs.jsonc`
 
 The first real build can take several minutes because PlatformIO may download
@@ -109,14 +108,9 @@ Monitor logs:
 docker compose -f compose.yml logs -f worker
 ```
 
-Read the email outbox after the worker reports success:
-
-```bash
-docker compose -f compose.yml exec web tail -n 20 /data/mail/outbox.jsonl
-```
-
-Open the download URL from the email body. A successful real ZIP should include
-firmware binaries plus `BUILD_INFO.txt` and `userPrefs.jsonc`.
+When the worker reports success, open the download link on the build page. A
+successful real ZIP should include firmware binaries plus `BUILD_INFO.txt` and
+`userPrefs.jsonc`.
 
 ## Real Build Test By API
 
@@ -129,11 +123,10 @@ import time
 import urllib.request
 
 base = "http://localhost:8080"
-tag = "v2.7.25.104df5f"
+tag = "v2.8.0.47db0e3"
 
 prefs = urllib.request.urlopen(f"{base}/api/prefs-template?tag={tag}").read().decode()
 payload = {
-    "email": "user@example.com",
     "deviceId": "tbeam",
     "firmwareTag": tag,
     "prefsJsonc": prefs,
@@ -151,6 +144,7 @@ req = urllib.request.Request(
     method="POST",
 )
 created = json.load(urllib.request.urlopen(req))
+print("buildUrl:", created["buildUrl"])
 print("statusUrl:", created["statusUrl"])
 print("downloadUrl:", created["downloadUrl"])
 
@@ -172,8 +166,9 @@ unzip -p <artifact>.zip BUILD_INFO.txt | grep code_options
 unzip -p <artifact>.zip userPrefs.jsonc | grep -E 'USE_PRESET|OK_TO_MQTT|BANDWIDTH'
 ```
 
-The build log should also show `git apply` succeeding and the corresponding
-`-DUSERPREFS_...` flags in the PlatformIO flag dump.
+On firmware below 2.8.0 the build log should show `git apply` succeeding. On
+2.8.0 and newer no patch is shipped at all; only the `-DUSERPREFS_...` flags in
+the PlatformIO flag dump should appear.
 
 ## Remote Docker Daemon
 
@@ -241,12 +236,15 @@ DOCKER_HOST=ssh://docker-host.example docker compose -f compose.yml logs -f web 
 
 The worker should use:
 
-- `MB_DOCKER_TRANSPORT=auto`
+- `MB_DOCKER_TRANSPORT=copy`
 - `MB_DOCKER_NETWORK=bridge`
 
-Inside Compose this means the worker talks to the mounted Docker socket and uses
-bind mounts visible to the daemon. The `copy` transport is still available for a
-worker running outside Docker against a remote `DOCKER_HOST`.
+`copy` is the Compose default, and it is not optional there. The worker reaches
+the host daemon through the mounted socket, so a bind mount of
+`/data/jobs/<token>/input` would be resolved against the *host* filesystem,
+where that path does not exist — the builder would start with an empty input
+directory. `copy` streams the inputs into the container instead. Use `bind` only
+when the worker and the daemon genuinely share a filesystem.
 
 ## Known Good Smoke Test
 
@@ -278,6 +276,12 @@ As of 2026-06-12:
   downloadable ZIP.
 
 ## Troubleshooting
+
+The worker image installs the Docker **client** from Debian's `docker-cli`
+package. On Debian trixie the older `docker.io` package no longer ships
+`/usr/bin/docker`, so a worker built from it fails every real build with
+`[Errno 2] No such file or directory: 'docker'` while looking perfectly healthy
+at startup.
 
 Check Docker reachability from the worker image:
 

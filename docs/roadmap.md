@@ -2,7 +2,7 @@
 
 ## Implemented
 
-- Web form for device, firmware tag, email, and generated `userPrefs.jsonc` preferences.
+- Web form for device, firmware tag, and generated `userPrefs.jsonc` preferences.
 - SQLite-backed request queue.
 - Random public tokens for status/download URLs.
 - GitHub tag sync with pagination.
@@ -11,17 +11,19 @@
 - Admin command to check Docker daemon reachability before real builds.
 - Tag-specific `userPrefs.jsonc` template fetch/cache.
 - Submitted `userPrefs.jsonc` overrides are merged onto the selected tag template.
-- UI controls for common preferences: owner names, LoRa region, allowed role, preset, channels, MQTT, POSIX TZ string, and remote admin key.
+- UI controls for common preferences: owner names, LoRa region, allowed role, preset, TX power, channels (8 from 2.8.0, with per-channel mute), node behaviour and telemetry intervals, MQTT broker plus credentials and root topic, POSIX TZ string, three admin keys, managed mode, and packet signature policy.
+- Firmware-version gating of protobuf enum values in the UI.
 - Worker process.
 - Fake builder mode for fast local testing.
 - Docker builder image for Meshtastic firmware.
 - Real remote-Docker firmware smoke test for `v2.7.25.104df5f`/`tbeam`.
 - ZIP artifact storage.
-- Email via SMTP or local outbox.
+- Private build URL returned at submit time; no email is requested or sent.
 - 7-day artifact expiry.
 - Unit tests for core contracts.
-- Advanced build options (`ok_to_mqtt`, manual LoRa config) through a
-  repo-controlled firmware patch, with a verified `minFirmwareVersion` floor.
+- Advanced build options (`ok_to_mqtt`, manual LoRa config): native on firmware
+  2.8.0 and newer, and through a repo-controlled firmware patch below it.
+- Value hardening so no preference can inject extra compiler flags.
 - Frontend restyled on the shared meshtastic.es design system, with Spanish and
   English UI and shareable `/?build=<token>` links.
 - Reverse-proxy readiness (`MB_TRUST_PROXY`) and a sample Caddyfile.
@@ -32,11 +34,40 @@
    including `git apply --check` of the userPrefs patch per tag.
 2. Generate preference UI controls from a maintained schema.
 3. Add persistent rate limiting.
-4. Configure a real SMTP relay for production.
-5. Add production object storage support.
-6. Add Postgres backend if queue concurrency or deployment scale requires it.
+4. Add production object storage support.
+5. Add Postgres backend if queue concurrency or deployment scale requires it.
 
 ## Latest Local Validation
+
+On 2026-09-12 (firmware 2.8.0 support, email removal):
+
+- **Real Docker build passed on `v2.8.0.47db0e3` / `nrf52_promicro_diy_tcxo`**,
+  Compose stack on `ssh://docker-host.example`, copy transport, network `bridge`.
+  Queued to succeeded in 3 minutes, artifact 2 093 798 bytes, SHA256
+  `5ee8808f854db3231c82a9732719fbc71e28494ff58ac8e162e115ca4d96ab27`, ZIP with
+  `.uf2`, `.elf`, `.hex`, `BUILD_INFO.txt` and `userPrefs.jsonc`. The shipped
+  `userPrefs.jsonc` carried `USERPREFS_CONFIG_LORA_CONFIG_OK_TO_MQTT` (the
+  native name), the manual LoRa macros, TX power, rebroadcast mode and
+  per-channel mute. The patch was provably not applied: it fails `git apply` on
+  2.8.0, so shipping it would have exited 3 before `pio run`.
+- Two deployment bugs found by that first real Compose build and fixed:
+  the worker image needs Debian's `docker-cli` (trixie's `docker.io` ships no
+  client binary), and the Compose worker must use `MB_DOCKER_TRANSPORT=copy`
+  because `auto` picks `bind` against host paths the container does not share.
+- Builder image rebuilt on the remote host (7.95 GB), prewarming `tbeam` and
+  `nrf52_promicro_diy_tcxo`.
+- `python3 -B -m unittest discover -s tests` passed with 68 tests.
+- Verified against the upstream checkout at `v2.8.0.47db0e3`: `NodeDB.cpp`
+  natively reads the LoRa macros and `USERPREFS_CONFIG_LORA_CONFIG_OK_TO_MQTT`,
+  the LoRa keys are still absent from `userPrefs.jsonc`, channels 0–7 are
+  supported, and `git apply --check` of `docker/patches/userprefs-ext.patch`
+  **fails** on both 2.8.0 tags while still passing on `v2.7.26`.
+- Fake-mode browser run with `playwright-cli`: no email field, version-gated
+  controls and enums, 8-channel cap on 2.8.0, private build URL with copy, and
+  a completed build downloadable from that URL.
+- Not yet done: a real Docker build on 2.8.0. It needs a builder image rebuild
+  so the image carries the new `git fetch --tags` entrypoint step and the 2.8.0
+  tags.
 
 On 2026-08-29:
 

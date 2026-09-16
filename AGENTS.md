@@ -11,16 +11,17 @@ End state:
 - A user opens a web page.
 - The user selects a supported Meshtastic device.
 - The user selects a Meshtastic firmware version from `meshtastic/firmware` Git tags.
-- The user edits `userPrefs.jsonc`.
+- The user edits `userPrefs.jsonc` through form controls.
 - The user optionally enables advanced build options that `userPrefs.jsonc`
   cannot express.
-- The user enters an email address and submits a build request.
+- The user submits the build request. No email address is requested.
+- The page shows a private build URL (`/?build=<token>`) and polls it.
 - The request is stored in a simple database.
 - A separate worker claims queued requests one by one.
 - The worker runs each build in an ephemeral Docker container.
 - The container builds Meshtastic firmware with PlatformIO.
 - The worker stores a ZIP artifact.
-- The user receives an email with a private download link.
+- The user downloads it from the same private URL.
 - ZIP download links are random-token based and expire after 7 days.
 
 ## Current Implementation
@@ -30,7 +31,6 @@ The implementation is intentionally dependency-light:
 - Python standard library HTTP server.
 - SQLite database.
 - Vanilla HTML/CSS/JS frontend, no build step, Spanish and English.
-- SMTP or local JSONL outbox.
 - Docker image for the real Meshtastic/PlatformIO build.
 - Fake builder mode for fast local verification without Docker.
 
@@ -43,7 +43,6 @@ Core modules:
 - `meshtastic_builder.firmware`: GitHub tag sync and userPrefs template cache.
 - `meshtastic_builder.worker`: queue loop and build lifecycle.
 - `meshtastic_builder.builder`: fake builder and Docker builder invocation.
-- `meshtastic_builder.mailer`: SMTP/outbox delivery.
 - `meshtastic_builder.cleanup`: artifact expiry and deletion.
 
 Submitted `userPrefs.jsonc` is validated as JSONC, checked against the selected
@@ -51,14 +50,22 @@ tag's template keys, and merged onto that template before storage. This prevents
 partial override payloads from producing firmware builds with missing
 `USERPREFS_*` macros.
 
-Settings that upstream firmware never reads from a `USERPREFS_*` macro
-(`ok_to_mqtt`, manual non-preset LoRa parameters) are exposed as advanced build
-options. They are allowlisted in `data/build_options.json`, expanded into
-server-injected synthetic macros, and enabled by a repo-controlled patch,
-`docker/patches/userprefs-ext.patch`, applied inside the builder container
-before `pio run`. The patch is verified to apply from `v2.6.4` to `v2.7.26`;
-older tags are rejected via `minFirmwareVersion`. Full details in
-`docs/build-options.md`. Users never supply patch content.
+Settings missing from `userPrefs.jsonc` (`ok_to_mqtt`, manual non-preset LoRa
+parameters) are exposed as advanced build options. They are allowlisted in
+`data/build_options.json` and expanded into server-injected synthetic macros.
+
+Firmware `2.8.0` and newer reads those macros natively, so no patch is shipped
+there; the MQTT flag is named `USERPREFS_CONFIG_LORA_CONFIG_OK_TO_MQTT` upstream
+(`nativeMacro` in the allowlist). Below `2.8.0` a repo-controlled patch,
+`docker/patches/userprefs-ext.patch`, is applied inside the builder container
+before `pio run`. That patch applies from `v2.6.4` to `v2.7.26` and **fails on
+`v2.8.0`** — which is why the version switch exists, not an accident. Older tags
+are rejected via `minFirmwareVersion`. Full details in `docs/build-options.md`.
+Users never supply patch content.
+
+Preference *values* are shape-checked in `meshtastic_builder/jsonc.py` because
+`bin/platformio-custom.py` emits `meshtastic_`- and `{`-prefixed values into
+`-D` flags unquoted. Do not relax those regexes.
 
 Current enabled device IDs and PlatformIO environments:
 
@@ -68,6 +75,10 @@ Current enabled device IDs and PlatformIO environments:
 - `tracker-t1000-e` -> `tracker-t1000-e`
 - `heltec-wsl-v3` -> `heltec-wsl-v3`
 - `rak4631` -> `rak4631`
+- `nrf52-promicro-diy` -> `nrf52_promicro_diy_tcxo`
+
+The Pro-micro DIY variant is the TCXO release env. Its `-inkhud` and
+`-easypromicro` siblings are `board_level = extra` and are not exposed.
 
 Full project documentation is in `docs/`.
 
@@ -105,7 +116,7 @@ docker build -f docker/builder.Dockerfile -t meshtastic-firmware-builder:local .
 
 The Dockerfile default prewarms `tbeam` and `heltec-mesh-node-t114` so the
 common ESP32 and T114/nRF52 paths are both warmed in the single builder image.
-Use `--build-arg PREWARM_ENVS="tbeam heltec-v3 heltec-mesh-node-t114 tracker-t1000-e heltec-wsl-v3 rak4631"`
+Use `--build-arg PREWARM_ENVS="tbeam heltec-v3 heltec-mesh-node-t114 tracker-t1000-e heltec-wsl-v3 rak4631 nrf52_promicro_diy_tcxo"`
 when validating a wider production image.
 
 Run the Compose stack in fast fake mode:
@@ -121,24 +132,30 @@ docker build -f docker/builder.Dockerfile -t meshtastic-firmware-builder:local .
 MB_BUILDER_MODE=docker docker compose -f compose.yml up --build
 ```
 
-Then open `http://localhost:8080`, submit a build, follow the worker, and inspect
-the local email outbox:
+Then open `http://localhost:8080`, submit a build, and follow the worker:
 
 ```bash
 docker compose -f compose.yml logs -f worker
-docker compose -f compose.yml exec web tail -n 20 /data/mail/outbox.jsonl
 ```
 
 The complete operational checklist is in `docs/compose-flow.md`.
 
-Current remote Compose handoff state as of 2026-06-12:
+Current remote Compose handoff state as of 2026-09-12:
 
 - Remote Docker daemon: `ssh://docker-host.example`
 - Public test URL for phone/browser: `http://docker-host.example:9990`
-- Stack mode: `MB_BUILDER_MODE=fake`
+- Stack mode: `MB_BUILDER_MODE=docker` (real firmware builds)
 - Published port: `9990 -> web:8080`
 - Services are named `meshtastic-builder-web-1` and `meshtastic-builder-worker-1`
-- The worker has processed a fake build successfully for `heltec-mesh-node-t114`
+- Builder image `meshtastic-firmware-builder:local` rebuilt on that host,
+  7.95 GB, prewarmed for `tbeam` and `nrf52_promicro_diy_tcxo`
+- The worker has completed a real build for `nrf52_promicro_diy_tcxo` at
+  `v2.8.0.47db0e3` in about 3 minutes
+
+The stack is left running in this mode. The tag cache only refreshes when it is
+empty or when the client asks for it, so after redeploying onto an existing
+volume the newest tags appear only after one `?refresh=1` (the page's
+"Actualizar tags" button).
 
 Check the running remote stack:
 
@@ -232,7 +249,6 @@ Default runtime data lives in `var/` and is ignored by Git:
 - Artifacts: `var/artifacts/*.zip`
 - Job workdirs: `var/jobs/<token>/`
 - UserPrefs cache: `var/cache/userprefs/*.jsonc`
-- Local email outbox: `var/mail/outbox.jsonl`
 
 Do not commit runtime data, ZIPs, caches, or generated `__pycache__`.
 
@@ -248,18 +264,17 @@ Existing tests cover:
 
 - JSONC parsing and normalization.
 - Preference key extraction.
-- Email and token validation.
+- Public token validation.
 - GitHub tag pagination.
 - Automatic support policy for latest firmware tags.
 - Submission validation.
 - Worker fake-mode flow.
 - Artifact ZIP creation.
-- Outbox email writing.
 - Artifact expiry and deletion.
 - Docker command construction.
 - Docker daemon diagnostics.
 
-If changing queue semantics, builder behavior, validation, downloads, or email delivery, add or update tests.
+If changing queue semantics, builder behavior, validation, or downloads, add or update tests.
 
 Fake mode is useful but does not prove real Meshtastic builds. A production-ready change must eventually be validated with a real Docker build.
 
@@ -270,8 +285,7 @@ These are the current main unfinished items:
 1. Add automated smoke-test status for firmware tags and devices, including
    `git apply --check` of `docker/patches/userprefs-ext.patch` per tag.
 2. Add persistent rate limiting before public deployment.
-3. Configure and verify real SMTP or Mailpit in compose.
-4. Consider S3/MinIO or another persistent artifact store for production.
+3. Consider S3/MinIO or another persistent artifact store for production.
 
 Deployment to `https://builder.meshtastic.es` is done manually by the user on a
 VPS. Keep the app proxy-ready (`MB_TRUST_PROXY`, `Caddyfile.example`) but do not
@@ -291,6 +305,19 @@ The selected firmware tag must be resolved to and stored with a commit SHA. The 
 
 Historical tags may require different dependencies or may not build with the current Docker image. Do not assume every tag is supported.
 
+## Compose Deployment Notes
+
+Two things are easy to get wrong when the worker runs inside Compose:
+
+- The worker image needs Debian's `docker-cli` package. `docker.io` on trixie
+  ships only the daemon, so the worker starts fine and then fails every build
+  with `[Errno 2] No such file or directory: 'docker'`.
+- The worker must use `MB_DOCKER_TRANSPORT=copy`, which `compose.yml` now pins.
+  `auto` resolves to `bind` because `DOCKER_HOST` is unset inside the container,
+  but the daemon resolves `/data/jobs/<token>/input` against the host
+  filesystem, where it does not exist, and the builder would start with an empty
+  input directory.
+
 ## Security Constraints
 
 Keep these invariants:
@@ -304,7 +331,8 @@ Keep these invariants:
   `prefsJsonc` cannot set them.
 - A failed `git apply` must fail the build before `pio run`, never continue.
 - Public URLs must use cryptographically random tokens, not DB IDs.
-- Public status endpoints must not expose email addresses or full `userPrefs.jsonc`.
+- Public status endpoints must not expose the full `userPrefs.jsonc`.
+- Preference values must stay shape-checked; they reach the compiler as `-D` flags.
 - Downloads must fail after expiry.
 - Docker input mount should remain read-only.
 - Builder containers should keep CPU, memory, PID, and network limits unless there is a documented reason to change them.

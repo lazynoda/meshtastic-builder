@@ -24,12 +24,20 @@ Response:
 ## `GET /api/build-options`
 
 Returns the advanced build option allowlist from `data/build_options.json`. The
-frontend uses it to render controls and to hide the advanced panel on firmware
-versions below `minFirmwareVersion`. See [Advanced Build Options](build-options.md).
+frontend uses it to render controls and to gate behaviour by firmware version:
+
+- `minFirmwareVersion`: below this, the advanced panel is hidden and
+  `codeOptions` submissions are rejected.
+- `nativeSinceFirmwareVersion`: from this version the firmware reads the macros
+  itself, so no source patch is shipped and `okToMqtt` uses `nativeMacro`.
+- `eightChannelsSinceFirmwareVersion`: from this version 8 channels are
+  accepted instead of 3.
+
+See [Advanced Build Options](build-options.md).
 
 ## `GET /api/firmware-versions`
 
-Returns supported cached firmware versions. If the cache is empty, the server attempts to fetch tags from GitHub.
+Returns supported cached firmware versions, newest first. If the cache is empty, the server attempts to fetch tags from GitHub.
 
 Optional query:
 
@@ -67,7 +75,6 @@ Request:
 
 ```json
 {
-  "email": "user@example.com",
   "deviceId": "tbeam",
   "firmwareTag": "v2.x.y",
   "prefsJsonc": "{\"USERPREFS_CONFIG_OWNER_SHORT_NAME\":\"ABC\"}",
@@ -90,13 +97,20 @@ is rejected for firmware older than `minFirmwareVersion`. See
 
 Validation:
 
-- `email` must look like a valid email address.
 - `deviceId` must be enabled in `data/devices.json`.
 - `firmwareTag` must exist in `firmware_versions` and be supported.
 - `prefsJsonc` must parse as JSONC.
 - Preference keys must start with `USERPREFS_`.
 - Preference keys must exist in the selected tag's `userPrefs.jsonc` template when keys can be extracted.
 - Values must be scalar.
+- Values are shape-checked so they cannot inject extra compiler flags: values
+  starting with `meshtastic_` must be plain identifiers, values starting with
+  `{` must be byte arrays, other strings may not contain quotes, backslashes,
+  `$`, backticks or control characters.
+- Enum, range and byte-length rules apply per key (roles, regions, presets,
+  rebroadcast mode, signature policy, TX power, intervals, MQTT fields).
+- `USERPREFS_CHANNEL_<n>_*` keys are accepted for `n` below the channel cap
+  even when the tag template does not list them.
 - `codeOptions` keys and values must match `data/build_options.json`.
 
 Synthetic macros generated from `codeOptions` are merged last, so they cannot be
@@ -128,14 +142,18 @@ Response:
     "artifactSizeBytes": null,
     "error": null
   },
+  "buildUrl": "http://localhost:8080/?build=private-random-token",
   "statusUrl": "http://localhost:8080/api/builds/private-random-token",
   "downloadUrl": "http://localhost:8080/download/private-random-token"
 }
 ```
 
+`buildUrl` is the page the user is given. No notification is sent, so this URL
+is the only way back to the build.
+
 ## `GET /api/builds/<token>`
 
-Returns public build status. It never returns the submitter email or full `userPrefs.jsonc`.
+Returns public build status. It never returns the full `userPrefs.jsonc`.
 
 ## `GET /download/<token>`
 

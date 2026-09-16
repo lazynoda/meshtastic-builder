@@ -10,12 +10,11 @@ from meshtastic_builder.db import (
     initialize_database,
     upsert_firmware_versions,
 )
-from meshtastic_builder.mailer import outbox_path
 from meshtastic_builder.worker import process_one
 
 
 class FakeWorkerFlowTests(unittest.TestCase):
-    def test_worker_processes_build_and_writes_outbox(self):
+    def test_worker_processes_build_to_success(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
             config = replace(
@@ -25,7 +24,6 @@ class FakeWorkerFlowTests(unittest.TestCase):
                 artifact_dir=tmp_path / "artifacts",
                 job_dir=tmp_path / "jobs",
                 cache_dir=tmp_path / "cache",
-                mail_dir=tmp_path / "mail",
                 builder_mode="fake",
                 base_url="http://example.test",
             )
@@ -43,7 +41,6 @@ class FakeWorkerFlowTests(unittest.TestCase):
             )
             build = create_build_request(
                 config,
-                email="user@example.com",
                 device_id="tbeam",
                 platformio_env="tbeam",
                 firmware_tag="v-test",
@@ -56,7 +53,6 @@ class FakeWorkerFlowTests(unittest.TestCase):
             self.assertIsNotNone(updated)
             self.assertEqual(updated["status"], "succeeded")
             self.assertTrue(Path(updated["artifact_path"]).exists())
-            self.assertTrue(outbox_path(config).exists())
 
 
 if __name__ == "__main__":

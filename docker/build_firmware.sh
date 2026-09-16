@@ -34,6 +34,8 @@ case "${PIO_ENV}" in
 esac
 
 cd "${WORK_DIR}"
+# The image clones upstream at build time; fetch so tags newer than the image still resolve.
+git fetch --tags --force origin || true
 git checkout --force "${FIRMWARE_SHA}" || git checkout --force "${FIRMWARE_TAG}"
 git submodule update --init --recursive
 

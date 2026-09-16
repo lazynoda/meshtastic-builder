@@ -1,8 +1,11 @@
 {
   "minFirmwareVersion": "2.6.4",
+  "nativeSinceFirmwareVersion": "2.8.0",
+  "eightChannelsSinceFirmwareVersion": "2.8.0",
   "patchFile": "docker/patches/userprefs-ext.patch",
   "okToMqtt": {
     "macro": "USERPREFS_CONFIG_LORA_OK_TO_MQTT",
+    "nativeMacro": "USERPREFS_CONFIG_LORA_CONFIG_OK_TO_MQTT",
     "default": true
   },
   "customLora": {

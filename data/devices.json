@@ -40,5 +40,12 @@
     "platformio_env": "rak4631",
     "family": "nrf52",
     "enabled": true
+  },
+  {
+    "id": "nrf52-promicro-diy",
+    "label": "NRF52 Pro-micro DIY",
+    "platformio_env": "nrf52_promicro_diy_tcxo",
+    "family": "nrf52",
+    "enabled": true
   }
 ]

@@ -13,7 +13,13 @@ from meshtastic_builder.builder import (
     run_build,
     run_fake_build,
 )
-from meshtastic_builder.code_options import parse_version, validate_code_options
+from meshtastic_builder.code_options import (
+    code_options_need_patch,
+    load_build_options,
+    max_channels,
+    parse_version,
+    validate_code_options,
+)
 from meshtastic_builder.config import load_config
 from meshtastic_builder.db import initialize_database, public_build_view, upsert_firmware_versions
 from meshtastic_builder.firmware import userprefs_cache_path
@@ -24,6 +30,7 @@ from meshtastic_builder.submissions import create_build_submission
 ROOT_DIR = Path(__file__).resolve().parent.parent
 SUPPORTED_TAG = "v2.7.25.104df5f"
 OLD_TAG = "v2.2.21.7f7c5cb"
+NATIVE_TAG = "v2.8.0.47db0e3"
 
 
 def temp_config(tmp_path: Path):
@@ -34,7 +41,6 @@ def temp_config(tmp_path: Path):
         artifact_dir=tmp_path / "artifacts",
         job_dir=tmp_path / "jobs",
         cache_dir=tmp_path / "cache",
-        mail_dir=tmp_path / "mail",
         base_url="http://example.test",
     )
 
@@ -57,6 +63,23 @@ class CodeOptionValidationTests(unittest.TestCase):
         self.assertEqual(parse_version("v2.7.25.104df5f"), (2, 7, 25))
         self.assertEqual(parse_version("2.6.4"), (2, 6, 4))
         self.assertIsNone(parse_version("v-test"))
+
+    def test_patch_is_needed_below_the_native_version_only(self):
+        options = load_build_options(ROOT_DIR)
+        self.assertTrue(code_options_need_patch(options, SUPPORTED_TAG))
+        self.assertFalse(code_options_need_patch(options, NATIVE_TAG))
+
+    def test_ok_to_mqtt_macro_switches_to_the_upstream_name_on_native_firmware(self):
+        _canonical, patched = validate_code_options(ROOT_DIR, {"okToMqtt": True}, SUPPORTED_TAG)
+        _canonical, native = validate_code_options(ROOT_DIR, {"okToMqtt": True}, NATIVE_TAG)
+        self.assertIn("USERPREFS_CONFIG_LORA_OK_TO_MQTT", patched)
+        self.assertIn("USERPREFS_CONFIG_LORA_CONFIG_OK_TO_MQTT", native)
+        self.assertNotIn("USERPREFS_CONFIG_LORA_OK_TO_MQTT", native)
+
+    def test_channel_cap_widens_on_native_firmware(self):
+        options = load_build_options(ROOT_DIR)
+        self.assertEqual(max_channels(options, SUPPORTED_TAG), 3)
+        self.assertEqual(max_channels(options, NATIVE_TAG), 8)
 
     def test_no_options_returns_nothing(self):
         self.assertEqual(validate_code_options(ROOT_DIR, None, SUPPORTED_TAG), (None, {}))
@@ -113,7 +136,6 @@ class CodeOptionSubmissionTests(unittest.TestCase):
             result = create_build_submission(
                 config,
                 {
-                    "email": "user@example.com",
                     "deviceId": "tbeam",
                     "firmwareTag": SUPPORTED_TAG,
                     "prefsJsonc": '{"USERPREFS_CONFIG_OWNER_SHORT_NAME": "TST"}',
@@ -141,7 +163,6 @@ class CodeOptionSubmissionTests(unittest.TestCase):
             result = create_build_submission(
                 config,
                 {
-                    "email": "user@example.com",
                     "deviceId": "tbeam",
                     "firmwareTag": SUPPORTED_TAG,
                     "prefsJsonc": "{}",
@@ -162,7 +183,6 @@ class CodeOptionSubmissionTests(unittest.TestCase):
                 create_build_submission(
                     config,
                     {
-                        "email": "user@example.com",
                         "deviceId": "tbeam",
                         "firmwareTag": SUPPORTED_TAG,
                         "prefsJsonc": '{"USERPREFS_CONFIG_LORA_OK_TO_MQTT": "true"}',
@@ -171,18 +191,18 @@ class CodeOptionSubmissionTests(unittest.TestCase):
 
 
 class CodeOptionBuilderTests(unittest.TestCase):
-    def build_row(self, code_options=None):
+    def build_row(self, code_options=None, firmware_tag=SUPPORTED_TAG):
         return {
             "public_token": "token-123",
             "device_id": "tbeam",
             "platformio_env": "tbeam",
-            "firmware_tag": SUPPORTED_TAG,
+            "firmware_tag": firmware_tag,
             "firmware_sha": "abc123",
             "prefs_jsonc": '{"USERPREFS_ALLOWED": "true"}\n',
             "code_options": code_options,
         }
 
-    def run_and_capture_inputs(self, code_options):
+    def run_and_capture_inputs(self, code_options, firmware_tag=SUPPORTED_TAG):
         """Run a fake build and return (input dir listing, BUILD_INFO.txt contents)."""
         seen: list[str] = []
         real_fake_build = run_fake_build
@@ -194,13 +214,18 @@ class CodeOptionBuilderTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             config = replace(temp_config(Path(tmp)), builder_mode="fake")
             with patch("meshtastic_builder.builder.run_fake_build", side_effect=spy):
-                artifact = run_build(config, self.build_row(code_options))
+                artifact = run_build(config, self.build_row(code_options, firmware_tag))
             with zipfile.ZipFile(artifact.path) as zf:
                 return seen, zf.read("BUILD_INFO.txt").decode("utf-8")
 
     def test_patch_is_shipped_and_recorded_when_options_present(self):
         inputs, info = self.run_and_capture_inputs('{"okToMqtt": true}')
         self.assertIn("userprefs-ext.patch", inputs)
+        self.assertIn('code_options={"okToMqtt": true}', info)
+
+    def test_no_patch_shipped_when_firmware_reads_the_macros_natively(self):
+        inputs, info = self.run_and_capture_inputs('{"okToMqtt": true}', NATIVE_TAG)
+        self.assertNotIn("userprefs-ext.patch", inputs)
         self.assertIn('code_options={"okToMqtt": true}', info)
 
     def test_no_patch_shipped_without_code_options(self):
@@ -257,6 +282,7 @@ class CodeOptionMigrationTests(unittest.TestCase):
             columns = {row[1] for row in conn.execute("PRAGMA table_info(build_requests)")}
             conn.close()
             self.assertIn("code_options", columns)
+            self.assertNotIn("email", columns)
 
     def test_public_view_tolerates_rows_without_code_options(self):
         row = {

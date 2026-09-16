@@ -15,7 +15,6 @@ from .db import (
     mark_build_success,
     reset_stale_running,
 )
-from .mailer import send_build_failure, send_build_success
 
 
 def process_one(config: Config, worker_id: str) -> bool:
@@ -28,7 +27,7 @@ def process_one(config: Config, worker_id: str) -> bool:
     print(f"Claimed build {token} for {build['platformio_env']} at {build['firmware_tag']}")
     try:
         artifact = run_build(config, build)
-        updated = mark_build_success(
+        mark_build_success(
             config,
             int(build["id"]),
             artifact_path=artifact.path,
@@ -36,19 +35,11 @@ def process_one(config: Config, worker_id: str) -> bool:
             artifact_size_bytes=artifact.size_bytes,
             build_log=artifact.log,
         )
-        try:
-            send_build_success(config, updated)
-        except Exception as exc:  # noqa: BLE001
-            print(f"Build succeeded but success email failed: {exc}")
         print(f"Build {token} succeeded: {artifact.path}")
         return True
     except Exception as exc:  # noqa: BLE001
         log = traceback.format_exc()
-        updated = mark_build_failure(config, int(build["id"]), error_message=str(exc), build_log=log)
-        try:
-            send_build_failure(config, updated)
-        except Exception as mail_exc:  # noqa: BLE001
-            print(f"Build failed and failure email failed: {mail_exc}")
+        mark_build_failure(config, int(build["id"]), error_message=str(exc), build_log=log)
         print(f"Build {token} failed: {exc}")
         return True
 

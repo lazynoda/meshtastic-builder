@@ -16,7 +16,7 @@ docker compose -f compose.yml up --build
 ```
 
 For a step-by-step Compose smoke test, including fake mode, real firmware
-builds, outbox checks, and remote Docker, see [Docker Compose Flow](compose-flow.md).
+builds and remote Docker, see [Docker Compose Flow](compose-flow.md).
 
 ## Logs
 
@@ -31,16 +31,6 @@ Worker logs include:
 - success/failure state.
 
 Build logs are truncated and stored in `build_requests.build_log`.
-
-## Email
-
-If `MB_SMTP_HOST` is unset, emails are written to:
-
-```text
-var/mail/outbox.jsonl
-```
-
-Each line is a JSON object with `created_at`, `to`, `subject`, and `body`.
 
 ## Cleanup
 
@@ -100,8 +90,9 @@ If this command times out or fails, do not start a firmware build. Fix the Docke
 Back up:
 
 - SQLite database,
-- mail outbox if SMTP is disabled,
 - `.env` and the reverse proxy config.
+
+The database is the only record of a build: its token is what the user holds.
 
 Artifacts are not worth backing up: they expire after `MB_ARTIFACT_TTL_DAYS` and
 are reproducible from `firmware_sha` plus the stored `prefs_jsonc`.
@@ -157,7 +148,6 @@ workers want about 8 cores. No code change is required.
 ## Production Notes
 
 - Set `MB_BASE_URL` to the public HTTPS origin.
-- Configure SMTP, or accept that emails only land in `outbox.jsonl`.
 - Build and pin a known-good builder image.
 - Decide which firmware tags are supported.
 - Re-verify `docker/patches/userprefs-ext.patch` when widening the supported tag

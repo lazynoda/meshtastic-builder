@@ -6,7 +6,7 @@ Configuration is read from environment variables.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `MB_BASE_URL` | `http://localhost:8080` | Public base URL used in email links. |
+| `MB_BASE_URL` | `http://localhost:8080` | Public base URL used in the build/status/download links returned at submit time. |
 | `MB_HOST` | `127.0.0.1` | HTTP bind host. |
 | `MB_PORT` | `8080` | HTTP bind port. |
 | `MB_TRUST_PROXY` | `0` | Trust the first `X-Forwarded-For` hop for rate limiting. Enable only when the app is reachable exclusively through a reverse proxy, otherwise clients can spoof the header. |
@@ -15,7 +15,6 @@ Configuration is read from environment variables.
 | `MB_ARTIFACT_DIR` | `./var/artifacts` | ZIP artifact directory. |
 | `MB_JOB_DIR` | `./var/jobs` | Temporary per-build job directory. |
 | `MB_CACHE_DIR` | `./var/cache` | Cache directory for firmware metadata/templates. |
-| `MB_MAIL_DIR` | `./var/mail` | Local outbox directory when SMTP is disabled. |
 
 ## Firmware Metadata
 
@@ -68,6 +67,7 @@ Current enabled IDs and PlatformIO environments:
 | `tracker-t1000-e` | Seeed SenseCAP T1000-E | `tracker-t1000-e` | `nrf52` |
 | `heltec-wsl-v3` | Heltec Wireless Stick Lite V3 | `heltec-wsl-v3` | `esp32-s3` |
 | `rak4631` | RAK4631 WisBlock | `rak4631` | `nrf52` |
+| `nrf52-promicro-diy` | NRF52 Pro-micro DIY | `nrf52_promicro_diy_tcxo` | `nrf52` |
 
 Validate the allowlist against a Meshtastic firmware checkout after changing it:
 
@@ -75,13 +75,8 @@ Validate the allowlist against a Meshtastic firmware checkout after changing it:
 python3 -m meshtastic_builder validate-devices /path/to/meshtastic/firmware
 ```
 
-## SMTP
+## Notifications
 
-| Variable | Default | Description |
-| --- | --- | --- |
-| `MB_SMTP_HOST` | empty | If empty, emails are written to `outbox.jsonl`. |
-| `MB_SMTP_PORT` | `587` | SMTP port. |
-| `MB_SMTP_USERNAME` | empty | Optional SMTP username. |
-| `MB_SMTP_PASSWORD` | empty | Optional SMTP password. |
-| `MB_SMTP_FROM` | `Meshtastic Builder <no-reply@example.local>` | Sender address. |
-| `MB_SMTP_TLS` | `1` | Enable STARTTLS. |
+There are none. The service never asks for an email address and never sends one.
+A submitted build is addressable only through the private URL returned by
+`POST /api/builds`.

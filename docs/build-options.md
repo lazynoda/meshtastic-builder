@@ -1,21 +1,27 @@
 # Advanced Build Options
 
 Most customization goes through `userPrefs.jsonc` (see
-[userPrefs Support](userprefs-support.md)). A few useful settings have no
-`USERPREFS_*` key at all because upstream `installDefaultConfig()` never reads
-one. Those are exposed as **advanced build options** and require patching the
-firmware source before compiling.
+[userPrefs Support](userprefs-support.md)). A few useful settings are missing
+from `userPrefs.jsonc` entirely. Those are exposed as **advanced build
+options**.
+
+Firmware **2.8.0 and newer reads these macros natively** — the keys are simply
+absent from the shipped `userPrefs.jsonc`, so the server injects them and
+nothing else is needed. Older supported tags additionally need a small
+repo-controlled patch, because their `installDefaultConfig()` never reads the
+macros.
 
 ## How It Works
 
 Upstream `bin/platformio-custom.py` turns *every* key in `userPrefs.jsonc` into
-a `-D` compiler define. The missing half is the firmware reading them. A single
-repo-controlled patch, `docker/patches/userprefs-ext.patch`, adds the missing
-`#ifdef` blocks to `src/mesh/NodeDB.cpp`:
+a `-D` compiler define. Below 2.8.0 the missing half is the firmware reading
+them, so a single repo-controlled patch,
+`docker/patches/userprefs-ext.patch`, adds the missing `#ifdef` blocks to
+`src/mesh/NodeDB.cpp`:
 
 | Macro | Firmware field |
 | --- | --- |
-| `USERPREFS_CONFIG_LORA_OK_TO_MQTT` | `config.lora.config_ok_to_mqtt` |
+| `USERPREFS_CONFIG_LORA_OK_TO_MQTT` | `config.lora.config_ok_to_mqtt` (upstream 2.8.0 calls it `USERPREFS_CONFIG_LORA_CONFIG_OK_TO_MQTT`) |
 | `USERPREFS_LORACONFIG_USE_PRESET` | `config.lora.use_preset` |
 | `USERPREFS_LORACONFIG_BANDWIDTH` | `config.lora.bandwidth` |
 | `USERPREFS_LORACONFIG_SPREAD_FACTOR` | `config.lora.spread_factor` |
@@ -24,6 +30,11 @@ repo-controlled patch, `docker/patches/userprefs-ext.patch`, adds the missing
 The block is inserted after the existing `USERPREFS_LORACONFIG_MODEM_PRESET`
 handling, so it overrides the unconditional `config_ok_to_mqtt = false` set
 earlier in the same function.
+
+On 2.8.0 the same reads exist upstream, with one naming difference: the MQTT
+flag is `USERPREFS_CONFIG_LORA_CONFIG_OK_TO_MQTT`. `data/build_options.json`
+carries both names (`macro` and `nativeMacro`) and the server picks by version.
+The LoRa macro names are identical, so only the MQTT flag switches.
 
 Values then travel through the normal pipeline: the server injects them as
 synthetic keys into the merged `userPrefs.jsonc`, which means they are covered
@@ -39,7 +50,7 @@ Macro values are always emitted as **strings** (`"true"`, `"250"`) because
 3. Valid options are stored in `build_requests.code_options` and expanded into
    synthetic `USERPREFS_*` keys merged onto the tag template.
 4. The worker copies the patch into the job input directory only when the build
-   has code options.
+   has code options **and** the tag is below `nativeSinceFirmwareVersion`.
 5. `docker/build_firmware.sh` applies the patch after checkout and **before**
    `pio run`. If `git apply` fails, the build stops with exit code 3 and prints
    `CODE_OPTIONS_PATCH_FAILED`, which the worker turns into a readable error.
@@ -68,14 +79,18 @@ leave the region band plan while a raw frequency can.
 
 ## Version Support
 
-`data/build_options.json` carries `minFirmwareVersion`. Submissions that request
-code options for an older tag are rejected with a 400 before anything is queued,
-and the frontend hides the panel for those versions.
+`data/build_options.json` carries three version fences:
 
-The current floor is **2.6.4**: the patch was verified to apply cleanly on every
-tag from `v2.6.4` to `v2.7.26` and to fail on `v2.2.x` and older. If a future tag
-moves the surrounding code, `git apply` fails loudly and the patch needs a
-refresh.
+| Key | Meaning |
+| --- | --- |
+| `minFirmwareVersion` (`2.6.4`) | Below this the options are rejected with a 400 and the panel is hidden. |
+| `nativeSinceFirmwareVersion` (`2.8.0`) | From this version the firmware reads the macros itself; no patch is shipped. |
+| `eightChannelsSinceFirmwareVersion` (`2.8.0`) | From this version 8 channels are accepted instead of 3. |
+
+The patch applies cleanly from `v2.6.4` to `v2.7.26`, fails on `v2.2.x` and
+older, and **also fails on `v2.8.0`** because upstream rewrote the surrounding
+block — which is exactly why it is not shipped there. Never widen the patch
+range past 2.8.0 without re-checking; a failed `git apply` stops the build.
 
 Re-check applicability across the supported tag range like this:
 
@@ -91,7 +106,9 @@ done
 
 ## Adding A New Option
 
-1. Extend `docker/patches/userprefs-ext.patch` with another `#ifdef` block.
+1. Check whether current firmware already reads the macro. If it does, only
+   `nativeMacro` handling is needed; otherwise extend
+   `docker/patches/userprefs-ext.patch` with another `#ifdef` block.
 2. Re-verify the patch across the supported tag range and update
    `minFirmwareVersion` if the floor moves.
 3. Add the option to `data/build_options.json`.

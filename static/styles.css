@@ -166,7 +166,14 @@ h3 {
   flex-wrap: wrap;
 }
 
-.panel h2 .step {
+/* Step numbers come from a counter so panels can be added or reordered freely. */
+#buildForm {
+  counter-reset: step;
+}
+
+#buildForm .panel h2::before {
+  counter-increment: step;
+  content: counter(step);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -177,6 +184,19 @@ h3 {
   color: var(--accent);
   font-size: 11px;
   flex-shrink: 0;
+}
+
+#buildForm .panel[hidden] {
+  display: none;
+}
+
+.sub-head {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 18px 0 10px;
 }
 
 .panel-experimental {
@@ -291,7 +311,7 @@ label {
 }
 
 input[type="text"],
-input[type="email"],
+input[type="password"],
 input[type="number"],
 select,
 textarea {
@@ -452,7 +472,11 @@ input[type="checkbox"] {
 
 .submit-row {
   margin-top: 16px;
-  align-items: end;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .submit-cell {
@@ -506,10 +530,24 @@ input[type="checkbox"] {
   color: var(--muted);
 }
 
-#shareLink {
-  color: var(--accent2);
-  font-size: 0.78rem;
+.result-url {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.result-url a {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--accent);
   word-break: break-all;
+  flex: 1 1 auto;
 }
 
 @media (max-width: 720px) {

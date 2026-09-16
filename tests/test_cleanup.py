@@ -27,7 +27,6 @@ class CleanupTests(unittest.TestCase):
                 artifact_dir=tmp_path / "artifacts",
                 job_dir=tmp_path / "jobs",
                 cache_dir=tmp_path / "cache",
-                mail_dir=tmp_path / "mail",
             )
             initialize_database(config)
             artifact = config.artifact_dir / "artifact.zip"
@@ -35,7 +34,6 @@ class CleanupTests(unittest.TestCase):
             artifact.write_bytes(b"zip")
             build = create_build_request(
                 config,
-                email="user@example.com",
                 device_id="tbeam",
                 platformio_env="tbeam",
                 firmware_tag="v-test",

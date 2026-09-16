@@ -8,6 +8,7 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from .code_options import code_options_need_patch, load_build_options
 from .config import Config
 from .db import iso_now
 
@@ -65,7 +66,9 @@ def run_build(config: Config, build: dict[str, object]) -> BuildArtifact:
     output_dir.mkdir(parents=True, exist_ok=True)
     (input_dir / "userPrefs.jsonc").write_text(str(build["prefs_jsonc"]), encoding="utf-8")
     (input_dir / "BUILD_INFO.txt").write_text(build_info(build), encoding="utf-8")
-    if build.get("code_options"):
+    if build.get("code_options") and code_options_need_patch(
+        load_build_options(config.root_dir), str(build["firmware_tag"])
+    ):
         patch = config.root_dir / PATCH_RELATIVE_PATH
         if not patch.is_file():
             raise RuntimeError(f"Falta el parche de opciones avanzadas en {patch}.")
