@@ -19,6 +19,10 @@ docker build \
   -t meshtastic-firmware-builder:local .
 ```
 
+PlatformIO is pinned to 6.1.19 (`--build-arg PLATFORMIO_VERSION`). 6.2.0 breaks
+ESP32-S3 builds through a tool-scons version fight with pioarduino; see
+`docs/worker-and-builder.md`.
+
 Runtime builds check out the requested SHA/tag directly inside the container's
 ephemeral `/opt/firmware`, avoiding a full checkout copy per request and keeping
 prewarmed PlatformIO artifacts reusable when compatible.

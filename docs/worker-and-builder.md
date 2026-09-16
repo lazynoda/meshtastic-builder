@@ -97,6 +97,7 @@ The remote Docker path has been validated with `DOCKER_HOST=ssh://docker-host.ex
 - clones `meshtastic/firmware` with tags and submodules,
 - checks out `MESHTASTIC_REF` (`latest` = newest release tag at image build time),
 - prewarms PlatformIO dependencies for `PREWARM_ENVS` against that ref,
+- installs PlatformIO pinned to `PLATFORMIO_VERSION` (6.1.19),
 - disables PlatformIO telemetry and upgrade checks,
 - installs `docker/build_firmware.sh` as the entrypoint.
 
@@ -119,6 +120,15 @@ works for the tags it already has. Each Docker build runs in its own ephemeral c
 filesystem, so this does not mutate shared service state, avoids copying the
 firmware checkout per request, and lets PlatformIO reuse warmed `.pio` artifacts
 from the single builder image when they are still valid.
+
+PlatformIO stays pinned to 6.1.19 on purpose. Core 6.2.0 requires tool-scons
+4.11 while pioarduino platform-espressif32 pins 4.8.1 and replaces the package
+under the running SCons, so every ESP32-S3 hybrid build fails with
+`No module named 'SCons.Tool.FortranCommon'`
+([platform-espressif32#529](https://github.com/pioarduino/platform-espressif32/issues/529)).
+Even on 6.1.19 the first run after a platform change can fail during that swap,
+so both prewarm and the runtime entrypoint retry `pio run` once. Bump the pin
+only after a real `heltec-v4` build passes.
 
 Entrypoint contract:
 
