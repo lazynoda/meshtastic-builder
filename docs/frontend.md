@@ -74,16 +74,31 @@ Two independent mechanisms keep the form honest across firmware versions:
 The channel cap (3, or 8 from `eightChannelsSinceFirmwareVersion`) comes from
 `/api/build-options` as well.
 
-## Advanced Options Panel
+## Form Groups
 
-The advanced panel is visually separated: warn-tinted border and an
-`EXPERIMENTAL / SOURCE PATCH` badge. From `nativeSinceFirmwareVersion` the
-firmware reads those macros itself, so the badge and warning are replaced by a
-neutral "native" note and the panel loses its experimental styling. It is populated from
-`GET /api/build-options`, so value ranges live in `data/build_options.json` and
-are never duplicated in JavaScript. The panel hides itself when the selected
-firmware tag is below `minFirmwareVersion`, and enabling manual LoRa
-configuration disables the modem preset selector with an inline explanation.
+The form is split into the settings most users touch and everything else:
+
+1. Device and firmware.
+2. Node: long/short name and timezone.
+3. LoRa radio: region, modem preset, TX power, manual LoRa parameters.
+4. Device: role, rebroadcast mode, node info and device telemetry intervals.
+5. `<details class="advanced-section">`, collapsed by default: Channels, MQTT,
+   Security, Environment sensors. Panels inside it are not numbered steps.
+6. Review and submit.
+
+Panels marked `data-gated` hide themselves when every `[data-pref-key]` control
+inside them is absent from the selected tag's template.
+
+## Code Options
+
+Manual LoRa parameters (LoRa panel) and `ok_to_mqtt` (MQTT panel) are code
+options, not userPrefs keys. Their controls carry `.code-option` and hide when
+the selected tag is below `minFirmwareVersion`; a `SOURCE PATCH` badge and
+warning (`.patch-only`) show below `nativeSinceFirmwareVersion`, where the
+builder applies `docker/patches/userprefs-ext.patch`. Value ranges come from
+`GET /api/build-options`, so they live in `data/build_options.json` and are
+never duplicated in JavaScript. Enabling manual LoRa configuration disables the
+modem preset selector with an inline explanation.
 
 See [Advanced Build Options](build-options.md) for the backend half.
 

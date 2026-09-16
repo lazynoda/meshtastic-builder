@@ -9,6 +9,8 @@ class DeviceTests(unittest.TestCase):
         by_id = {device.id: device for device in enabled_devices(Path.cwd())}
 
         expected = {
+            "heltec-v4": ("Heltec LoRa 32 V4", "heltec-v4", "esp32-s3"),
+            "nrf52-promicro-diy": ("NRF52 Pro-micro DIY", "nrf52_promicro_diy_tcxo", "nrf52"),
             "heltec-mesh-node-t114": ("Heltec Mesh Node T114", "heltec-mesh-node-t114", "nrf52"),
             "tracker-t1000-e": ("Seeed SenseCAP T1000-E", "tracker-t1000-e", "nrf52"),
             "heltec-wsl-v3": ("Heltec Wireless Stick Lite V3", "heltec-wsl-v3", "esp32-s3"),

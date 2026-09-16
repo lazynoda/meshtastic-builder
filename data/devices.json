@@ -14,6 +14,13 @@
     "enabled": true
   },
   {
+    "id": "heltec-v4",
+    "label": "Heltec LoRa 32 V4",
+    "platformio_env": "heltec-v4",
+    "family": "esp32-s3",
+    "enabled": true
+  },
+  {
     "id": "heltec-mesh-node-t114",
     "label": "Heltec Mesh Node T114",
     "platformio_env": "heltec-mesh-node-t114",

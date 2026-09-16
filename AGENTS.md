@@ -71,6 +71,7 @@ Current enabled device IDs and PlatformIO environments:
 
 - `tbeam` -> `tbeam`
 - `heltec-v3` -> `heltec-v3`
+- `heltec-v4` -> `heltec-v4`
 - `heltec-mesh-node-t114` -> `heltec-mesh-node-t114`
 - `tracker-t1000-e` -> `tracker-t1000-e`
 - `heltec-wsl-v3` -> `heltec-wsl-v3`
@@ -114,9 +115,13 @@ Build the real firmware builder image:
 docker build -f docker/builder.Dockerfile -t meshtastic-firmware-builder:local .
 ```
 
-The Dockerfile default prewarms `tbeam` and `heltec-mesh-node-t114` so the
-common ESP32 and T114/nRF52 paths are both warmed in the single builder image.
-Use `--build-arg PREWARM_ENVS="tbeam heltec-v3 heltec-mesh-node-t114 tracker-t1000-e heltec-wsl-v3 rak4631 nrf52_promicro_diy_tcxo"`
+The Dockerfile checks out the newest release tag (`MESHTASTIC_REF=latest`) and
+prewarms `heltec-v4` and `nrf52_promicro_diy_tcxo`, the two most requested
+devices, so ESP32-S3 and nRF52 toolchains are both cached. The entrypoint only
+runs `git fetch` when the requested SHA is missing from the image, and
+PlatformIO telemetry and upgrade checks are disabled, so builds of prewarmed
+tags need no Internet access.
+Use `--build-arg PREWARM_ENVS="tbeam heltec-v3 heltec-v4 heltec-mesh-node-t114 tracker-t1000-e heltec-wsl-v3 rak4631 nrf52_promicro_diy_tcxo"`
 when validating a wider production image.
 
 Run the Compose stack in fast fake mode:

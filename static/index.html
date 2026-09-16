@@ -69,47 +69,23 @@
                   <span id="shortNameBytes" class="byte-counter">4/4 bytes</span>
                 </span>
               </label>
-            </div>
-          </section>
-
-          <section id="behaviourPanel" class="panel">
-            <h2><span data-i18n="behaviour.title"></span></h2>
-            <p class="status-line" data-i18n="behaviour.hint"></p>
-            <div class="grid grid-three">
-              <label data-pref-key="USERPREFS_CONFIG_DEVICE_REBROADCAST_MODE">
-                <span data-i18n="behaviour.rebroadcast"></span>
-                <select id="rebroadcastMode"></select>
-              </label>
-              <label data-pref-key="USERPREFS_CONFIG_DEVICE_NODE_INFO_BROADCAST_SECS">
-                <span data-i18n="behaviour.nodeInfoSecs"></span>
-                <input id="nodeInfoSecs" type="number" min="3600" step="60" placeholder="10800">
-                <small class="field-hint" data-i18n="behaviour.nodeInfoHint"></small>
-              </label>
-              <label data-pref-key="USERPREFS_CONFIG_DEVICE_TELEM_UPDATE_INTERVAL">
-                <span data-i18n="behaviour.deviceTelem"></span>
-                <input id="deviceTelemInterval" type="number" min="0" step="60" placeholder="900">
-              </label>
-              <label data-pref-key="USERPREFS_CONFIG_ENV_TELEM_UPDATE_INTERVAL">
-                <span data-i18n="behaviour.envTelem"></span>
-                <input id="envTelemInterval" type="number" min="0" step="60" placeholder="900">
-              </label>
-              <label class="check-line" data-pref-key="USERPREFS_CONFIG_ENVIRONMENT_MEASUREMENT_ENABLED">
-                <input id="envMeasurementEnabled" type="checkbox">
-                <span data-i18n="behaviour.envEnabled"></span>
+              <label class="span-two">
+                <span data-i18n="step5.tz"></span>
+                <span class="inline-input">
+                  <input id="tzString" type="text" value="CET-1CEST,M3.5.0,M10.5.0/3" autocomplete="off">
+                  <button class="btn btn-mini" type="button" data-tz="CET-1CEST,M3.5.0,M10.5.0/3" data-i18n="step5.tzPeninsula"></button>
+                  <button class="btn btn-mini" type="button" data-tz="WET0WEST,M3.5.0/1,M10.5.0" data-i18n="step5.tzCanarias"></button>
+                </span>
               </label>
             </div>
           </section>
 
           <section class="panel">
             <h2><span data-i18n="step3.title"></span></h2>
-            <div class="grid grid-four">
+            <div class="grid grid-three">
               <label>
                 <span data-i18n="step3.region"></span>
                 <select id="loraRegion"></select>
-              </label>
-              <label>
-                <span data-i18n="step3.role"></span>
-                <select id="deviceRole"></select>
               </label>
               <label>
                 <span data-i18n="step3.preset"></span>
@@ -122,105 +98,15 @@
                 <small class="field-hint" data-i18n="step3.txPowerHint"></small>
               </label>
             </div>
-          </section>
-
-          <section class="panel">
-            <h2>
-              <span data-i18n="step4.title"></span>
-              <button id="addChannel" class="btn btn-mini" type="button" data-i18n="step4.add"></button>
-            </h2>
-            <p id="channelHint" class="status-line"></p>
-            <div id="channelRows"></div>
-          </section>
-
-          <section class="panel">
-            <h2><span data-i18n="step5.title"></span></h2>
-            <div class="grid grid-two">
-              <label class="span-two">
-                <span data-i18n="step5.tz"></span>
-                <span class="inline-input">
-                  <input id="tzString" type="text" value="CET-1CEST,M3.5.0,M10.5.0/3" autocomplete="off">
-                  <button class="btn btn-mini" type="button" data-tz="CET-1CEST,M3.5.0,M10.5.0/3" data-i18n="step5.tzPeninsula"></button>
-                  <button class="btn btn-mini" type="button" data-tz="WET0WEST,M3.5.0/1,M10.5.0" data-i18n="step5.tzCanarias"></button>
-                </span>
-              </label>
-            </div>
-            <h3 class="sub-head" data-i18n="step5.mqttHead"></h3>
-            <div class="grid grid-three">
-              <label>
-                <span data-i18n="step5.mqttAddress"></span>
-                <input id="mqttAddress" type="text" value="mqtt.meshtastic.es" autocomplete="off">
-              </label>
-              <label data-pref-key="USERPREFS_MQTT_USERNAME">
-                <span data-i18n="step5.mqttUsername"></span>
-                <input id="mqttUsername" type="text" autocomplete="off">
-              </label>
-              <label data-pref-key="USERPREFS_MQTT_PASSWORD">
-                <span data-i18n="step5.mqttPassword"></span>
-                <input id="mqttPassword" type="password" autocomplete="new-password">
-                <small class="field-hint" data-i18n="step5.mqttPasswordHint"></small>
-              </label>
-              <label data-pref-key="USERPREFS_MQTT_ROOT_TOPIC">
-                <span data-i18n="step5.mqttRoot"></span>
-                <input id="mqttRootTopic" type="text" autocomplete="off" placeholder="msh/ES">
-              </label>
-              <label class="check-line">
-                <input id="mqttEnabled" type="checkbox">
-                <span data-i18n="step5.mqttEnabled"></span>
-              </label>
-              <label class="check-line" data-pref-key="USERPREFS_MQTT_ENCRYPTION_ENABLED">
-                <input id="mqttEncryption" type="checkbox" checked>
-                <span data-i18n="step5.mqttEncryption"></span>
-              </label>
-              <label class="check-line" data-pref-key="USERPREFS_MQTT_TLS_ENABLED">
-                <input id="mqttTls" type="checkbox">
-                <span data-i18n="step5.mqttTls"></span>
-              </label>
-            </div>
-            <h3 class="sub-head" data-i18n="step5.securityHead"></h3>
-            <div class="grid grid-three">
-              <label>
-                <span data-i18n="step5.adminKey"></span>
-                <input id="adminKey" type="text" autocomplete="off" placeholder="AQIDBA...">
-              </label>
-              <label data-pref-key="USERPREFS_USE_ADMIN_KEY_1">
-                <span data-i18n="step5.adminKey1"></span>
-                <input id="adminKey1" type="text" autocomplete="off" placeholder="AQIDBA...">
-              </label>
-              <label data-pref-key="USERPREFS_USE_ADMIN_KEY_2">
-                <span data-i18n="step5.adminKey2"></span>
-                <input id="adminKey2" type="text" autocomplete="off" placeholder="AQIDBA...">
-              </label>
-              <label data-pref-key="USERPREFS_CONFIG_SECURITY_PACKET_SIGNATURE_POLICY">
-                <span data-i18n="step5.signaturePolicy"></span>
-                <select id="signaturePolicy"></select>
-              </label>
-              <label class="check-line span-two" data-pref-key="USERPREFS_CONFIG_SECURITY_IS_MANAGED">
-                <input id="securityIsManaged" type="checkbox" disabled>
-                <span data-i18n="step5.isManaged"></span>
-                <small id="isManagedHint" class="field-hint" data-i18n="step5.isManagedHint"></small>
-              </label>
-            </div>
-          </section>
-
-          <section id="advancedPanel" class="panel panel-experimental">
-            <h2>
-              <span data-i18n="step6.title"></span>
-              <span id="advancedBadge" class="badge" data-i18n="step6.badge"></span>
-            </h2>
-            <p id="advancedWarning" class="status-line" data-i18n="step6.warning"></p>
-            <p id="advancedNative" class="status-line" data-i18n="step6.native" hidden></p>
             <p id="advancedUnavailable" class="status-line status-warn" data-i18n="step6.unavailable" hidden></p>
-            <div id="advancedControls">
-              <label class="check-line">
-                <input id="okToMqtt" type="checkbox" checked>
-                <span data-i18n="step6.okToMqtt"></span>
-              </label>
+            <div class="code-option">
               <label class="check-line">
                 <input id="customLoraEnabled" type="checkbox">
                 <span data-i18n="step6.customLora"></span>
+                <span class="badge patch-only" data-i18n="step6.badge"></span>
               </label>
               <div id="customLoraFields" hidden>
+                <p class="status-line status-warn patch-only" data-i18n="step6.warning"></p>
                 <p class="status-line" data-i18n="step6.customLoraHint"></p>
                 <div class="grid grid-four">
                   <label>
@@ -244,6 +130,127 @@
               </div>
             </div>
           </section>
+
+          <section class="panel">
+            <h2><span data-i18n="behaviour.title"></span></h2>
+            <p class="status-line" data-i18n="behaviour.hint"></p>
+            <div class="grid grid-two">
+              <label>
+                <span data-i18n="step3.role"></span>
+                <select id="deviceRole"></select>
+              </label>
+              <label data-pref-key="USERPREFS_CONFIG_DEVICE_REBROADCAST_MODE">
+                <span data-i18n="behaviour.rebroadcast"></span>
+                <select id="rebroadcastMode"></select>
+              </label>
+              <label data-pref-key="USERPREFS_CONFIG_DEVICE_NODE_INFO_BROADCAST_SECS">
+                <span data-i18n="behaviour.nodeInfoSecs"></span>
+                <input id="nodeInfoSecs" type="number" min="3600" step="60" placeholder="10800">
+                <small class="field-hint" data-i18n="behaviour.nodeInfoHint"></small>
+              </label>
+              <label data-pref-key="USERPREFS_CONFIG_DEVICE_TELEM_UPDATE_INTERVAL">
+                <span data-i18n="behaviour.deviceTelem"></span>
+                <input id="deviceTelemInterval" type="number" min="0" step="60" placeholder="900">
+              </label>
+            </div>
+          </section>
+
+          <details class="advanced-section">
+            <summary>
+              <span data-i18n="advanced.title"></span>
+              <small class="field-hint" data-i18n="advanced.hint"></small>
+            </summary>
+
+            <section class="panel">
+              <h2>
+                <span data-i18n="step4.title"></span>
+                <button id="addChannel" class="btn btn-mini" type="button" data-i18n="step4.add"></button>
+              </h2>
+              <p id="channelHint" class="status-line"></p>
+              <div id="channelRows"></div>
+            </section>
+
+            <section class="panel">
+              <h2><span data-i18n="step5.mqttHead"></span></h2>
+              <div class="grid grid-three">
+                <label>
+                  <span data-i18n="step5.mqttAddress"></span>
+                  <input id="mqttAddress" type="text" value="mqtt.meshtastic.es" autocomplete="off">
+                </label>
+                <label data-pref-key="USERPREFS_MQTT_USERNAME">
+                  <span data-i18n="step5.mqttUsername"></span>
+                  <input id="mqttUsername" type="text" autocomplete="off">
+                </label>
+                <label data-pref-key="USERPREFS_MQTT_PASSWORD">
+                  <span data-i18n="step5.mqttPassword"></span>
+                  <input id="mqttPassword" type="password" autocomplete="new-password">
+                  <small class="field-hint" data-i18n="step5.mqttPasswordHint"></small>
+                </label>
+                <label data-pref-key="USERPREFS_MQTT_ROOT_TOPIC">
+                  <span data-i18n="step5.mqttRoot"></span>
+                  <input id="mqttRootTopic" type="text" autocomplete="off" placeholder="msh/ES">
+                </label>
+                <label class="check-line">
+                  <input id="mqttEnabled" type="checkbox">
+                  <span data-i18n="step5.mqttEnabled"></span>
+                </label>
+                <label class="check-line" data-pref-key="USERPREFS_MQTT_ENCRYPTION_ENABLED">
+                  <input id="mqttEncryption" type="checkbox" checked>
+                  <span data-i18n="step5.mqttEncryption"></span>
+                </label>
+                <label class="check-line" data-pref-key="USERPREFS_MQTT_TLS_ENABLED">
+                  <input id="mqttTls" type="checkbox">
+                  <span data-i18n="step5.mqttTls"></span>
+                </label>
+                <label class="check-line code-option">
+                  <input id="okToMqtt" type="checkbox" checked>
+                  <span data-i18n="step6.okToMqtt"></span>
+                  <span class="badge patch-only" data-i18n="step6.badge"></span>
+                </label>
+              </div>
+            </section>
+
+            <section class="panel">
+              <h2><span data-i18n="step5.securityHead"></span></h2>
+              <div class="grid grid-three">
+                <label>
+                  <span data-i18n="step5.adminKey"></span>
+                  <input id="adminKey" type="text" autocomplete="off" placeholder="AQIDBA...">
+                </label>
+                <label data-pref-key="USERPREFS_USE_ADMIN_KEY_1">
+                  <span data-i18n="step5.adminKey1"></span>
+                  <input id="adminKey1" type="text" autocomplete="off" placeholder="AQIDBA...">
+                </label>
+                <label data-pref-key="USERPREFS_USE_ADMIN_KEY_2">
+                  <span data-i18n="step5.adminKey2"></span>
+                  <input id="adminKey2" type="text" autocomplete="off" placeholder="AQIDBA...">
+                </label>
+                <label data-pref-key="USERPREFS_CONFIG_SECURITY_PACKET_SIGNATURE_POLICY">
+                  <span data-i18n="step5.signaturePolicy"></span>
+                  <select id="signaturePolicy"></select>
+                </label>
+                <label class="check-line span-two" data-pref-key="USERPREFS_CONFIG_SECURITY_IS_MANAGED">
+                  <input id="securityIsManaged" type="checkbox" disabled>
+                  <span data-i18n="step5.isManaged"></span>
+                  <small id="isManagedHint" class="field-hint" data-i18n="step5.isManagedHint"></small>
+                </label>
+              </div>
+            </section>
+
+            <section class="panel" data-gated>
+              <h2><span data-i18n="sensors.title"></span></h2>
+              <div class="grid grid-two">
+                <label data-pref-key="USERPREFS_CONFIG_ENV_TELEM_UPDATE_INTERVAL">
+                  <span data-i18n="behaviour.envTelem"></span>
+                  <input id="envTelemInterval" type="number" min="0" step="60" placeholder="900">
+                </label>
+                <label class="check-line" data-pref-key="USERPREFS_CONFIG_ENVIRONMENT_MEASUREMENT_ENABLED">
+                  <input id="envMeasurementEnabled" type="checkbox">
+                  <span data-i18n="behaviour.envEnabled"></span>
+                </label>
+              </div>
+            </section>
+          </details>
 
           <section class="panel">
             <h2><span data-i18n="step7.title"></span></h2>

@@ -8,12 +8,13 @@ docker build -f docker/builder.Dockerfile -t meshtastic-firmware-builder:local .
 
 The image clones `meshtastic/firmware`, fetches tags, installs PlatformIO, and prewarms packages for the environments in `PREWARM_ENVS`.
 
-The Dockerfile default prewarms `tbeam` and `heltec-mesh-node-t114`. For broader
+The Dockerfile checks out the newest release tag (`--build-arg MESHTASTIC_REF=vX.Y.Z.sha`
+to pin one) and prewarms `heltec-v4` and `nrf52_promicro_diy_tcxo`. For broader
 validation or production images, pass:
 
 ```bash
 docker build \
-  --build-arg PREWARM_ENVS="tbeam heltec-v3 heltec-mesh-node-t114 tracker-t1000-e heltec-wsl-v3 rak4631 nrf52_promicro_diy_tcxo" \
+  --build-arg PREWARM_ENVS="tbeam heltec-v3 heltec-v4 heltec-mesh-node-t114 tracker-t1000-e heltec-wsl-v3 rak4631 nrf52_promicro_diy_tcxo" \
   -f docker/builder.Dockerfile \
   -t meshtastic-firmware-builder:local .
 ```

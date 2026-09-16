@@ -1,13 +1,18 @@
 FROM debian:trixie
 
 ARG MESHTASTIC_REPO=https://github.com/meshtastic/firmware.git
-ARG PREWARM_ENVS="tbeam heltec-mesh-node-t114"
+# Git ref the image is prewarmed against. "latest" resolves to the newest
+# release tag at image build time; pass a tag to pin it.
+ARG MESHTASTIC_REF=latest
+ARG PREWARM_ENVS="heltec-v4 nrf52_promicro_diy_tcxo"
 
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=Etc/UTC \
     PIP_ROOT_USER_ACTION=ignore \
     PIP_BREAK_SYSTEM_PACKAGES=1 \
-    PLATFORMIO_CORE_DIR=/opt/platformio
+    PLATFORMIO_CORE_DIR=/opt/platformio \
+    PLATFORMIO_SETTING_ENABLE_TELEMETRY=No \
+    PLATFORMIO_SETTING_CHECK_PLATFORMIO_INTERVAL=3650
 
 RUN apt-get update && apt-get install --no-install-recommends -y \
       ca-certificates \
@@ -21,17 +26,21 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
       unzip \
       zip \
     && pip3 install --no-cache-dir -U platformio \
-    && git clone --recursive "${MESHTASTIC_REPO}" /opt/firmware \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /root/.cache/pip
+
+# Full clone with tags and submodules so runtime builds of any supported tag
+# resolve offline. build-firmware only fetches when the requested SHA is missing.
+RUN git clone --recursive "${MESHTASTIC_REPO}" /opt/firmware \
     && cd /opt/firmware \
     && git fetch --tags --force \
-    && mkdir -p /work/input /work/output \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && mkdir -p /work/input /work/output
 
 COPY docker/build_firmware.sh /usr/local/bin/build-firmware
 RUN chmod +x /usr/local/bin/build-firmware \
-    && /usr/local/bin/build-firmware --prewarm ${PREWARM_ENVS} \
+    && /usr/local/bin/build-firmware --prewarm "${MESHTASTIC_REF}" ${PREWARM_ENVS} \
     && rm -rf \
+      /opt/firmware/.pio/build \
       /opt/platformio/.cache/downloads \
       /opt/platformio/.cache/tmp \
       /root/.cache/pip \

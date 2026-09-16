@@ -94,26 +94,28 @@ The remote Docker path has been validated with `DOCKER_HOST=ssh://docker-host.ex
 
 - starts from Debian,
 - installs Git, Python, PlatformIO CLI, Zip tools,
-- clones `meshtastic/firmware`,
-- fetches tags,
-- prewarms PlatformIO dependencies for `PREWARM_ENVS` during image build,
+- clones `meshtastic/firmware` with tags and submodules,
+- checks out `MESHTASTIC_REF` (`latest` = newest release tag at image build time),
+- prewarms PlatformIO dependencies for `PREWARM_ENVS` against that ref,
+- disables PlatformIO telemetry and upgrade checks,
 - installs `docker/build_firmware.sh` as the entrypoint.
 
-The default `PREWARM_ENVS` is `tbeam heltec-mesh-node-t114` so the common ESP32
-path and the T114/nRF52 path are both warmed in the single builder image. For
-production images, pass a wider list explicitly:
+The default `PREWARM_ENVS` is `heltec-v4 nrf52_promicro_diy_tcxo`: the two most
+requested devices, covering the ESP32-S3 and nRF52 toolchains. For production
+images, pass a wider list explicitly:
 
 ```bash
 docker build \
-  --build-arg PREWARM_ENVS="tbeam heltec-v3 heltec-mesh-node-t114 tracker-t1000-e heltec-wsl-v3 rak4631 nrf52_promicro_diy_tcxo" \
+  --build-arg PREWARM_ENVS="tbeam heltec-v3 heltec-v4 heltec-mesh-node-t114 tracker-t1000-e heltec-wsl-v3 rak4631 nrf52_promicro_diy_tcxo" \
   -f docker/builder.Dockerfile \
   -t meshtastic-firmware-builder:local .
 ```
 
-At runtime, the entrypoint fetches tags and then checks out the requested
-SHA/tag directly inside `/opt/firmware`. The fetch is what lets the image build
-firmware tags released after the image itself; it is best-effort, so a
-prewarmed offline image still works for the tags it already has. Each Docker build runs in its own ephemeral container
+At runtime, the entrypoint checks out the requested SHA/tag directly inside
+`/opt/firmware`. It only runs `git fetch` when that SHA is not already in the
+image, which is what lets the image build firmware tags released after the
+image itself; the fetch is best-effort, so a prewarmed offline image still
+works for the tags it already has. Each Docker build runs in its own ephemeral container
 filesystem, so this does not mutate shared service state, avoids copying the
 firmware checkout per request, and lets PlatformIO reuse warmed `.pio` artifacts
 from the single builder image when they are still valid.

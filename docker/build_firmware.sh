@@ -6,9 +6,19 @@ BASE_REPO="/opt/firmware"
 if [[ "${1:-}" == "--prewarm" ]]; then
   shift
   cd "${BASE_REPO}"
+  ref="${1:-latest}"
+  shift
+  if [[ "${ref}" == "latest" ]]; then
+    ref="$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+  fi
+  echo "Prewarming against ${ref}"
+  git checkout --force "${ref}"
+  git submodule update --init --recursive
   for env_name in "$@"; do
     echo "Prewarming PlatformIO dependencies for ${env_name}"
-    pio pkg install -e "${env_name}" || true
+    pio pkg install -e "${env_name}"
+    # pio run pulls the lazily installed tools (esptool, nrfutil, mklittlefs) that
+    # pkg install skips. A compile failure must not sink the image.
     pio run -e "${env_name}" || true
   done
   exit 0
@@ -34,8 +44,10 @@ case "${PIO_ENV}" in
 esac
 
 cd "${WORK_DIR}"
-# The image clones upstream at build time; fetch so tags newer than the image still resolve.
-git fetch --tags --force origin || true
+# Only hit the network when the image does not already contain the requested commit.
+if ! git cat-file -e "${FIRMWARE_SHA}^{commit}" 2>/dev/null; then
+  git fetch --tags --force origin || true
+fi
 git checkout --force "${FIRMWARE_SHA}" || git checkout --force "${FIRMWARE_TAG}"
 git submodule update --init --recursive
 

@@ -63,6 +63,7 @@ Current enabled IDs and PlatformIO environments:
 | --- | --- | --- | --- |
 | `tbeam` | LILYGO T-Beam | `tbeam` | `esp32` |
 | `heltec-v3` | Heltec LoRa 32 V3 | `heltec-v3` | `esp32-s3` |
+| `heltec-v4` | Heltec LoRa 32 V4 | `heltec-v4` | `esp32-s3` |
 | `heltec-mesh-node-t114` | Heltec Mesh Node T114 | `heltec-mesh-node-t114` | `nrf52` |
 | `tracker-t1000-e` | Seeed SenseCAP T1000-E | `tracker-t1000-e` | `nrf52` |
 | `heltec-wsl-v3` | Heltec Wireless Stick Lite V3 | `heltec-wsl-v3` | `esp32-s3` |

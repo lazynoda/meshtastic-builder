@@ -230,12 +230,13 @@ function syncAdvancedAvailability() {
   state.codeOptionsAvailable = Boolean(options && versionAtLeast(tag, options.minFirmwareVersion));
   state.codeOptionsNative = Boolean(options && versionAtLeast(tag, options.nativeSinceFirmwareVersion));
   state.maxChannels = options && versionAtLeast(tag, options.eightChannelsSinceFirmwareVersion) ? 8 : 3;
-  $("advancedControls").hidden = !state.codeOptionsAvailable;
+  document.querySelectorAll(".code-option").forEach((el) => {
+    el.hidden = !state.codeOptionsAvailable;
+  });
+  document.querySelectorAll(".patch-only").forEach((el) => {
+    el.hidden = state.codeOptionsNative;
+  });
   $("advancedUnavailable").hidden = state.codeOptionsAvailable;
-  $("advancedBadge").hidden = state.codeOptionsNative;
-  $("advancedWarning").hidden = state.codeOptionsNative;
-  $("advancedNative").hidden = !state.codeOptionsNative;
-  $("advancedPanel").classList.toggle("panel-experimental", !state.codeOptionsNative);
   syncCustomLora();
 }
 
@@ -258,9 +259,9 @@ function syncTemplateGatedControls() {
   for (const el of document.querySelectorAll("[data-pref-key]")) {
     el.hidden = state.templateKeys.size > 0 && !state.templateKeys.has(el.dataset.prefKey);
   }
-  $("behaviourPanel").hidden = Array.from(
-    $("behaviourPanel").querySelectorAll("[data-pref-key]"),
-  ).every((el) => el.hidden);
+  for (const panel of document.querySelectorAll("#buildForm .panel[data-gated]")) {
+    panel.hidden = Array.from(panel.querySelectorAll("[data-pref-key]")).every((el) => el.hidden);
+  }
 }
 
 async function loadDevices() {

@@ -199,8 +199,53 @@ h3 {
   margin: 18px 0 10px;
 }
 
-.panel-experimental {
-  border-color: rgba(251, 191, 36, 0.35);
+/* Advanced settings: collapsed by default, inner panels are not numbered steps. */
+.advanced-section {
+  margin-bottom: 20px;
+}
+
+.advanced-section > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 20px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--accent);
+}
+
+.advanced-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+.advanced-section > summary::before {
+  content: "+";
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.advanced-section[open] > summary {
+  margin-bottom: 20px;
+}
+
+.advanced-section[open] > summary::before {
+  content: "\2212";
+}
+
+#buildForm .advanced-section .panel h2::before {
+  content: none;
+  counter-increment: none;
+}
+
+.code-option[hidden],
+.patch-only[hidden] {
+  display: none;
 }
 
 .badge {

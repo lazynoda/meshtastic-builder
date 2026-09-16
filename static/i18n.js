@@ -8,11 +8,11 @@ const DICT = {
     "step1.device": "Dispositivo",
     "step1.version": "Version de firmware",
 
-    "step2.title": "Identidad del nodo",
+    "step2.title": "Nodo",
     "step2.longName": "Nombre largo",
     "step2.shortName": "Nombre corto",
 
-    "behaviour.title": "Comportamiento del nodo",
+    "behaviour.title": "Dispositivo",
     "behaviour.hint": "Valores de fabrica aplicados en el primer arranque o tras un reset de fabrica.",
     "behaviour.rebroadcast": "Modo de retransmision",
     "behaviour.nodeInfoSecs": "Intervalo de node info (s)",
@@ -29,6 +29,10 @@ const DICT = {
     "step3.txPower": "Potencia TX (dBm)",
     "step3.txPowerHint": "Vacio o 0 = maximo legal de la region.",
 
+    "advanced.title": "Ajustes avanzados",
+    "advanced.hint": "Canales, MQTT, seguridad y sensores. Los valores por defecto sirven para la mayoria.",
+    "sensors.title": "Sensores ambientales",
+
     "step4.title": "Canales",
     "step4.hint": "Hasta {max} canales escritos en el firmware.",
     "step4.add": "+ Canal",
@@ -41,7 +45,6 @@ const DICT = {
     "channel.remove": "Quitar",
     "channel.defaultName": "Canal",
 
-    "step5.title": "Servicios",
     "step5.tz": "Zona horaria (TZ POSIX)",
     "step5.tzPeninsula": "Peninsula",
     "step5.tzCanarias": "Canarias",
@@ -62,12 +65,9 @@ const DICT = {
     "step5.isManaged": "Modo gestionado (bloquea la configuracion)",
     "step5.isManagedHint": "Requiere al menos una clave de administracion.",
 
-    "step6.title": "Opciones avanzadas",
-    "step6.badge": "Experimental / parche de codigo",
+    "step6.badge": "Parche de codigo",
     "step6.warning":
       "Estas opciones modifican el codigo fuente del firmware antes de compilar. No forman parte de userPrefs.jsonc y solo estan disponibles en versiones recientes. Usalas bajo tu responsabilidad.",
-    "step6.native":
-      "Esta version de firmware lee estas opciones de forma nativa: no se aplica ningun parche.",
     "step6.unavailable": "No disponible para la version de firmware seleccionada.",
     "step6.okToMqtt": "Permitir reenvio a MQTT por defecto (ok_to_mqtt)",
     "step6.customLora": "Configuracion LoRa manual (desactiva el preset)",
@@ -130,11 +130,11 @@ const DICT = {
     "step1.device": "Device",
     "step1.version": "Firmware version",
 
-    "step2.title": "Node identity",
+    "step2.title": "Node",
     "step2.longName": "Long name",
     "step2.shortName": "Short name",
 
-    "behaviour.title": "Node behaviour",
+    "behaviour.title": "Device",
     "behaviour.hint": "Factory defaults applied on first boot or after a factory reset.",
     "behaviour.rebroadcast": "Rebroadcast mode",
     "behaviour.nodeInfoSecs": "Node info interval (s)",
@@ -151,6 +151,10 @@ const DICT = {
     "step3.txPower": "TX power (dBm)",
     "step3.txPowerHint": "Empty or 0 = region legal maximum.",
 
+    "advanced.title": "Advanced settings",
+    "advanced.hint": "Channels, MQTT, security and sensors. Defaults work for most nodes.",
+    "sensors.title": "Environment sensors",
+
     "step4.title": "Channels",
     "step4.hint": "Up to {max} channels written into the firmware.",
     "step4.add": "+ Channel",
@@ -163,7 +167,6 @@ const DICT = {
     "channel.remove": "Remove",
     "channel.defaultName": "Channel",
 
-    "step5.title": "Services",
     "step5.tz": "Time zone (POSIX TZ)",
     "step5.tzPeninsula": "Mainland Spain",
     "step5.tzCanarias": "Canary Islands",
@@ -184,11 +187,9 @@ const DICT = {
     "step5.isManaged": "Managed mode (locks the configuration)",
     "step5.isManagedHint": "Requires at least one admin key.",
 
-    "step6.title": "Advanced options",
-    "step6.badge": "Experimental / source patch",
+    "step6.badge": "Source patch",
     "step6.warning":
       "These options patch the firmware source before compiling. They are not part of userPrefs.jsonc and are only available on recent versions. Use at your own risk.",
-    "step6.native": "This firmware version reads these options natively: no patch is applied.",
     "step6.unavailable": "Not available for the selected firmware version.",
     "step6.okToMqtt": "Allow MQTT forwarding by default (ok_to_mqtt)",
     "step6.customLora": "Manual LoRa configuration (disables the preset)",
