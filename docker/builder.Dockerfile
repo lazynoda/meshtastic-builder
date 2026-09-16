@@ -5,6 +5,7 @@ ARG MESHTASTIC_REPO=https://github.com/meshtastic/firmware.git
 # release tag at image build time; pass a tag to pin it.
 ARG MESHTASTIC_REF=latest
 ARG PREWARM_ENVS="heltec-v4 nrf52_promicro_diy_tcxo"
+ARG PLATFORMIO_VERSION=6.1.19
 
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=Etc/UTC \
@@ -25,7 +26,9 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
       python3-venv \
       unzip \
       zip \
-    && pip3 install --no-cache-dir -U platformio \
+    # 6.2.0 ships tool-scons 4.11, which dropped SCons.Tool.FortranCommon and breaks
+    # the pioarduino ESP32 link step. 6.1.19 builds both ESP32-S3 and nRF52 targets.
+    && pip3 install --no-cache-dir "platformio==${PLATFORMIO_VERSION}" \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /root/.cache/pip
 

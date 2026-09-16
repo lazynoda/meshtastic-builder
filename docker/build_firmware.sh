@@ -18,8 +18,10 @@ if [[ "${1:-}" == "--prewarm" ]]; then
     echo "Prewarming PlatformIO dependencies for ${env_name}"
     pio pkg install -e "${env_name}"
     # pio run pulls the lazily installed tools (esptool, nrfutil, mklittlefs) that
-    # pkg install skips. A compile failure must not sink the image.
-    pio run -e "${env_name}" || true
+    # pkg install skips. The first ESP32 run can fail while pioarduino swaps
+    # tool-scons under a running SCons (platform-espressif32#529); the second
+    # run is stable. A compile failure must not sink the image.
+    pio run -e "${env_name}" || pio run -e "${env_name}" || true
   done
   exit 0
 fi
@@ -60,7 +62,9 @@ fi
 
 cp "${INPUT_DIR}/userPrefs.jsonc" ./userPrefs.jsonc
 
-pio run -e "${PIO_ENV}"
+# Retry once: pioarduino may replace tool-scons mid-run on the first build of a
+# platform version (platform-espressif32#529). A genuine compile error fails twice.
+pio run -e "${PIO_ENV}" || pio run -e "${PIO_ENV}"
 
 mkdir -p "${OUTPUT_DIR}/files"
 find ".pio/build/${PIO_ENV}" -maxdepth 1 -type f \
