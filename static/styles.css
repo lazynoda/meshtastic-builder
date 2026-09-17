@@ -538,6 +538,29 @@ input[type="checkbox"] {
   height: 24px;
 }
 
+.extra-row {
+  display: grid;
+  grid-template-columns: 1.2fr 1.4fr auto;
+  gap: 12px;
+  align-items: end;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.extra-row:last-child {
+  border-bottom: 0;
+}
+
+#addExtraPref {
+  margin-top: 12px;
+}
+
+@media (max-width: 720px) {
+  .extra-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* JSON preview */
 .json-preview summary {
   font-family: var(--mono);

@@ -1,7 +1,42 @@
 const WIFI_FAMILIES = new Set(["esp32", "esp32-s3", "esp32-c3", "esp32-c6"]);
 
+// Keys the dedicated controls own. Everything else in the selected tag's template
+// is offered in the free-form section, so the two sets must never overlap.
+const FORM_MANAGED_KEYS = new Set([
+  "USERPREFS_CHANNELS_TO_WRITE",
+  "USERPREFS_CONFIG_DEVICE_NODE_INFO_BROADCAST_SECS",
+  "USERPREFS_CONFIG_DEVICE_REBROADCAST_MODE",
+  "USERPREFS_CONFIG_DEVICE_ROLE",
+  "USERPREFS_CONFIG_DEVICE_TELEM_UPDATE_INTERVAL",
+  "USERPREFS_CONFIG_LORA_IGNORE_MQTT",
+  "USERPREFS_CONFIG_LORA_REGION",
+  "USERPREFS_CONFIG_OWNER_LONG_NAME",
+  "USERPREFS_CONFIG_OWNER_SHORT_NAME",
+  "USERPREFS_CONFIG_SECURITY_IS_MANAGED",
+  "USERPREFS_CONFIG_SECURITY_PACKET_SIGNATURE_POLICY",
+  "USERPREFS_FIXED_BLUETOOTH",
+  "USERPREFS_LORACONFIG_MODEM_PRESET",
+  "USERPREFS_LORACONFIG_TX_POWER",
+  "USERPREFS_MQTT_ADDRESS",
+  "USERPREFS_MQTT_ENABLED",
+  "USERPREFS_MQTT_ENCRYPTION_ENABLED",
+  "USERPREFS_MQTT_PASSWORD",
+  "USERPREFS_MQTT_ROOT_TOPIC",
+  "USERPREFS_MQTT_TLS_ENABLED",
+  "USERPREFS_MQTT_USERNAME",
+  "USERPREFS_NETWORK_WIFI_ENABLED",
+  "USERPREFS_NETWORK_WIFI_PSK",
+  "USERPREFS_NETWORK_WIFI_SSID",
+  "USERPREFS_TZ_STRING",
+  "USERPREFS_USE_ADMIN_KEY_0",
+  "USERPREFS_USE_ADMIN_KEY_1",
+  "USERPREFS_USE_ADMIN_KEY_2",
+]);
+
 const state = {
   deviceFamilies: {},
+  extraPrefs: [],
+  templateExamples: {},
   currentBuildToken: null,
   pollTimer: null,
   templateKeys: new Set(),
@@ -349,6 +384,9 @@ async function loadTemplate() {
   }
   const template = await response.text();
   state.templateKeys = extractTemplateKeys(template);
+  state.templateExamples = extractTemplateExamples(template);
+  // A key the previous tag had may not exist in this one.
+  state.extraPrefs = state.extraPrefs.filter((row) => !row.key || state.templateKeys.has(row.key));
   syncTemplateGatedControls();
   if (!state.channels.length) {
     state.channels = [defaultChannel()];
@@ -357,10 +395,82 @@ async function loadTemplate() {
     state.channels = state.channels.slice(0, state.maxChannels);
   }
   renderChannels();
+  renderExtraPrefs();
 }
 
 function extractTemplateKeys(template) {
   return new Set(Array.from(template.matchAll(/"(USERPREFS_[A-Z0-9_]+)"\s*:/g), (match) => match[1]));
+}
+
+// The template documents a sample value for most keys; show it as the placeholder
+// so the free-form section hints at the shape each key expects.
+function extractTemplateExamples(template) {
+  const examples = {};
+  for (const match of template.matchAll(/"(USERPREFS_[A-Z0-9_]+)"\s*:\s*("(?:[^"\\]|\\.)*")/g)) {
+    try {
+      examples[match[1]] = JSON.parse(match[2]);
+    } catch (error) {
+      // A malformed sample is not worth failing the page over.
+    }
+  }
+  return examples;
+}
+
+function shortPrefKey(key) {
+  return key.replace(/^USERPREFS_/, "");
+}
+
+function isFormManagedKey(key) {
+  return FORM_MANAGED_KEYS.has(key) || /^USERPREFS_CHANNEL_\d+_/.test(key);
+}
+
+function availableExtraKeys(exceptIndex) {
+  const taken = new Set(
+    state.extraPrefs.filter((_row, index) => index !== exceptIndex).map((row) => row.key).filter(Boolean),
+  );
+  return Array.from(state.templateKeys)
+    .filter((key) => !isFormManagedKey(key) && !taken.has(key))
+    .sort();
+}
+
+function renderExtraPrefs() {
+  $("extraRows").innerHTML = state.extraPrefs
+    .map((row, index) => {
+      const options = availableExtraKeys(index);
+      if (row.key && !options.includes(row.key)) options.push(row.key);
+      options.sort();
+      return `
+    <div class="extra-row" data-index="${index}">
+      <label>
+        ${escapeHtml(t("extra.key"))}
+        <select data-field="key">
+          <option value="">${escapeHtml(t("extra.choose"))}</option>
+          ${options
+            .map(
+              (key) =>
+                `<option value="${escapeHtml(key)}" ${key === row.key ? "selected" : ""}>${escapeHtml(shortPrefKey(key))}</option>`,
+            )
+            .join("")}
+        </select>
+      </label>
+      <label>
+        ${escapeHtml(t("extra.value"))}
+        <input data-field="value" type="text" autocomplete="off" value="${escapeHtml(row.value)}"
+          placeholder="${escapeHtml(state.templateExamples[row.key] || "")}">
+      </label>
+      <button class="btn btn-mini" type="button" data-action="remove-extra">${escapeHtml(t("channel.remove"))}</button>
+    </div>`;
+    })
+    .join("");
+  $("addExtraPref").disabled = !availableExtraKeys(-1).length;
+  updatePrefsPreview();
+}
+
+function syncExtraFromInput(input) {
+  const container = input.closest(".extra-row");
+  if (!container) return;
+  const row = state.extraPrefs[Number(container.dataset.index)];
+  if (row) row[input.dataset.field] = input.value;
 }
 
 function channelMuteSupported() {
@@ -589,10 +699,6 @@ function buildPrefs() {
   setPref(prefs, "USERPREFS_CONFIG_DEVICE_REBROADCAST_MODE", $("rebroadcastMode").value);
   setOptionalPref(prefs, "USERPREFS_CONFIG_DEVICE_NODE_INFO_BROADCAST_SECS", $("nodeInfoSecs").value);
   setOptionalPref(prefs, "USERPREFS_CONFIG_DEVICE_TELEM_UPDATE_INTERVAL", $("deviceTelemInterval").value);
-  setOptionalPref(prefs, "USERPREFS_CONFIG_ENV_TELEM_UPDATE_INTERVAL", $("envTelemInterval").value);
-  if ($("envMeasurementEnabled").checked) {
-    setPref(prefs, "USERPREFS_CONFIG_ENVIRONMENT_MEASUREMENT_ENABLED", "true");
-  }
 
   const mqttAddress = $("mqttAddress").value.trim();
   if (mqttAddress) {
@@ -655,6 +761,11 @@ function buildPrefs() {
       setPref(prefs, `USERPREFS_CHANNEL_${index}_IS_MUTED`, String(Boolean(channel.muted)));
     }
   });
+
+  for (const row of state.extraPrefs) {
+    const value = row.value.trim();
+    if (row.key && value) setPref(prefs, row.key, value);
+  }
 
   return prefs;
 }
@@ -884,8 +995,28 @@ function bindEvents() {
     state.channels.splice(Number(button.closest(".channel-row").dataset.index), 1);
     renderChannels();
   });
+  $("addExtraPref").addEventListener("click", () => {
+    state.extraPrefs.push({ key: "", value: "" });
+    renderExtraPrefs();
+  });
+  $("extraRows").addEventListener("change", (event) => {
+    if (!event.target.matches("select[data-field]")) return;
+    syncExtraFromInput(event.target);
+    renderExtraPrefs();
+  });
+  $("extraRows").addEventListener("input", (event) => {
+    if (!event.target.matches("input[data-field]")) return;
+    syncExtraFromInput(event.target);
+    updatePrefsPreview();
+  });
+  $("extraRows").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-action='remove-extra']");
+    if (!button) return;
+    state.extraPrefs.splice(Number(button.closest(".extra-row").dataset.index), 1);
+    renderExtraPrefs();
+  });
   document.querySelectorAll("input, select").forEach((input) => {
-    if (input.closest("#channelRows")) return;
+    if (input.closest("#channelRows") || input.closest("#extraRows")) return;
     input.addEventListener("input", updatePrefsPreview);
     input.addEventListener("change", updatePrefsPreview);
   });
@@ -900,6 +1031,7 @@ function bindEvents() {
   });
   document.addEventListener("languagechange", () => {
     renderTtlNotice();
+    renderExtraPrefs();
     renderChannels();
     if (state.statusKey) setStatusKey(state.statusKey);
     if (state.lastBuild) showBuild(state.lastBuild);

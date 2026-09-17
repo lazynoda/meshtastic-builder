@@ -19,8 +19,6 @@ const DICT = {
     "behaviour.nodeInfoHint": "Minimo 3600. Por defecto 259200 (72 h).",
     "behaviour.telemHint": "Vacio = telemetria desactivada.",
     "behaviour.deviceTelem": "Telemetria de dispositivo (s)",
-    "behaviour.envTelem": "Telemetria ambiental (s)",
-    "behaviour.envEnabled": "Activar sensores ambientales",
 
     "step3.title": "Radio LoRa",
     "step3.region": "Region LoRa",
@@ -47,6 +45,14 @@ const DICT = {
     "radios.wifiSsid": "Nombre de red (SSID)",
     "radios.wifiPsk": "Contrasena WiFi",
     "radios.wifiPskHint": "Se compila en el firmware en claro, igual que la de MQTT.",
+
+    "extra.title": "Otros valores de configuracion",
+    "extra.hint": "Cualquier clave de userPrefs.jsonc que no tenga control propio.",
+    "extra.help": "Se validan igual que el resto: si el valor no encaja con la clave, la peticion se rechaza.",
+    "extra.add": "+ Valor",
+    "extra.key": "Clave",
+    "extra.value": "Valor",
+    "extra.choose": "Elige una clave",
 
     "security.title": "Seguridad",
     "security.hint": "Claves de administracion remota y firma de paquetes.",
@@ -169,8 +175,6 @@ const DICT = {
     "behaviour.nodeInfoHint": "Minimum 3600. Defaults to 259200 (72 h).",
     "behaviour.telemHint": "Empty = telemetry disabled.",
     "behaviour.deviceTelem": "Device telemetry (s)",
-    "behaviour.envTelem": "Environment telemetry (s)",
-    "behaviour.envEnabled": "Enable environment sensors",
 
     "step3.title": "LoRa radio",
     "step3.region": "LoRa region",
@@ -197,6 +201,14 @@ const DICT = {
     "radios.wifiSsid": "Network name (SSID)",
     "radios.wifiPsk": "WiFi password",
     "radios.wifiPskHint": "Compiled into the firmware in clear text, like the MQTT one.",
+
+    "extra.title": "Other config values",
+    "extra.hint": "Any userPrefs.jsonc key without a control of its own.",
+    "extra.help": "Validated like the rest: a value that does not match its key is rejected.",
+    "extra.add": "+ Value",
+    "extra.key": "Key",
+    "extra.value": "Value",
+    "extra.choose": "Pick a key",
 
     "security.title": "Security",
     "security.hint": "Remote admin keys and packet signing.",

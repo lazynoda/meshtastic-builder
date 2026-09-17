@@ -172,15 +172,6 @@
                 <input id="deviceTelemInterval" type="number" min="0" step="60" placeholder="900">
                 <small class="field-hint" data-i18n="behaviour.telemHint"></small>
               </label>
-              <label data-pref-key="USERPREFS_CONFIG_ENV_TELEM_UPDATE_INTERVAL">
-                <span data-i18n="behaviour.envTelem"></span>
-                <input id="envTelemInterval" type="number" min="0" step="60" placeholder="900">
-                <small class="field-hint" data-i18n="behaviour.telemHint"></small>
-              </label>
-              <label class="check-line" data-pref-key="USERPREFS_CONFIG_ENVIRONMENT_MEASUREMENT_ENABLED">
-                <input id="envMeasurementEnabled" type="checkbox">
-                <span data-i18n="behaviour.envEnabled"></span>
-              </label>
             </div>
           </section>
 
@@ -306,6 +297,19 @@
             </section>
           </details>
 
+
+          <details class="collapsible">
+            <summary>
+              <span data-i18n="extra.title"></span>
+              <small class="field-hint" data-i18n="extra.hint"></small>
+            </summary>
+
+            <section class="panel">
+              <p class="status-line" data-i18n="extra.help"></p>
+              <div id="extraRows"></div>
+              <button id="addExtraPref" class="btn btn-mini" type="button" data-i18n="extra.add"></button>
+            </section>
+          </details>
 
           <section class="panel">
             <h2><span data-i18n="step7.title"></span></h2>

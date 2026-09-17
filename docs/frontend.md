@@ -86,11 +86,29 @@ The form is split into the settings most users touch and everything else:
 6. MQTT, including the `ok_to_mqtt` code option.
 7. `<details class="collapsible">`: Bluetooth and WiFi.
 8. `<details class="collapsible">`: Security.
-9. Review and submit.
+9. `<details class="collapsible">`: Other config values.
+10. Review and submit.
 
-Both collapsed sections are closed by default and their panels are not numbered
-steps. Environment telemetry sits in the Device panel beside the other telemetry
-intervals rather than in a section of its own.
+Every collapsed section is closed by default and its panels are not numbered
+steps.
+
+## Other Config Values
+
+Rather than grow a control per key, the last section lets the user pick any key
+from the selected tag's template and type its value. The dropdown lists keys
+alphabetically without the `USERPREFS_` prefix, and uses the sample value from
+the template as the input placeholder so the expected shape is visible.
+
+`FORM_MANAGED_KEYS` in `static/app.js`, plus the channel-key pattern, lists what
+the dedicated controls already own; those keys are filtered out so a setting can
+never have two sources. **Add to that set whenever a new dedicated control is
+added**, or the same key becomes settable twice. A key already chosen in one row
+is filtered out of the others.
+
+The values go through `setPref` like any other, so they land in the preview and
+in the submission, and the server validates them against the same per-key rules.
+There is no client-side value check here, so a wrong value is reported by the
+server on submit.
 
 `[hidden]` is forced to `display: none !important` in `static/styles.css`. Author
 rules set `display` on labels and panels, which otherwise beats the user-agent
