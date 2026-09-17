@@ -20,9 +20,11 @@ tokens, no preferences, no device or firmware choices.
   "status": "ok",
   "builds": {
     "total": 42,
-    "byStatus": {"expired": 4, "failed": 1, "queued": 2, "running": 1, "succeeded": 34},
     "queued": 2,
     "running": 1,
+    "succeeded": 34,
+    "failed": 1,
+    "expired": 4,
     "lastRequestedAt": "2026-09-17T04:31:25+00:00"
   }
 }

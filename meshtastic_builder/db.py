@@ -13,7 +13,8 @@ from .config import Config, ensure_directories, load_config
 from .security import generate_public_token
 
 
-STATUSES = {"queued", "running", "succeeded", "failed", "expired"}
+STATUS_ORDER = ("queued", "running", "succeeded", "failed", "expired")
+STATUSES = set(STATUS_ORDER)
 
 
 SCHEMA = """
@@ -410,9 +411,7 @@ def build_stats(config: Config) -> dict[str, Any]:
         ).fetchone()["last"]
     return {
         "total": sum(counts.values()),
-        "byStatus": {status: counts.get(status, 0) for status in sorted(STATUSES)},
-        "queued": counts.get("queued", 0),
-        "running": counts.get("running", 0),
+        **{status: counts.get(status, 0) for status in STATUS_ORDER},
         "lastRequestedAt": last_requested,
     }
 

@@ -71,7 +71,8 @@ class BuildStatsTests(unittest.TestCase):
             stats = build_stats(config)
             self.assertEqual(stats["total"], 2)
             self.assertEqual(stats["queued"], 2)
-            self.assertEqual(stats["byStatus"]["succeeded"], 0)
+            self.assertEqual(stats["succeeded"], 0)
+            self.assertNotIn("byStatus", stats)
             self.assertGreaterEqual(stats["lastRequestedAt"], first["created_at"])
 
     def test_stats_never_expose_request_details(self):
