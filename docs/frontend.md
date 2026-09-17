@@ -84,9 +84,16 @@ The form is split into the settings most users touch and everything else:
 4. Device: role, rebroadcast mode, node info and device telemetry intervals.
 5. Channels.
 6. MQTT, including the `ok_to_mqtt` code option.
-7. `<details class="advanced-section">`, collapsed by default: Security and
-   Environment sensors. Panels inside it are not numbered steps.
-8. Review and submit.
+7. `<details class="collapsible">`: Bluetooth and WiFi.
+8. A second `<details class="collapsible">`: Security and Environment sensors.
+9. Review and submit.
+
+Both collapsed sections are closed by default and their panels are not numbered
+steps. Bluetooth and WiFi are ordinary settings rather than advanced ones, but
+they are folded away because the page is long.
+
+The WiFi controls hide themselves, and emit nothing, when the selected device's
+family has no WiFi radio, so an nRF52 build never carries WiFi macros.
 
 Form defaults aim at a quiet mesh: rebroadcast `CORE_PORTNUMS_ONLY`, node info
 every 259200 s (72 h), and both telemetry intervals empty. Empty is not "firmware

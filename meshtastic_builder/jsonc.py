@@ -111,6 +111,7 @@ ENUM_KEYS = {
 
 BOOL_KEYS = {
     "USERPREFS_CONFIG_LORA_IGNORE_MQTT",
+    "USERPREFS_NETWORK_WIFI_ENABLED",
     "USERPREFS_CONFIG_ENVIRONMENT_MEASUREMENT_ENABLED",
     "USERPREFS_CONFIG_SECURITY_IS_MANAGED",
     "USERPREFS_MQTT_TLS_ENABLED",
@@ -123,15 +124,49 @@ INT_RANGE_KEYS = {
     "USERPREFS_CONFIG_DEVICE_NODE_INFO_BROADCAST_SECS": (3600, None),
     "USERPREFS_CONFIG_DEVICE_TELEM_UPDATE_INTERVAL": (0, None),
     "USERPREFS_CONFIG_ENV_TELEM_UPDATE_INTERVAL": (0, None),
+    # Bluetooth passkey. Setting it also switches pairing to FIXED_PIN mode.
+    "USERPREFS_FIXED_BLUETOOTH": (0, 999999),
 }
 
 # nanopb buffer sizes from module_config.pb.h minus the terminator.
 MAX_BYTES_KEYS = {
     "USERPREFS_MQTT_ADDRESS": 63,
+    "USERPREFS_NETWORK_WIFI_SSID": 32,
+    "USERPREFS_NETWORK_WIFI_PSK": 64,
     "USERPREFS_MQTT_USERNAME": 63,
     "USERPREFS_MQTT_PASSWORD": 31,
     "USERPREFS_MQTT_ROOT_TOPIC": 31,
 }
+
+
+# Keys the firmware consumes as C strings (strncpy, string literals). bin/platformio-custom.py
+# only quotes a value that does not already look like a number, bool, enum, hex or byte array,
+# so an all-digit SSID or password would reach the compiler bare and fail the build with an
+# unreadable C++ error an hour in. Reject it at submit time instead.
+STRING_MACRO_KEYS = {
+    "USERPREFS_CONFIG_OWNER_LONG_NAME",
+    "USERPREFS_CONFIG_OWNER_SHORT_NAME",
+    "USERPREFS_MQTT_USERNAME",
+    "USERPREFS_MQTT_PASSWORD",
+    "USERPREFS_MQTT_ROOT_TOPIC",
+    "USERPREFS_NETWORK_WIFI_SSID",
+    "USERPREFS_NETWORK_WIFI_PSK",
+}
+
+CHANNEL_NAME_RE = re.compile(r"^USERPREFS_CHANNEL_[0-7]_NAME$")
+
+UNQUOTED_HEX_RE = re.compile(r"0[xX][0-9a-fA-F]+")
+
+
+def _reaches_compiler_unquoted(value: str) -> bool:
+    """Mirror of the branch order in upstream bin/platformio-custom.py."""
+    return (
+        value.startswith("{")
+        or value.lstrip("-").replace(".", "").isdigit()
+        or bool(UNQUOTED_HEX_RE.fullmatch(value))
+        or value in {"true", "false"}
+        or value.startswith("meshtastic_")
+    )
 
 
 class JsoncValidationError(ValueError):
@@ -305,6 +340,13 @@ def validate_userpref_value(key: str, value: Any, max_channels: int = 3) -> None
             raise JsoncValidationError(f"{key} debe estar {limit}.")
     if key in MAX_BYTES_KEYS and isinstance(value, str) and len(value.encode("utf-8")) > MAX_BYTES_KEYS[key]:
         raise JsoncValidationError(f"{key} no puede superar {MAX_BYTES_KEYS[key]} bytes.")
+    if (key in STRING_MACRO_KEYS or CHANNEL_NAME_RE.match(key)) and isinstance(value, str):
+        if value and _reaches_compiler_unquoted(value):
+            raise JsoncValidationError(
+                f"{key} no puede ser solo digitos ni parecer un numero, booleano o enum: "
+                "el firmware lo compilaria sin comillas."
+            )
+
     if key == "USERPREFS_TZ_STRING":
         if not isinstance(value, str) or not value.strip():
             raise JsoncValidationError("USERPREFS_TZ_STRING debe contener un TZ POSIX.")

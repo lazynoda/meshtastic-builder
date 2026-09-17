@@ -219,7 +219,50 @@
             </div>
           </section>
 
-          <details class="advanced-section">
+          <details class="collapsible">
+            <summary>
+              <span data-i18n="radios.title"></span>
+              <small class="field-hint" data-i18n="radios.hint"></small>
+            </summary>
+
+            <section class="panel">
+              <h2><span data-i18n="radios.bluetoothHead"></span></h2>
+              <div class="grid grid-two">
+                <label class="check-line" data-pref-key="USERPREFS_FIXED_BLUETOOTH">
+                  <input id="blePinEnabled" type="checkbox">
+                  <span data-i18n="radios.blePinEnabled"></span>
+                  <small class="field-hint" data-i18n="radios.blePinHint"></small>
+                </label>
+                <label data-pref-key="USERPREFS_FIXED_BLUETOOTH">
+                  <span data-i18n="radios.blePin"></span>
+                  <input id="blePin" type="number" min="0" max="999999" step="1" value="121212">
+                </label>
+              </div>
+            </section>
+
+            <section id="wifiPanel" class="panel" data-gated>
+              <h2><span data-i18n="radios.wifiHead"></span></h2>
+              <p id="wifiUnsupported" class="status-line status-warn" data-i18n="radios.wifiUnsupported" hidden></p>
+              <div class="grid grid-three">
+                <label class="check-line span-two" data-pref-key="USERPREFS_NETWORK_WIFI_ENABLED">
+                  <input id="wifiEnabled" type="checkbox">
+                  <span data-i18n="radios.wifiEnabled"></span>
+                  <small class="field-hint" data-i18n="radios.wifiHint"></small>
+                </label>
+                <label data-pref-key="USERPREFS_NETWORK_WIFI_SSID">
+                  <span data-i18n="radios.wifiSsid"></span>
+                  <input id="wifiSsid" type="text" autocomplete="off" maxlength="32">
+                </label>
+                <label data-pref-key="USERPREFS_NETWORK_WIFI_PSK">
+                  <span data-i18n="radios.wifiPsk"></span>
+                  <input id="wifiPsk" type="text" autocomplete="off" maxlength="64">
+                  <small class="field-hint" data-i18n="radios.wifiPskHint"></small>
+                </label>
+              </div>
+            </section>
+          </details>
+
+          <details class="collapsible">
             <summary>
               <span data-i18n="advanced.title"></span>
               <small class="field-hint" data-i18n="advanced.hint"></small>

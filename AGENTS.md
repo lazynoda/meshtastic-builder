@@ -350,6 +350,9 @@ Keep these invariants:
 - `/api/health` is public: keep it aggregate-only, and keep failure details out
   of its body.
 - Preference values must stay shape-checked; they reach the compiler as `-D` flags.
+- Keys the firmware reads as C strings must reject values `bin/platformio-custom.py`
+  would emit unquoted (digits, bools, hex, enums, byte arrays). See
+  `STRING_MACRO_KEYS`.
 - Downloads must fail after expiry.
 - Docker input mount should remain read-only.
 - Builder containers should keep CPU, memory, PID, and network limits unless there is a documented reason to change them.

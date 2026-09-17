@@ -7,6 +7,7 @@ from meshtastic_builder.jsonc import (
     parse_jsonc,
     validate_and_merge_userprefs,
     validate_and_normalize_userprefs,
+    validate_userpref_value,
 )
 
 
@@ -84,6 +85,49 @@ class JsoncTests(unittest.TestCase):
                 template,
                 1000,
             )
+
+    def test_wifi_and_bluetooth_values(self):
+        template = (
+            '{\n'
+            '  // "USERPREFS_NETWORK_WIFI_ENABLED": "true",\n'
+            '  // "USERPREFS_NETWORK_WIFI_SSID": "wifi_ssid",\n'
+            '  // "USERPREFS_NETWORK_WIFI_PSK": "wifi_psk",\n'
+            '  // "USERPREFS_FIXED_BLUETOOTH": "121212"\n'
+            '}'
+        )
+        _text, parsed = validate_and_merge_userprefs(
+            '{"USERPREFS_NETWORK_WIFI_ENABLED": "true", "USERPREFS_NETWORK_WIFI_SSID": "MiRed_5G",'
+            ' "USERPREFS_NETWORK_WIFI_PSK": "clave-secreta", "USERPREFS_FIXED_BLUETOOTH": "482913"}',
+            template,
+            2000,
+        )
+        self.assertEqual(parsed["USERPREFS_NETWORK_WIFI_SSID"], "MiRed_5G")
+        self.assertEqual(parsed["USERPREFS_FIXED_BLUETOOTH"], "482913")
+
+        for payload in (
+            '{"USERPREFS_FIXED_BLUETOOTH": "1234567"}',
+            '{"USERPREFS_NETWORK_WIFI_ENABLED": "yes"}',
+            '{"USERPREFS_NETWORK_WIFI_SSID": "' + "x" * 33 + '"}',
+        ):
+            with self.subTest(payload=payload), self.assertRaises(JsoncValidationError):
+                validate_and_merge_userprefs(payload, template, 2000)
+
+    def test_c_string_keys_reject_values_the_build_would_not_quote(self):
+        """bin/platformio-custom.py emits digits, bools, hex and enums without quotes."""
+        keys = (
+            "USERPREFS_NETWORK_WIFI_PSK",
+            "USERPREFS_NETWORK_WIFI_SSID",
+            "USERPREFS_MQTT_PASSWORD",
+            "USERPREFS_CONFIG_OWNER_LONG_NAME",
+            "USERPREFS_CHANNEL_0_NAME",
+        )
+        for key in keys:
+            for value in ("12345678", "-4.5", "0xAB12", "true", "meshtastic_Thing"):
+                with self.subTest(key=key, value=value), self.assertRaises(JsoncValidationError):
+                    validate_userpref_value(key, value)
+        # Anything the build script would quote is still fine.
+        for value in ("5GHome", "clave-secreta", "12345678a", "Nodo 12"):
+            validate_userpref_value("USERPREFS_NETWORK_WIFI_PSK", value)
 
     def test_validate_rejects_unknown_key(self):
         with self.assertRaises(JsoncValidationError):

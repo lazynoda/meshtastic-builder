@@ -61,6 +61,13 @@ tag/device set that the service exposes.
 The service requires no user accounts, API keys, or outbound credentials. It
 stores no email address: a build is reachable only through its private token.
 
+Values for keys the firmware consumes as C strings are rejected when they would
+reach the compiler unquoted. `bin/platformio-custom.py` only wraps a value in
+quotes if it does not already look like a number, bool, hex literal, enum or
+byte array, so an all-digit WiFi password or node name would be emitted bare and
+break the build. `STRING_MACRO_KEYS` in `meshtastic_builder/jsonc.py` guards
+those keys, and the page applies the same rule while typing.
+
 `/api/health` is unauthenticated, so it reports only aggregate counts and the
 time of the last request. It carries no token, no preferences and no device or
 firmware choice, and its failure body names no path or query.

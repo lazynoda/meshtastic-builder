@@ -199,12 +199,12 @@ h3 {
   margin: 18px 0 10px;
 }
 
-/* Advanced settings: collapsed by default, inner panels are not numbered steps. */
-.advanced-section {
+/* Collapsed sections: closed by default, inner panels are not numbered steps. */
+.collapsible {
   margin-bottom: 20px;
 }
 
-.advanced-section > summary {
+.collapsible > summary {
   cursor: pointer;
   list-style: none;
   display: flex;
@@ -219,26 +219,26 @@ h3 {
   color: var(--accent);
 }
 
-.advanced-section > summary::-webkit-details-marker {
+.collapsible > summary::-webkit-details-marker {
   display: none;
 }
 
-.advanced-section > summary::before {
+.collapsible > summary::before {
   content: "+";
   width: 20px;
   text-align: center;
   flex-shrink: 0;
 }
 
-.advanced-section[open] > summary {
+.collapsible[open] > summary {
   margin-bottom: 20px;
 }
 
-.advanced-section[open] > summary::before {
+.collapsible[open] > summary::before {
   content: "\2212";
 }
 
-#buildForm .advanced-section .panel h2::before {
+#buildForm .collapsible .panel h2::before {
   content: none;
   counter-increment: none;
 }

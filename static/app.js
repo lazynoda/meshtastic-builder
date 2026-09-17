@@ -1,4 +1,7 @@
+const WIFI_FAMILIES = new Set(["esp32", "esp32-s3", "esp32-c3", "esp32-c6"]);
+
 const state = {
+  deviceFamilies: {},
   currentBuildToken: null,
   pollTimer: null,
   templateKeys: new Set(),
@@ -273,6 +276,22 @@ function syncCustomLora() {
   $("presetDisabledHint").hidden = !enabled;
 }
 
+function wifiSupported() {
+  const family = state.deviceFamilies[$("deviceId").value];
+  return !family || WIFI_FAMILIES.has(family);
+}
+
+// Recomputed from both conditions every time: a control hidden because the board
+// has no WiFi must come back when the user picks a board that does.
+function syncWifiAvailability() {
+  const supported = wifiSupported();
+  for (const el of $("wifiPanel").querySelectorAll("[data-pref-key]")) {
+    const inTemplate = state.templateKeys.size === 0 || state.templateKeys.has(el.dataset.prefKey);
+    el.hidden = !supported || !inTemplate;
+  }
+  $("wifiUnsupported").hidden = supported;
+}
+
 function syncManagedMode() {
   const hasAdminKey = ["adminKey", "adminKey1", "adminKey2"].some((id) => $(id).value.trim() !== "");
   const checkbox = $("securityIsManaged");
@@ -285,6 +304,7 @@ function syncTemplateGatedControls() {
   for (const el of document.querySelectorAll("[data-pref-key]")) {
     el.hidden = state.templateKeys.size > 0 && !state.templateKeys.has(el.dataset.prefKey);
   }
+  syncWifiAvailability();
   for (const panel of document.querySelectorAll("#buildForm .panel[data-gated]")) {
     panel.hidden = Array.from(panel.querySelectorAll("[data-pref-key]")).every((el) => el.hidden);
   }
@@ -292,9 +312,11 @@ function syncTemplateGatedControls() {
 
 async function loadDevices() {
   const { devices } = await fetchJson("/api/devices");
+  state.deviceFamilies = Object.fromEntries(devices.map((device) => [device.id, device.family]));
   $("deviceId").innerHTML = devices
     .map((device) => `<option value="${escapeHtml(device.id)}">${escapeHtml(device.label)}</option>`)
     .join("");
+  $("deviceId").addEventListener("change", syncWifiAvailability);
 }
 
 async function loadVersions(forceRefresh = false) {
@@ -513,6 +535,22 @@ function validateShortName() {
   }
 }
 
+// bin/platformio-custom.py only quotes a value that does not already look like a
+// number, bool, enum, hex or byte array, so these would reach the compiler bare.
+function validateCompilesAsString(value, label) {
+  const looksUnquoted =
+    value.startsWith("{") ||
+    /^-?[\d.]+$/.test(value) ||
+    /^0[xX][0-9a-fA-F]+$/.test(value) ||
+    value === "true" ||
+    value === "false" ||
+    value.startsWith("meshtastic_");
+  if (looksUnquoted) {
+    throw new Error(t("error.mustBeText", { label }));
+  }
+  return value;
+}
+
 function validateMaxBytes(value, label, maxBytes) {
   if (encoder.encode(value).length > maxBytes) {
     throw new Error(t("error.maxBytes", { label, bytes: maxBytes }));
@@ -576,6 +614,15 @@ function buildPrefs() {
     setPref(prefs, "USERPREFS_MQTT_ROOT_TOPIC", validateMaxBytes(mqttRoot, t("label.mqttRoot"), 31));
   }
   setPref(prefs, "USERPREFS_CONFIG_LORA_IGNORE_MQTT", String($("ignoreMqtt").checked));
+
+  if ($("blePinEnabled").checked) {
+    setOptionalPref(prefs, "USERPREFS_FIXED_BLUETOOTH", $("blePin").value);
+  }
+  // A board with no WiFi radio gets no WiFi macros, whatever is still typed in the form.
+  if (wifiSupported()) {
+    buildWifiPrefs(prefs);
+  }
+
   setPref(prefs, "USERPREFS_MQTT_ENCRYPTION_ENABLED", String($("mqttEncryption").checked));
   setPref(prefs, "USERPREFS_MQTT_TLS_ENABLED", String($("mqttTls").checked));
 
@@ -609,6 +656,22 @@ function buildPrefs() {
   });
 
   return prefs;
+}
+
+function buildWifiPrefs(prefs) {
+  if ($("wifiEnabled").checked) {
+    setPref(prefs, "USERPREFS_NETWORK_WIFI_ENABLED", "true");
+  }
+  const ssid = $("wifiSsid").value.trim();
+  if (ssid) {
+    validateMaxBytes(ssid, t("label.wifiSsid"), 32);
+    setPref(prefs, "USERPREFS_NETWORK_WIFI_SSID", validateCompilesAsString(ssid, t("label.wifiSsid")));
+  }
+  const psk = $("wifiPsk").value;
+  if (psk) {
+    validateMaxBytes(psk, t("label.wifiPsk"), 64);
+    setPref(prefs, "USERPREFS_NETWORK_WIFI_PSK", validateCompilesAsString(psk, t("label.wifiPsk")));
+  }
 }
 
 function buildCodeOptions() {
