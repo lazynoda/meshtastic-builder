@@ -482,11 +482,19 @@ input[type="checkbox"] {
 /* Channels */
 .channel-row {
   display: grid;
-  grid-template-columns: auto 1.4fr 1.4fr 1.2fr auto auto auto;
+  grid-template-columns: auto 1fr;
   gap: 12px;
-  align-items: end;
+  align-items: center;
   padding: 14px 0;
   border-bottom: 1px solid var(--border);
+}
+
+/* The fields are their own grid so the handle never takes a field's column. */
+.channel-fields {
+  display: grid;
+  grid-template-columns: 1.4fr 1.4fr 1.2fr auto auto auto;
+  gap: 12px;
+  align-items: end;
 }
 
 .channel-row:last-child {
@@ -520,8 +528,8 @@ input[type="checkbox"] {
 }
 
 @media (max-width: 720px) {
-  .channel-row {
-    grid-template-columns: auto 1fr;
+  .channel-fields {
+    grid-template-columns: 1fr 1fr;
   }
   .precision-cell {
     grid-column: span 2;

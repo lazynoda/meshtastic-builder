@@ -83,12 +83,17 @@ The form is split into the settings most users touch and everything else:
 3. LoRa radio: region, modem preset, TX power, manual LoRa parameters.
 4. Device: role, rebroadcast mode, node info and device telemetry intervals.
 5. Channels.
-6. MQTT, including the `ok_to_mqtt` code option.
-7. `<details class="collapsible">`: Bluetooth and WiFi.
+6. `<details class="collapsible">`: Bluetooth and WiFi.
+7. `<details class="collapsible">`: MQTT.
 8. `<details class="collapsible">`: Position and GPS.
 9. `<details class="collapsible">`: Security.
 10. `<details class="collapsible">`: Other config values.
 11. Review and submit.
+
+A channel row is a grid of two cells, the drag handle and a `.channel-fields`
+grid holding the inputs. Nesting them keeps the handle out of the field columns;
+when it shared the row grid, a phone gave it half the width and pushed the name
+into the second column.
 
 `USERPREFS_FIXED_GPS` is a presence flag: the firmware only tests `#ifdef`, so the
 form writes it with an empty value. That is why fixed position needs a control of

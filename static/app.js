@@ -700,6 +700,7 @@ function renderChannels() {
     <div class="channel-row" data-index="${index}">
       <button class="drag-handle" type="button" data-action="drag" ${canReorder ? "" : "disabled"}
         aria-label="${escapeHtml(t("channel.reorder"))}" title="${escapeHtml(t("channel.reorder"))}">⠿</button>
+      <div class="channel-fields">
       <label>
         ${escapeHtml(t("channel.name"))}
         <input data-field="name" type="text" value="${escapeHtml(channel.name)}" autocomplete="off" required>
@@ -731,6 +732,7 @@ function renderChannels() {
       </label>` : ""}
       <button class="btn btn-icon" type="button" data-action="remove" ${state.channels.length === 1 ? "disabled" : ""}
         aria-label="${escapeHtml(t("channel.remove"))}" title="${escapeHtml(t("channel.remove"))}">&times;</button>
+      </div>
     </div>
   `).join("");
   $("addChannel").disabled = state.channels.length >= state.maxChannels;

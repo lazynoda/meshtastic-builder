@@ -184,40 +184,6 @@
             <div id="channelRows"></div>
           </section>
 
-          <section class="panel">
-            <h2><span data-i18n="step5.mqttHead"></span></h2>
-            <div class="grid grid-three">
-              <label>
-                <span data-i18n="step5.mqttAddress"></span>
-                <input id="mqttAddress" type="text" value="mqtt.meshtastic.es" autocomplete="off">
-              </label>
-              <label data-pref-key="USERPREFS_MQTT_USERNAME">
-                <span data-i18n="step5.mqttUsername"></span>
-                <input id="mqttUsername" type="text" autocomplete="off" value="meshdev">
-              </label>
-              <label data-pref-key="USERPREFS_MQTT_PASSWORD">
-                <span data-i18n="step5.mqttPassword"></span>
-                <input id="mqttPassword" type="text" autocomplete="off" value="large4cats">
-                <small class="field-hint" data-i18n="step5.mqttPasswordHint"></small>
-              </label>
-              <label data-pref-key="USERPREFS_MQTT_ROOT_TOPIC">
-                <span data-i18n="step5.mqttRoot"></span>
-                <input id="mqttRootTopic" type="text" autocomplete="off" placeholder="msh/EU_868">
-              </label>
-              <label class="check-line">
-                <input id="mqttEnabled" type="checkbox">
-                <span data-i18n="step5.mqttEnabled"></span>
-              </label>
-              <label class="check-line" data-pref-key="USERPREFS_MQTT_ENCRYPTION_ENABLED">
-                <input id="mqttEncryption" type="checkbox" checked>
-                <span data-i18n="step5.mqttEncryption"></span>
-              </label>
-              <label class="check-line" data-pref-key="USERPREFS_MQTT_TLS_ENABLED">
-                <input id="mqttTls" type="checkbox">
-                <span data-i18n="step5.mqttTls"></span>
-              </label>
-            </div>
-          </section>
 
           <details class="collapsible">
             <summary>
@@ -257,6 +223,48 @@
                   <span data-i18n="radios.wifiPsk"></span>
                   <input id="wifiPsk" type="text" autocomplete="off" maxlength="64">
                   <small class="field-hint" data-i18n="radios.wifiPskHint"></small>
+                </label>
+              </div>
+            </section>
+          </details>
+
+          <details class="collapsible">
+            <summary>
+              <span data-i18n="step5.mqttHead"></span>
+              <small class="field-hint" data-i18n="mqtt.hint"></small>
+            </summary>
+
+            <section class="panel">
+              <h2><span data-i18n="step5.mqttHead"></span></h2>
+              <div class="grid grid-three">
+                <label>
+                  <span data-i18n="step5.mqttAddress"></span>
+                  <input id="mqttAddress" type="text" value="mqtt.meshtastic.es" autocomplete="off">
+                </label>
+                <label data-pref-key="USERPREFS_MQTT_USERNAME">
+                  <span data-i18n="step5.mqttUsername"></span>
+                  <input id="mqttUsername" type="text" autocomplete="off" value="meshdev">
+                </label>
+                <label data-pref-key="USERPREFS_MQTT_PASSWORD">
+                  <span data-i18n="step5.mqttPassword"></span>
+                  <input id="mqttPassword" type="text" autocomplete="off" value="large4cats">
+                  <small class="field-hint" data-i18n="step5.mqttPasswordHint"></small>
+                </label>
+                <label data-pref-key="USERPREFS_MQTT_ROOT_TOPIC">
+                  <span data-i18n="step5.mqttRoot"></span>
+                  <input id="mqttRootTopic" type="text" autocomplete="off" placeholder="msh/EU_868">
+                </label>
+                <label class="check-line">
+                  <input id="mqttEnabled" type="checkbox">
+                  <span data-i18n="step5.mqttEnabled"></span>
+                </label>
+                <label class="check-line" data-pref-key="USERPREFS_MQTT_ENCRYPTION_ENABLED">
+                  <input id="mqttEncryption" type="checkbox" checked>
+                  <span data-i18n="step5.mqttEncryption"></span>
+                </label>
+                <label class="check-line" data-pref-key="USERPREFS_MQTT_TLS_ENABLED">
+                  <input id="mqttTls" type="checkbox">
+                  <span data-i18n="step5.mqttTls"></span>
                 </label>
               </div>
             </section>
