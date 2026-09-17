@@ -174,6 +174,9 @@ class MeshtasticBuilderHandler(BaseHTTPRequestHandler):
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(target.stat().st_size))
+        # Without this browsers keep serving a redeployed page from cache, and phones
+        # are the worst offenders. These files are a few KB, so always revalidate.
+        self.send_header("Cache-Control", "no-cache")
         self.end_headers()
         if send_body:
             with target.open("rb") as fh:
