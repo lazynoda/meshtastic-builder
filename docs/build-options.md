@@ -69,6 +69,12 @@ defines present but nothing reading them.
 | `customLora.channelNum` | `0`–`255` | Frequency slot. `0` derives the slot from the channel name. Uses the pre-existing `USERPREFS_LORACONFIG_CHANNEL_NUM` key. |
 | `customLora.overrideFrequencyMhz` | `0`–`1000`, float | Transmit frequency in MHz. `0` keeps the region frequency. Emits `USERPREFS_LORACONFIG_OVERRIDE_FREQUENCY`. |
 
+The defaults in `data/build_options.json` describe a narrow-band setup rather
+than a copy of a modem preset: bandwidth `62` (62.5 kHz), spread factor `7`,
+coding rate `5`, slot `0`, frequency `869.618` MHz. Every field is sent on each
+submission, so changing a default changes what a user gets when they tick the
+box without touching the controls.
+
 Sending `customLora` also emits `USERPREFS_LORACONFIG_USE_PRESET: "false"`, so
 the modem preset is ignored by the radio. The UI disables the preset selector
 while manual LoRa configuration is on.

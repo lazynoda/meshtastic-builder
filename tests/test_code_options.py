@@ -97,11 +97,11 @@ class CodeOptionValidationTests(unittest.TestCase):
             SUPPORTED_TAG,
         )
         self.assertEqual(canonical["customLora"]["spreadFactor"], 9)
-        self.assertEqual(canonical["customLora"]["bandwidthKhz"], 250)
+        self.assertEqual(canonical["customLora"]["bandwidthKhz"], 62)
         self.assertEqual(macros["USERPREFS_LORACONFIG_USE_PRESET"], "false")
         self.assertEqual(macros["USERPREFS_LORACONFIG_SPREAD_FACTOR"], "9")
-        self.assertEqual(macros["USERPREFS_LORACONFIG_BANDWIDTH"], "250")
-        self.assertEqual(macros["USERPREFS_LORACONFIG_OVERRIDE_FREQUENCY"], "0.0")
+        self.assertEqual(macros["USERPREFS_LORACONFIG_BANDWIDTH"], "62")
+        self.assertEqual(macros["USERPREFS_LORACONFIG_OVERRIDE_FREQUENCY"], "869.618")
         for value in macros.values():
             self.assertIsInstance(value, str)
 
