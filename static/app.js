@@ -285,10 +285,14 @@ function wifiSupported() {
 // has no WiFi must come back when the user picks a board that does.
 function syncWifiAvailability() {
   const supported = wifiSupported();
-  for (const el of $("wifiPanel").querySelectorAll("[data-pref-key]")) {
-    const inTemplate = state.templateKeys.size === 0 || state.templateKeys.has(el.dataset.prefKey);
-    el.hidden = !supported || !inTemplate;
+  const inTemplate = (key) => state.templateKeys.size === 0 || state.templateKeys.has(key);
+  const controls = Array.from($("wifiPanel").querySelectorAll("[data-pref-key]"));
+  for (const el of controls) {
+    el.hidden = !supported || !inTemplate(el.dataset.prefKey);
   }
+  // Firmware that has no WiFi keys at all: drop the panel. Board with no WiFi
+  // radio: keep it, so the note explaining the missing fields stays visible.
+  $("wifiPanel").hidden = !controls.some((el) => inTemplate(el.dataset.prefKey));
   $("wifiUnsupported").hidden = supported;
 }
 
@@ -305,9 +309,6 @@ function syncTemplateGatedControls() {
     el.hidden = state.templateKeys.size > 0 && !state.templateKeys.has(el.dataset.prefKey);
   }
   syncWifiAvailability();
-  for (const panel of document.querySelectorAll("#buildForm .panel[data-gated]")) {
-    panel.hidden = Array.from(panel.querySelectorAll("[data-pref-key]")).every((el) => el.hidden);
-  }
 }
 
 async function loadDevices() {

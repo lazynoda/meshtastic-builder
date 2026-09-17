@@ -86,11 +86,17 @@ The form is split into the settings most users touch and everything else:
 6. MQTT, including the `ok_to_mqtt` code option.
 7. `<details class="collapsible">`: Bluetooth and WiFi.
 8. `<details class="collapsible">`: Security.
-9. `<details class="collapsible">`: Environment sensors.
-10. Review and submit.
+9. Review and submit.
 
-Every collapsed section is closed by default and its panels are not numbered
-steps. Bluetooth and WiFi are ordinary settings rather than advanced ones, but
+Both collapsed sections are closed by default and their panels are not numbered
+steps. Environment telemetry sits in the Device panel beside the other telemetry
+intervals rather than in a section of its own.
+
+`[hidden]` is forced to `display: none !important` in `static/styles.css`. Author
+rules set `display` on labels and panels, which otherwise beats the user-agent
+rule for the attribute and leaves a control that JavaScript has hidden still on
+screen. Every gating path here sets `.hidden`, so that rule is what makes them
+work. Bluetooth and WiFi are ordinary settings rather than advanced ones, but
 they are folded away because the page is long.
 
 The WiFi controls hide themselves, and emit nothing, when the selected device's

@@ -172,6 +172,15 @@
                 <input id="deviceTelemInterval" type="number" min="0" step="60" placeholder="900">
                 <small class="field-hint" data-i18n="behaviour.telemHint"></small>
               </label>
+              <label data-pref-key="USERPREFS_CONFIG_ENV_TELEM_UPDATE_INTERVAL">
+                <span data-i18n="behaviour.envTelem"></span>
+                <input id="envTelemInterval" type="number" min="0" step="60" placeholder="900">
+                <small class="field-hint" data-i18n="behaviour.telemHint"></small>
+              </label>
+              <label class="check-line" data-pref-key="USERPREFS_CONFIG_ENVIRONMENT_MEASUREMENT_ENABLED">
+                <input id="envMeasurementEnabled" type="checkbox">
+                <span data-i18n="behaviour.envEnabled"></span>
+              </label>
             </div>
           </section>
 
@@ -240,7 +249,7 @@
               </div>
             </section>
 
-            <section id="wifiPanel" class="panel" data-gated>
+            <section id="wifiPanel" class="panel">
               <h2><span data-i18n="radios.wifiHead"></span></h2>
               <p id="wifiUnsupported" class="status-line status-warn" data-i18n="radios.wifiUnsupported" hidden></p>
               <div class="grid grid-three">
@@ -297,27 +306,6 @@
             </section>
           </details>
 
-          <details class="collapsible">
-            <summary>
-              <span data-i18n="advanced.title"></span>
-              <small class="field-hint" data-i18n="advanced.hint"></small>
-            </summary>
-
-            <section class="panel" data-gated>
-              <h2><span data-i18n="sensors.title"></span></h2>
-              <div class="grid grid-two">
-                <label data-pref-key="USERPREFS_CONFIG_ENV_TELEM_UPDATE_INTERVAL">
-                  <span data-i18n="behaviour.envTelem"></span>
-                  <input id="envTelemInterval" type="number" min="0" step="60" placeholder="900">
-                  <small class="field-hint" data-i18n="behaviour.telemHint"></small>
-                </label>
-                <label class="check-line" data-pref-key="USERPREFS_CONFIG_ENVIRONMENT_MEASUREMENT_ENABLED">
-                  <input id="envMeasurementEnabled" type="checkbox">
-                  <span data-i18n="behaviour.envEnabled"></span>
-                </label>
-              </div>
-            </section>
-          </details>
 
           <section class="panel">
             <h2><span data-i18n="step7.title"></span></h2>

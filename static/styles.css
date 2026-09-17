@@ -186,10 +186,6 @@ h3 {
   flex-shrink: 0;
 }
 
-#buildForm .panel[hidden] {
-  display: none;
-}
-
 .sub-head {
   font-family: var(--mono);
   font-size: 0.72rem;
@@ -241,11 +237,6 @@ h3 {
 #buildForm .collapsible .panel h2::before {
   content: none;
   counter-increment: none;
-}
-
-.code-option[hidden],
-.patch-only[hidden] {
-  display: none;
 }
 
 .badge {
@@ -341,6 +332,13 @@ h3 {
 
 .status-error {
   color: var(--danger);
+}
+
+/* Author rules set `display` on labels and panels, which beats the user-agent
+   rule for [hidden] and leaves "hidden" controls on screen. Keep the attribute
+   authoritative for every element. */
+[hidden] {
+  display: none !important;
 }
 
 /* Form controls */

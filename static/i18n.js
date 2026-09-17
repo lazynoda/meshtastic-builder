@@ -50,9 +50,6 @@ const DICT = {
 
     "security.title": "Seguridad",
     "security.hint": "Claves de administracion remota y firma de paquetes.",
-    "advanced.title": "Ajustes avanzados",
-    "advanced.hint": "Sensores ambientales. Los valores por defecto sirven para la mayoria.",
-    "sensors.title": "Sensores ambientales",
 
     "step4.title": "Canales",
     "step4.hint": "Hasta {max} canales escritos en el firmware.",
@@ -203,9 +200,6 @@ const DICT = {
 
     "security.title": "Security",
     "security.hint": "Remote admin keys and packet signing.",
-    "advanced.title": "Advanced settings",
-    "advanced.hint": "Environment sensors. Defaults work for most nodes.",
-    "sensors.title": "Environment sensors",
 
     "step4.title": "Channels",
     "step4.hint": "Up to {max} channels written into the firmware.",
