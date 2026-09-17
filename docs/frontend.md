@@ -121,6 +121,12 @@ Two things reach the firmware without being ordinary entries:
   would be rejected as entries. They appear as JSONC comments, so the text stays
   submittable while still disclosing them.
 
+The preview is painted by the first synchronous render, before any request
+finishes, so it is never blank while the page waits on the network. It then
+repaints as the device list and the tag's template arrive. Anything `buildPrefs`
+reads must therefore tolerate a control that does not exist yet: the device
+picker is built by `loadDevices`, which is why `wifiSupported` guards it.
+
 When a value fails validation the preview keeps its last good content and the
 status line carries the error. `submitBuild` re-runs `updatePrefsPreview` and
 aborts if it fails, so a stale preview can never be submitted.

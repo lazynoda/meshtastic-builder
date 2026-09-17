@@ -447,7 +447,11 @@ function syncCustomLora() {
 }
 
 function wifiSupported() {
-  const family = state.deviceFamilies[$("deviceId").value];
+  // The device combo is built by loadDevices(), so #deviceId is absent during the
+  // first render. Unknown device means unknown family, same as any other family
+  // we have no entry for.
+  const picker = $("deviceId");
+  const family = picker ? state.deviceFamilies[picker.value] : null;
   return !family || WIFI_FAMILIES.has(family);
 }
 
@@ -495,6 +499,9 @@ async function loadDevices() {
   );
   $("deviceId").addEventListener("change", syncWifiAvailability);
   $("deviceId").addEventListener("change", updatePrefsPreview);
+  // The list arrives after the first render, so repaint with the real device.
+  syncWifiAvailability();
+  updatePrefsPreview();
 }
 
 async function loadVersions(forceRefresh = false) {
