@@ -390,15 +390,19 @@ If a tool appears missing, check `printenv PATH` before assuming it is not insta
 
 Docker note: in one unrestricted session, Docker CLI was present but the active context pointed to `ssh://other-host.example` and `docker-status` timed out. A later session validated Docker at `ssh://docker-host.example`. Verify Docker before starting any long build.
 
-## graphify
+## CodeGraph
 
-This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+This project is indexed by CodeGraph. The index lives in `.codegraph/`, which is
+gitignored: it is a local SQLite database kept current by a file watcher, not a
+build artifact to commit.
 
-When the user types `/graphify`, invoke the `skill` tool with `skill: "graphify"` before doing anything else.
+Prefer it over grep or reading files when locating or understanding code. One
+call returns the relevant symbols' verbatim source plus the call paths and blast
+radius:
 
-Rules:
-- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
-- Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
-- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
-- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
-- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+```bash
+codegraph explore "<symbol names or question>"
+codegraph sync .    # only if the watcher has not caught up
+```
+
+The `codegraph_explore` MCP tool gives the same output when available.

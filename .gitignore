@@ -5,7 +5,6 @@ __pycache__/
 .env
 var/
 .playwright-cli/
-graphify-out/cache/
 # Reference-only copy of the shared meshtastic.es app template.
 .tmp/
 *.sqlite
