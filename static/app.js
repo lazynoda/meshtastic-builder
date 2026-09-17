@@ -53,6 +53,7 @@ const state = {
   templateExamples: {},
   templateDefaults: {},
   currentBuildToken: null,
+  buildViewOnly: false,
   pollTimer: null,
   templateKeys: new Set(),
   channels: [],
@@ -308,6 +309,10 @@ function setStatus(message, isError = false, key = null) {
   const el = $("statusText");
   el.textContent = message;
   el.classList.toggle("status-error", isError);
+  // On the permalink the panel already reports the build, so "Ready." is just
+  // noise next to it. Keep the line for errors, and while the panel has nothing
+  // in it yet.
+  el.hidden = state.buildViewOnly && !isError && !$("result").hidden;
   state.statusIsError = isError;
   state.statusKey = key;
 }
@@ -1319,6 +1324,9 @@ function startPolling(token) {
     try {
       const { build } = await fetchJson(`/api/builds/${token}`);
       showBuild(build);
+      // A dropped poll is normal on a phone or while a build pins the host, and
+      // without this the error sticks for good while polling carries on fine.
+      if (state.statusIsError) setStatusKey("status.ready");
       if (["succeeded", "failed", "expired"].includes(build.status)) {
         clearInterval(state.pollTimer);
       }
@@ -1441,6 +1449,7 @@ if (buildViewToken) {
   // line lives inside the form, so move it out before hiding it or a failed
   // lookup would have nowhere to report. Devices and firmware tags are form-only
   // data, and loadVersions() hits GitHub, so neither is worth loading here.
+  state.buildViewOnly = true;
   document.querySelector(".app-main").prepend($("statusText"));
   $("buildForm").hidden = true;
   $("refreshVersions").hidden = true;
