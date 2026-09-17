@@ -171,6 +171,124 @@ function precisionLabel(precision) {
   return metres >= 1000 ? `~${(metres / 1000).toFixed(1)} km` : `~${Math.round(metres)} m`;
 }
 
+// Minimal combobox: a text box that filters its list by substring. <datalist> would
+// be less code, but iOS Safari barely supports it and this page is used on phones.
+// The visible input is only for searching; the hidden .combo-value holds the value
+// and fires `change`, so the rest of the form reads it like any other field.
+function comboHtml(items, selectedValue, { valueAttrs = "", placeholder = "" } = {}) {
+  const selected = items.find((item) => item.value === selectedValue);
+  return `
+    <div class="combo">
+      <input class="combo-input" type="text" autocomplete="off" role="combobox" aria-expanded="false"
+        aria-autocomplete="list" placeholder="${escapeHtml(placeholder)}"
+        value="${escapeHtml(selected ? selected.label : "")}">
+      <input class="combo-value" type="hidden" ${valueAttrs} value="${escapeHtml(selected ? selected.value : "")}">
+      <ul class="combo-list" role="listbox" hidden>
+        ${items
+          .map(
+            (item) =>
+              `<li role="option" data-value="${escapeHtml(item.value)}"${item.value === selectedValue ? ' aria-selected="true"' : ""}>${escapeHtml(item.label)}</li>`,
+          )
+          .join("")}
+      </ul>
+    </div>`;
+}
+
+function closeCombos(except = null) {
+  for (const root of document.querySelectorAll(".combo")) {
+    if (root === except) continue;
+    setComboOpen(root, false);
+  }
+}
+
+// Punctuation is dropped from both sides so "promicro" finds "Pro-micro" and
+// "gpsmode" finds "CONFIG_GPS_MODE".
+function comboNormalize(text) {
+  return text.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function setComboOpen(root, open) {
+  root.querySelector(".combo-list").hidden = !open;
+  root.querySelector(".combo-input").setAttribute("aria-expanded", String(open));
+}
+
+// Opening shows everything: the box holds the current label, which would otherwise
+// filter the list down to the one option already chosen.
+function openCombo(root) {
+  for (const item of root.querySelectorAll(".combo-list li")) item.hidden = false;
+  setComboOpen(root, true);
+  root.querySelector(".combo-input").select();
+}
+
+function filterCombo(root) {
+  const query = comboNormalize(root.querySelector(".combo-input").value);
+  let visible = 0;
+  for (const item of root.querySelectorAll(".combo-list li")) {
+    item.hidden = query !== "" && !comboNormalize(item.textContent).includes(query);
+    if (!item.hidden) visible += 1;
+  }
+  setComboOpen(root, visible > 0);
+}
+
+// Typing without picking must not leave a label that contradicts the stored value.
+function restoreComboLabel(root) {
+  const current = root.querySelector(".combo-value").value;
+  const item = Array.from(root.querySelectorAll(".combo-list li")).find((li) => li.dataset.value === current);
+  root.querySelector(".combo-input").value = item ? item.textContent.trim() : "";
+}
+
+function chooseComboItem(root, item) {
+  const value = root.querySelector(".combo-value");
+  value.value = item.dataset.value;
+  root.querySelector(".combo-input").value = item.textContent.trim();
+  for (const other of root.querySelectorAll(".combo-list li")) other.removeAttribute("aria-selected");
+  item.setAttribute("aria-selected", "true");
+  closeCombos();
+  value.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function bindCombos() {
+  document.addEventListener("focusin", (event) => {
+    const input = event.target.closest?.(".combo-input");
+    if (!input) return closeCombos();
+    const root = input.closest(".combo");
+    closeCombos(root);
+    openCombo(root);
+  });
+  document.addEventListener("input", (event) => {
+    if (!event.target.matches?.(".combo-input")) return;
+    filterCombo(event.target.closest(".combo"));
+  });
+  document.addEventListener("click", (event) => {
+    const item = event.target.closest?.(".combo-list li");
+    if (item) return chooseComboItem(item.closest(".combo"), item);
+    if (!event.target.closest?.(".combo")) closeCombos();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (!event.target.matches?.(".combo-input")) return;
+    const root = event.target.closest(".combo");
+    if (event.key === "Escape") {
+      restoreComboLabel(root);
+      closeCombos();
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      const first = root.querySelector(".combo-list li:not([hidden])");
+      if (first) chooseComboItem(root, first);
+    }
+  });
+  document.addEventListener("focusout", (event) => {
+    if (!event.target.matches?.(".combo-input")) return;
+    const root = event.target.closest(".combo");
+    // Give a click on an option time to land before tidying up.
+    setTimeout(() => {
+      if (root.isConnected && !root.contains(document.activeElement)) {
+        restoreComboLabel(root);
+        setComboOpen(root, false);
+      }
+    }, 150);
+  });
+}
+
 async function fetchJson(url, options = {}) {
   const response = await fetch(url, options);
   const payload = await response.json();
@@ -369,10 +487,13 @@ function syncTemplateGatedControls() {
 async function loadDevices() {
   const { devices } = await fetchJson("/api/devices");
   state.deviceFamilies = Object.fromEntries(devices.map((device) => [device.id, device.family]));
-  $("deviceId").innerHTML = devices
-    .map((device) => `<option value="${escapeHtml(device.id)}">${escapeHtml(device.label)}</option>`)
-    .join("");
+  $("deviceCombo").innerHTML = comboHtml(
+    devices.map((device) => ({ value: device.id, label: device.label })),
+    devices.length ? devices[0].id : "",
+    { valueAttrs: 'id="deviceId" name="deviceId"', placeholder: t("step1.devicePlaceholder") },
+  );
   $("deviceId").addEventListener("change", syncWifiAvailability);
+  $("deviceId").addEventListener("change", updatePrefsPreview);
 }
 
 async function loadVersions(forceRefresh = false) {
@@ -440,8 +561,25 @@ function shortPrefKey(key) {
   return key.replace(/^USERPREFS_/, "");
 }
 
+// The advanced options expand into macros of their own; those are owned by the
+// LoRa and MQTT controls too, so they must not also appear as free-form keys.
+function codeOptionMacroNames() {
+  const spec = state.buildOptions;
+  if (!spec) return [];
+  return [
+    spec.okToMqtt.macro,
+    spec.okToMqtt.nativeMacro,
+    spec.customLora.usePresetMacro,
+    ...Object.values(spec.customLora.fields).map((field) => field.macro),
+  ];
+}
+
 function isFormManagedKey(key) {
-  return FORM_MANAGED_KEYS.has(key) || /^USERPREFS_CHANNEL_\d+_/.test(key);
+  return (
+    FORM_MANAGED_KEYS.has(key) ||
+    /^USERPREFS_CHANNEL_\d+_/.test(key) ||
+    codeOptionMacroNames().includes(key)
+  );
 }
 
 function availableExtraKeys(exceptIndex) {
@@ -463,15 +601,11 @@ function renderExtraPrefs() {
     <div class="extra-row" data-index="${index}">
       <label>
         ${escapeHtml(t("extra.key"))}
-        <select data-field="key">
-          <option value="">${escapeHtml(t("extra.choose"))}</option>
-          ${options
-            .map(
-              (key) =>
-                `<option value="${escapeHtml(key)}" ${key === row.key ? "selected" : ""}>${escapeHtml(shortPrefKey(key))}</option>`,
-            )
-            .join("")}
-        </select>
+        ${comboHtml(
+          options.map((key) => ({ value: key, label: shortPrefKey(key) })),
+          row.key,
+          { valueAttrs: 'data-field="key"', placeholder: t("extra.choose") },
+        )}
       </label>
       <label>
         ${escapeHtml(t("extra.value"))}
@@ -741,6 +875,9 @@ function buildPrefs() {
     setPref(prefs, "USERPREFS_MQTT_ROOT_TOPIC", validateMaxBytes(mqttRoot, t("label.mqttRoot"), 31));
   }
   setPref(prefs, "USERPREFS_CONFIG_LORA_IGNORE_MQTT", String($("ignoreMqtt").checked));
+  if (okToMqttIsPlainPref()) {
+    setPref(prefs, state.buildOptions.okToMqtt.nativeMacro, String($("okToMqtt").checked));
+  }
 
   setPref(prefs, "USERPREFS_CONFIG_GPS_MODE", $("gpsMode").value);
   setOptionalPref(prefs, "USERPREFS_CONFIG_GPS_UPDATE_INTERVAL", $("gpsUpdateInterval").value);
@@ -821,9 +958,19 @@ function buildWifiPrefs(prefs) {
   }
 }
 
+// Below nativeSinceFirmwareVersion the macro only exists because the builder patches
+// NodeDB, so it stays a code option there.
+function okToMqttIsPlainPref() {
+  return Boolean(
+    state.codeOptionsNative &&
+      state.buildOptions &&
+      state.templateKeys.has(state.buildOptions.okToMqtt.nativeMacro),
+  );
+}
+
 function buildCodeOptions() {
   if (!state.codeOptionsAvailable) return null;
-  const options = { okToMqtt: $("okToMqtt").checked };
+  const options = okToMqttIsPlainPref() ? {} : { okToMqtt: $("okToMqtt").checked };
   if ($("customLoraEnabled").checked) {
     options.customLora = {
       bandwidthKhz: Number($("loraBandwidth").value),
@@ -1036,7 +1183,7 @@ function bindEvents() {
     renderExtraPrefs();
   });
   $("extraRows").addEventListener("change", (event) => {
-    if (!event.target.matches("select[data-field]")) return;
+    if (!event.target.matches(".combo-value[data-field]")) return;
     syncExtraFromInput(event.target);
     renderExtraPrefs();
   });
@@ -1053,6 +1200,7 @@ function bindEvents() {
   });
   document.querySelectorAll("input, select").forEach((input) => {
     if (input.closest("#channelRows") || input.closest("#extraRows")) return;
+    if (input.classList.contains("combo-input")) return;
     input.addEventListener("input", updatePrefsPreview);
     input.addEventListener("change", updatePrefsPreview);
   });
@@ -1077,6 +1225,7 @@ function bindEvents() {
 applyI18n();
 populateStaticSelects();
 bindEvents();
+bindCombos();
 state.channels = [defaultChannel()];
 renderChannels();
 

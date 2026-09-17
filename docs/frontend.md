@@ -100,6 +100,20 @@ quoted by the build script and then fail to compile.
 Every collapsed section is closed by default and its panels are not numbered
 steps.
 
+## Comboboxes
+
+The device picker and the free-form key picker are comboboxes, not `<select>`
+elements: a text box that filters its list by substring as you type. `<datalist>`
+would have been less code, but iOS Safari barely supports it and this page is
+mostly read on a phone.
+
+The visible input only searches. A hidden `.combo-value` sibling holds the real
+value and fires `change`, so the rest of the form reads it like any other field
+(`$("deviceId").value` still works). Matching drops punctuation from both sides,
+so "promicro" finds "Pro-micro" and "gpsmode" finds `CONFIG_GPS_MODE`. Focusing
+reveals the whole list, because the box holds the current label and would
+otherwise filter down to the option already chosen.
+
 ## Other Config Values
 
 Rather than grow a control per key, the last section lets the user pick any key
@@ -107,9 +121,9 @@ from the selected tag's template and type its value. The dropdown lists keys
 alphabetically without the `USERPREFS_` prefix, and uses the sample value from
 the template as the input placeholder so the expected shape is visible.
 
-`FORM_MANAGED_KEYS` in `static/app.js`, plus the channel-key pattern, lists what
-the dedicated controls already own; those keys are filtered out so a setting can
-never have two sources. **Add to that set whenever a new dedicated control is
+`FORM_MANAGED_KEYS` in `static/app.js`, plus the channel-key pattern and the
+macro names the advanced options expand into, lists what the dedicated controls
+already own; those keys are filtered out so a setting can never have two sources. **Add to that set whenever a new dedicated control is
 added**, or the same key becomes settable twice. A key already chosen in one row
 is filtered out of the others.
 

@@ -75,6 +75,12 @@ coding rate `5`, slot `0`, frequency `869.618` MHz. Every field is sent on each
 submission, so changing a default changes what a user gets when they tick the
 box without touching the controls.
 
+From `nativeSinceFirmwareVersion` the MQTT forwarding flag is an ordinary key in
+the tag's template, so the page writes it through `setPref` and it appears in the
+preview like any other setting. Below that version it exists only because of the
+NodeDB patch, so it stays a code option there and the preview lists it among the
+injected macros.
+
 Sending `customLora` also emits `USERPREFS_LORACONFIG_USE_PRESET: "false"`, so
 the modem preset is ignored by the radio. The UI disables the preset selector
 while manual LoRa configuration is on.

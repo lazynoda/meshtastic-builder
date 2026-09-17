@@ -538,6 +538,45 @@ input[type="checkbox"] {
   height: 24px;
 }
 
+/* Combobox: filters its options by substring as you type. */
+.combo {
+  position: relative;
+}
+
+.combo-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  max-height: 260px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.combo-list li {
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--text);
+}
+
+.combo-list li:hover,
+.combo-list li[aria-selected="true"] {
+  background: rgba(94, 234, 212, 0.12);
+  color: var(--accent);
+}
+
 .extra-row {
   display: grid;
   grid-template-columns: 1.2fr 1.4fr auto;

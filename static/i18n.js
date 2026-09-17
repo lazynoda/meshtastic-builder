@@ -6,6 +6,7 @@ const DICT = {
 
     "step1.title": "Dispositivo y firmware",
     "step1.device": "Dispositivo",
+    "step1.devicePlaceholder": "Busca un dispositivo",
     "step1.version": "Version de firmware",
 
     "step2.title": "Nodo",
@@ -59,6 +60,7 @@ const DICT = {
     "position.gpsMode": "Modo de GPS",
     "position.gpsInterval": "Intervalo de GPS (s)",
     "position.broadcastInterval": "Intervalo de emision de posicion (s)",
+    "position.broadcastHint": "Por defecto 259200 (72 h).",
     "position.smart": "Emision inteligente de posicion",
     "position.smartHint": "Emite al moverse en vez de a intervalo fijo.",
     "position.blockOnEvent": "Bloquear posicion en el canal de eventos",
@@ -178,6 +180,7 @@ const DICT = {
 
     "step1.title": "Device and firmware",
     "step1.device": "Device",
+    "step1.devicePlaceholder": "Search for a device",
     "step1.version": "Firmware version",
 
     "step2.title": "Node",
@@ -231,6 +234,7 @@ const DICT = {
     "position.gpsMode": "GPS mode",
     "position.gpsInterval": "GPS interval (s)",
     "position.broadcastInterval": "Position broadcast interval (s)",
+    "position.broadcastHint": "Defaults to 259200 (72 h).",
     "position.smart": "Smart position broadcast",
     "position.smartHint": "Broadcasts on movement instead of on a fixed interval.",
     "position.blockOnEvent": "Block position on the event channel",

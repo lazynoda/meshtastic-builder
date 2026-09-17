@@ -46,7 +46,7 @@
             <div class="grid grid-two">
               <label>
                 <span data-i18n="step1.device"></span>
-                <select id="deviceId" name="deviceId" required></select>
+                <div id="deviceCombo"></div>
               </label>
               <label>
                 <span data-i18n="step1.version"></span>
@@ -280,7 +280,8 @@
                 </label>
                 <label data-pref-key="USERPREFS_CONFIG_POSITION_BROADCAST_INTERVAL">
                   <span data-i18n="position.broadcastInterval"></span>
-                  <input id="positionBroadcastInterval" type="number" min="0" step="30" placeholder="1800">
+                  <input id="positionBroadcastInterval" type="number" min="0" step="3600" value="259200">
+                  <small class="field-hint" data-i18n="position.broadcastHint"></small>
                 </label>
                 <label class="check-line span-two" data-pref-key="USERPREFS_CONFIG_SMART_POSITION_ENABLED">
                   <input id="smartPosition" type="checkbox">
