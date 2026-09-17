@@ -129,6 +129,31 @@ class JsoncTests(unittest.TestCase):
         for value in ("5GHome", "clave-secreta", "12345678a", "Nodo 12"):
             validate_userpref_value("USERPREFS_NETWORK_WIFI_PSK", value)
 
+    def test_position_values(self):
+        for key, value in (
+            ("USERPREFS_FIXED_GPS_LAT", "41.3851"),
+            ("USERPREFS_FIXED_GPS_LON", "-3.7038"),
+            ("USERPREFS_FIXED_GPS_ALT", "-5"),
+            ("USERPREFS_FIXED_GPS", ""),
+            ("USERPREFS_CONFIG_GPS_MODE", "meshtastic_Config_PositionConfig_GpsMode_NOT_PRESENT"),
+        ):
+            with self.subTest(key=key, value=value):
+                validate_userpref_value(key, value)
+
+        for key, value in (
+            ("USERPREFS_FIXED_GPS_LAT", "95"),
+            ("USERPREFS_FIXED_GPS_LON", "-181"),
+            # Scientific notation and a bare decimal point would not reach the
+            # compiler as plain numbers, and the firmware multiplies them.
+            ("USERPREFS_FIXED_GPS_LAT", "1e2"),
+            ("USERPREFS_FIXED_GPS_LON", ".5"),
+            ("USERPREFS_FIXED_GPS_ALT", "3.5"),
+            ("USERPREFS_CONFIG_GPS_MODE", "meshtastic_Config_PositionConfig_GpsMode_NOPE"),
+            ("USERPREFS_BLOCK_POSITION_ON_EVENT_CHANNEL", "2"),
+        ):
+            with self.subTest(key=key, value=value), self.assertRaises(JsoncValidationError):
+                validate_userpref_value(key, value)
+
     def test_validate_rejects_unknown_key(self):
         with self.assertRaises(JsoncValidationError):
             validate_and_normalize_userprefs(

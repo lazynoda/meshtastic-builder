@@ -7,7 +7,16 @@ const FORM_MANAGED_KEYS = new Set([
   "USERPREFS_CONFIG_DEVICE_NODE_INFO_BROADCAST_SECS",
   "USERPREFS_CONFIG_DEVICE_REBROADCAST_MODE",
   "USERPREFS_CONFIG_DEVICE_ROLE",
+  "USERPREFS_BLOCK_POSITION_ON_EVENT_CHANNEL",
   "USERPREFS_CONFIG_DEVICE_TELEM_UPDATE_INTERVAL",
+  "USERPREFS_CONFIG_GPS_MODE",
+  "USERPREFS_CONFIG_GPS_UPDATE_INTERVAL",
+  "USERPREFS_CONFIG_POSITION_BROADCAST_INTERVAL",
+  "USERPREFS_CONFIG_SMART_POSITION_ENABLED",
+  "USERPREFS_FIXED_GPS",
+  "USERPREFS_FIXED_GPS_ALT",
+  "USERPREFS_FIXED_GPS_LAT",
+  "USERPREFS_FIXED_GPS_LON",
   "USERPREFS_CONFIG_LORA_IGNORE_MQTT",
   "USERPREFS_CONFIG_LORA_REGION",
   "USERPREFS_CONFIG_OWNER_LONG_NAME",
@@ -124,6 +133,12 @@ const PRESET_OPTIONS = [
   ["TINY_SLOW", "Tiny slow", "2.8.0"],
 ];
 
+const GPS_MODE_OPTIONS = [
+  ["ENABLED", "Enabled"],
+  ["DISABLED", "Disabled"],
+  ["NOT_PRESENT", "Not present"],
+];
+
 const REBROADCAST_OPTIONS = [
   ["ALL", "All"],
   ["ALL_SKIP_DECODING", "All, skip decoding"],
@@ -231,6 +246,7 @@ function populateStaticSelects(tag = null) {
     "CORE_PORTNUMS_ONLY",
     tag,
   );
+  fillSelect($("gpsMode"), GPS_MODE_OPTIONS, "meshtastic_Config_PositionConfig_GpsMode_", "ENABLED", tag);
   fillSelect(
     $("signaturePolicy"),
     SIGNATURE_POLICY_OPTIONS,
@@ -329,6 +345,10 @@ function syncWifiAvailability() {
   // radio: keep it, so the note explaining the missing fields stays visible.
   $("wifiPanel").hidden = !controls.some((el) => inTemplate(el.dataset.prefKey));
   $("wifiUnsupported").hidden = supported;
+}
+
+function syncFixedGps() {
+  $("fixedGpsFields").hidden = !$("fixedGpsEnabled").checked;
 }
 
 function syncManagedMode() {
@@ -722,6 +742,21 @@ function buildPrefs() {
   }
   setPref(prefs, "USERPREFS_CONFIG_LORA_IGNORE_MQTT", String($("ignoreMqtt").checked));
 
+  setPref(prefs, "USERPREFS_CONFIG_GPS_MODE", $("gpsMode").value);
+  setOptionalPref(prefs, "USERPREFS_CONFIG_GPS_UPDATE_INTERVAL", $("gpsUpdateInterval").value);
+  setOptionalPref(prefs, "USERPREFS_CONFIG_POSITION_BROADCAST_INTERVAL", $("positionBroadcastInterval").value);
+  setPref(prefs, "USERPREFS_CONFIG_SMART_POSITION_ENABLED", String($("smartPosition").checked));
+  if ($("blockPositionOnEvent").checked) {
+    setPref(prefs, "USERPREFS_BLOCK_POSITION_ON_EVENT_CHANNEL", "1");
+  }
+  if ($("fixedGpsEnabled").checked) {
+    // The firmware only tests #ifdef, so the flag carries no value of its own.
+    setPref(prefs, "USERPREFS_FIXED_GPS", "");
+    setOptionalPref(prefs, "USERPREFS_FIXED_GPS_LAT", $("fixedGpsLat").value);
+    setOptionalPref(prefs, "USERPREFS_FIXED_GPS_LON", $("fixedGpsLon").value);
+    setOptionalPref(prefs, "USERPREFS_FIXED_GPS_ALT", $("fixedGpsAlt").value);
+  }
+
   if ($("blePinEnabled").checked) {
     setOptionalPref(prefs, "USERPREFS_FIXED_BLUETOOTH", $("blePin").value);
   }
@@ -853,6 +888,7 @@ function prefsPreviewText(prefs) {
 function updatePrefsPreview() {
   try {
     syncManagedMode();
+    syncFixedGps();
     const prefs = buildPrefs();
     $("prefsJsonc").value = prefsPreviewText(prefs);
     if (state.statusIsError) {

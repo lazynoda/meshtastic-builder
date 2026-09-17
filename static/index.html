@@ -264,6 +264,61 @@
 
           <details class="collapsible">
             <summary>
+              <span data-i18n="position.title"></span>
+              <small class="field-hint" data-i18n="position.hint"></small>
+            </summary>
+
+            <section class="panel">
+              <div class="grid grid-three">
+                <label data-pref-key="USERPREFS_CONFIG_GPS_MODE">
+                  <span data-i18n="position.gpsMode"></span>
+                  <select id="gpsMode"></select>
+                </label>
+                <label data-pref-key="USERPREFS_CONFIG_GPS_UPDATE_INTERVAL">
+                  <span data-i18n="position.gpsInterval"></span>
+                  <input id="gpsUpdateInterval" type="number" min="0" step="30" placeholder="600">
+                </label>
+                <label data-pref-key="USERPREFS_CONFIG_POSITION_BROADCAST_INTERVAL">
+                  <span data-i18n="position.broadcastInterval"></span>
+                  <input id="positionBroadcastInterval" type="number" min="0" step="30" placeholder="1800">
+                </label>
+                <label class="check-line span-two" data-pref-key="USERPREFS_CONFIG_SMART_POSITION_ENABLED">
+                  <input id="smartPosition" type="checkbox">
+                  <span data-i18n="position.smart"></span>
+                  <small class="field-hint" data-i18n="position.smartHint"></small>
+                </label>
+                <label class="check-line span-two" data-pref-key="USERPREFS_BLOCK_POSITION_ON_EVENT_CHANNEL">
+                  <input id="blockPositionOnEvent" type="checkbox">
+                  <span data-i18n="position.blockOnEvent"></span>
+                  <small class="field-hint" data-i18n="position.blockOnEventHint"></small>
+                </label>
+              </div>
+
+              <h3 class="sub-head" data-i18n="position.fixedHead"></h3>
+              <label class="check-line" data-pref-key="USERPREFS_FIXED_GPS">
+                <input id="fixedGpsEnabled" type="checkbox">
+                <span data-i18n="position.fixedEnabled"></span>
+                <small class="field-hint" data-i18n="position.fixedHint"></small>
+              </label>
+              <div id="fixedGpsFields" class="grid grid-three" hidden>
+                <label data-pref-key="USERPREFS_FIXED_GPS_LAT">
+                  <span data-i18n="position.lat"></span>
+                  <input id="fixedGpsLat" type="text" inputmode="decimal" autocomplete="off" placeholder="41.3851">
+                </label>
+                <label data-pref-key="USERPREFS_FIXED_GPS_LON">
+                  <span data-i18n="position.lon"></span>
+                  <input id="fixedGpsLon" type="text" inputmode="decimal" autocomplete="off" placeholder="-3.7038">
+                </label>
+                <label data-pref-key="USERPREFS_FIXED_GPS_ALT">
+                  <span data-i18n="position.alt"></span>
+                  <input id="fixedGpsAlt" type="number" step="1" placeholder="0">
+                </label>
+              </div>
+            </section>
+          </details>
+
+          <details class="collapsible">
+            <summary>
               <span data-i18n="security.title"></span>
               <small class="field-hint" data-i18n="security.hint"></small>
             </summary>

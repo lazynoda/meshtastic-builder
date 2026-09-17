@@ -96,6 +96,10 @@ ALLOWED_REBROADCAST_MODES = {
     for mode in ("ALL", "ALL_SKIP_DECODING", "LOCAL_ONLY", "KNOWN_ONLY", "NONE", "CORE_PORTNUMS_ONLY")
 }
 
+ALLOWED_GPS_MODES = {
+    f"meshtastic_Config_PositionConfig_GpsMode_{mode}" for mode in ("DISABLED", "ENABLED", "NOT_PRESENT")
+}
+
 ALLOWED_SIGNATURE_POLICIES = {
     f"meshtastic_Config_SecurityConfig_PacketSignaturePolicy_PACKET_SIGNATURE_POLICY_{policy}"
     for policy in ("COMPATIBLE", "BALANCED", "STRICT")
@@ -107,11 +111,13 @@ ENUM_KEYS = {
     "USERPREFS_LORACONFIG_MODEM_PRESET": (ALLOWED_MODEM_PRESETS, "Preset LoRa no permitido"),
     "USERPREFS_CONFIG_DEVICE_REBROADCAST_MODE": (ALLOWED_REBROADCAST_MODES, "Modo de retransmision no permitido"),
     "USERPREFS_CONFIG_SECURITY_PACKET_SIGNATURE_POLICY": (ALLOWED_SIGNATURE_POLICIES, "Politica de firma no permitida"),
+    "USERPREFS_CONFIG_GPS_MODE": (ALLOWED_GPS_MODES, "Modo de GPS no permitido"),
 }
 
 BOOL_KEYS = {
     "USERPREFS_CONFIG_LORA_IGNORE_MQTT",
     "USERPREFS_NETWORK_WIFI_ENABLED",
+    "USERPREFS_CONFIG_SMART_POSITION_ENABLED",
     "USERPREFS_CONFIG_ENVIRONMENT_MEASUREMENT_ENABLED",
     "USERPREFS_CONFIG_SECURITY_IS_MANAGED",
     "USERPREFS_MQTT_TLS_ENABLED",
@@ -126,6 +132,25 @@ INT_RANGE_KEYS = {
     "USERPREFS_CONFIG_ENV_TELEM_UPDATE_INTERVAL": (0, None),
     # Bluetooth passkey. Setting it also switches pairing to FIXED_PIN mode.
     "USERPREFS_FIXED_BLUETOOTH": (0, 999999),
+    "USERPREFS_CONFIG_GPS_UPDATE_INTERVAL": (0, None),
+    "USERPREFS_CONFIG_POSITION_BROADCAST_INTERVAL": (0, None),
+    "USERPREFS_BLOCK_POSITION_ON_EVENT_CHANNEL": (0, 1),
+}
+
+# The firmware multiplies these into an int32 (`USERPREFS_FIXED_GPS_LAT * 1e7`), so the
+# value has to reach the compiler as a bare number. bin/platformio-custom.py only leaves
+# it bare when it looks like plain decimal, so anything else (1e5, .5, 0x10) is refused.
+PLAIN_DECIMAL_RE = re.compile(r"^-?\d+(?:\.\d+)?$")
+
+PLAIN_INT_RE = re.compile(r"^-?\d+$")
+
+FLOAT_RANGE_KEYS = {
+    "USERPREFS_FIXED_GPS_LAT": (-90.0, 90.0),
+    "USERPREFS_FIXED_GPS_LON": (-180.0, 180.0),
+}
+
+SIGNED_INT_RANGE_KEYS = {
+    "USERPREFS_FIXED_GPS_ALT": (-500, 100000),
 }
 
 # nanopb buffer sizes from module_config.pb.h minus the terminator.
@@ -338,6 +363,22 @@ def validate_userpref_value(key: str, value: Any, max_channels: int = 3) -> None
         if number < low or (high is not None and number > high):
             limit = f"entre {low} y {high}" if high is not None else f"mayor o igual que {low}"
             raise JsoncValidationError(f"{key} debe estar {limit}.")
+    if key in FLOAT_RANGE_KEYS:
+        low, high = FLOAT_RANGE_KEYS[key]
+        text = str(value).strip()
+        if not PLAIN_DECIMAL_RE.match(text):
+            raise JsoncValidationError(f"{key} debe ser un numero decimal simple, por ejemplo 41.3851.")
+        if not low <= float(text) <= high:
+            raise JsoncValidationError(f"{key} debe estar entre {low} y {high}.")
+
+    if key in SIGNED_INT_RANGE_KEYS:
+        low, high = SIGNED_INT_RANGE_KEYS[key]
+        text = str(value).strip()
+        if not PLAIN_INT_RE.match(text):
+            raise JsoncValidationError(f"{key} debe ser un numero entero.")
+        if not low <= int(text) <= high:
+            raise JsoncValidationError(f"{key} debe estar entre {low} y {high}.")
+
     if key in MAX_BYTES_KEYS and isinstance(value, str) and len(value.encode("utf-8")) > MAX_BYTES_KEYS[key]:
         raise JsoncValidationError(f"{key} no puede superar {MAX_BYTES_KEYS[key]} bytes.")
     if (key in STRING_MACRO_KEYS or CHANNEL_NAME_RE.match(key)) and isinstance(value, str):

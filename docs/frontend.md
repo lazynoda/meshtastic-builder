@@ -85,9 +85,17 @@ The form is split into the settings most users touch and everything else:
 5. Channels.
 6. MQTT, including the `ok_to_mqtt` code option.
 7. `<details class="collapsible">`: Bluetooth and WiFi.
-8. `<details class="collapsible">`: Security.
-9. `<details class="collapsible">`: Other config values.
-10. Review and submit.
+8. `<details class="collapsible">`: Position and GPS.
+9. `<details class="collapsible">`: Security.
+10. `<details class="collapsible">`: Other config values.
+11. Review and submit.
+
+`USERPREFS_FIXED_GPS` is a presence flag: the firmware only tests `#ifdef`, so the
+form writes it with an empty value. That is why fixed position needs a control of
+its own and cannot be set from the free-form section, which skips empty values.
+The coordinates are multiplied into an int32 by the firmware, so they are checked
+against a plain-decimal pattern as well as a range; scientific notation would be
+quoted by the build script and then fail to compile.
 
 Every collapsed section is closed by default and its panels are not numbered
 steps.
