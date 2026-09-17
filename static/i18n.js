@@ -35,7 +35,7 @@ const DICT = {
     "step3.okToMqttHint": "Permite subir a MQTT los paquetes de este nodo.",
 
     "advanced.title": "Ajustes avanzados",
-    "advanced.hint": "Canales, MQTT, seguridad y sensores. Los valores por defecto sirven para la mayoria.",
+    "advanced.hint": "Claves de administracion y sensores. Los valores por defecto sirven para la mayoria.",
     "sensors.title": "Sensores ambientales",
 
     "step4.title": "Canales",
@@ -89,7 +89,7 @@ const DICT = {
     "step6.overrideFreq": "Frecuencia manual (MHz)",
     "step6.overrideFreqHint": "0 = usar la frecuencia de la region. Comprueba que sea legal donde estas.",
 
-    "step7.title": "Revisar y enviar",
+    "step7.title": "Revisar y solicitar",
     "step7.preview": "Ver userPrefs.jsonc generado",
     "preview.injected": "Opciones avanzadas, el servidor las inyecta al compilar:",
     "step7.noEmail": "No se envia ningun email. Al enviar obtendras un enlace privado: guardalo.",
@@ -169,7 +169,7 @@ const DICT = {
     "step3.okToMqttHint": "Lets this node's packets be uploaded to MQTT.",
 
     "advanced.title": "Advanced settings",
-    "advanced.hint": "Channels, MQTT, security and sensors. Defaults work for most nodes.",
+    "advanced.hint": "Admin keys and sensors. Defaults work for most nodes.",
     "sensors.title": "Environment sensors",
 
     "step4.title": "Channels",
