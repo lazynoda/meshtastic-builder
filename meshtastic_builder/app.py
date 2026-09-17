@@ -58,6 +58,16 @@ class MeshtasticBuilderHandler(BaseHTTPRequestHandler):
 
         try:
             if path == "/":
+                # Builds used to live at /?build=<token>. Those links are public and
+                # already shared, so keep them working by pointing at the new path.
+                legacy_token = query.get("build", [""])[0]
+                if legacy_token:
+                    return self.redirect(f"/build/{validate_public_token(legacy_token)}")
+                return self.serve_static("index.html", send_body=send_body)
+            if path.startswith("/build/"):
+                # The permalink reuses index.html; app.js strips the form when the
+                # path carries a token and renders the build panel only.
+                validate_public_token(path.removeprefix("/build/"))
                 return self.serve_static("index.html", send_body=send_body)
             if path.startswith("/static/"):
                 return self.serve_static(path.removeprefix("/static/"), send_body=send_body)
@@ -248,6 +258,12 @@ class MeshtasticBuilderHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def redirect(self, location: str, status: HTTPStatus = HTTPStatus.MOVED_PERMANENTLY) -> None:
+        self.send_response(status)
+        self.send_header("Location", location)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def error_response(self, status: HTTPStatus, message: str) -> None:
         self.json_response(_public_error(message), status=status)

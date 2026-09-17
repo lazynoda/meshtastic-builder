@@ -49,7 +49,7 @@ def create_build_submission(config: Config, payload: dict[str, Any]) -> dict[str
     return {
         "row": row,
         "public": public_build_view(row),
-        "buildUrl": f"{config.base_url}/?build={token}",
+        "buildUrl": f"{config.base_url}/build/{token}",
         "statusUrl": f"{config.base_url}/api/builds/{token}",
         "downloadUrl": f"{config.base_url}/download/{token}",
     }
