@@ -409,9 +409,21 @@ def build_stats(config: Config) -> dict[str, Any]:
         last_requested = conn.execute(
             "SELECT MAX(created_at) AS last FROM build_requests"
         ).fetchone()["last"]
+        # Downloadable right now. Not the same as `succeeded`: expiry is swept
+        # periodically and also applied lazily on access, so a build can still be
+        # marked succeeded while its window has already closed.
+        available = conn.execute(
+            """
+            SELECT COUNT(*) AS total FROM build_requests
+            WHERE status = 'succeeded'
+              AND (expires_at IS NULL OR expires_at > ?)
+            """,
+            (iso_now(),),
+        ).fetchone()["total"]
     return {
         "total": sum(counts.values()),
         **{status: counts.get(status, 0) for status in STATUS_ORDER},
+        "available": int(available),
         "lastRequestedAt": last_requested,
     }
 

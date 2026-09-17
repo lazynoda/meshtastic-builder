@@ -7,7 +7,16 @@ from pathlib import Path
 
 from meshtastic_builder.app import MeshtasticBuilderHandler
 from meshtastic_builder.config import load_config
-from meshtastic_builder.db import build_stats, create_build_request, initialize_database
+from datetime import timedelta
+
+from meshtastic_builder.db import (
+    build_stats,
+    connection,
+    create_build_request,
+    initialize_database,
+    mark_build_success,
+    utc_now,
+)
 
 
 def temp_config(tmp_path: Path):
@@ -84,6 +93,35 @@ class BuildStatsTests(unittest.TestCase):
             self.assertNotIn(build["public_token"], serialized)
             self.assertNotIn("USERPREFS", serialized)
             self.assertNotIn("tbeam", serialized)
+
+
+    def test_available_counts_only_downloadable_builds(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config = temp_config(Path(tmp))
+            initialize_database(config)
+            build = queue_build(config, "1")
+            artifact = config.artifact_dir / "artifact.zip"
+            artifact.parent.mkdir(parents=True, exist_ok=True)
+            artifact.write_bytes(b"zip")
+            mark_build_success(
+                config,
+                build["id"],
+                artifact_path=artifact,
+                artifact_sha256="sha",
+                artifact_size_bytes=artifact.stat().st_size,
+                build_log="ok",
+            )
+            self.assertEqual(build_stats(config)["available"], 1)
+
+            # Past its window but not swept yet: still succeeded, no longer downloadable.
+            past = (utc_now() - timedelta(seconds=1)).isoformat()
+            with connection(config) as conn:
+                conn.execute(
+                    "UPDATE build_requests SET expires_at = ? WHERE id = ?", (past, build["id"])
+                )
+            stats = build_stats(config)
+            self.assertEqual(stats["succeeded"], 1)
+            self.assertEqual(stats["available"], 0)
 
 
 class HealthEndpointTests(unittest.TestCase):

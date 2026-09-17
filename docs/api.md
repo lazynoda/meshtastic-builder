@@ -25,10 +25,15 @@ tokens, no preferences, no device or firmware choices.
     "succeeded": 34,
     "failed": 1,
     "expired": 4,
+    "available": 30,
     "lastRequestedAt": "2026-09-17T04:31:25+00:00"
   }
 }
 ```
+
+`available` counts the builds a user could download right now. It is lower than
+`succeeded` once a build's window has closed but the expiry sweep has not run
+yet, since expiry is also applied lazily when a download is attempted.
 
 `lastRequestedAt` is `null` until the first build is requested.
 
