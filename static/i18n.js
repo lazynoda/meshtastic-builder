@@ -29,6 +29,10 @@ const DICT = {
     "step3.presetDisabled": "Desactivado: estas usando configuracion LoRa manual.",
     "step3.txPower": "Potencia TX (dBm)",
     "step3.txPowerHint": "Vacio o 0 = maximo legal de la region.",
+    "step3.mqttHead": "Puente MQTT",
+    "step3.ignoreMqtt": "Ignorar paquetes que llegan por MQTT",
+    "step3.ignoreMqttHint": "El nodo no reenvia a la malla lo que recibe del broker.",
+    "step3.okToMqttHint": "Permite subir a MQTT los paquetes de este nodo.",
 
     "advanced.title": "Ajustes avanzados",
     "advanced.hint": "Canales, MQTT, seguridad y sensores. Los valores por defecto sirven para la mayoria.",
@@ -158,6 +162,10 @@ const DICT = {
     "step3.presetDisabled": "Disabled: you are using a manual LoRa configuration.",
     "step3.txPower": "TX power (dBm)",
     "step3.txPowerHint": "Empty or 0 = region legal maximum.",
+    "step3.mqttHead": "MQTT bridge",
+    "step3.ignoreMqtt": "Ignore packets arriving over MQTT",
+    "step3.ignoreMqttHint": "The node does not repeat onto the mesh what it receives from the broker.",
+    "step3.okToMqttHint": "Lets this node's packets be uploaded to MQTT.",
 
     "advanced.title": "Advanced settings",
     "advanced.hint": "Channels, MQTT, security and sensors. Defaults work for most nodes.",

@@ -567,6 +567,7 @@ function buildPrefs() {
   if (mqttRoot) {
     setPref(prefs, "USERPREFS_MQTT_ROOT_TOPIC", validateMaxBytes(mqttRoot, t("label.mqttRoot"), 31));
   }
+  setPref(prefs, "USERPREFS_CONFIG_LORA_IGNORE_MQTT", String($("ignoreMqtt").checked));
   setPref(prefs, "USERPREFS_MQTT_ENCRYPTION_ENABLED", String($("mqttEncryption").checked));
   setPref(prefs, "USERPREFS_MQTT_TLS_ENABLED", String($("mqttTls").checked));
 

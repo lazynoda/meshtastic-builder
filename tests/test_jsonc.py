@@ -70,6 +70,21 @@ class JsoncTests(unittest.TestCase):
         self.assertEqual(parsed["USERPREFS_CHANNEL_0_NAME"], "LongFast")
         self.assertIn('"USERPREFS_CHANNEL_0_NAME": "LongFast"', normalized)
 
+    def test_ignore_mqtt_is_accepted_as_a_boolean(self):
+        template = '{\n  // "USERPREFS_CONFIG_LORA_IGNORE_MQTT": "true"\n}'
+        _normalized, parsed = validate_and_merge_userprefs(
+            '{"USERPREFS_CONFIG_LORA_IGNORE_MQTT": "true"}',
+            template,
+            1000,
+        )
+        self.assertEqual(parsed["USERPREFS_CONFIG_LORA_IGNORE_MQTT"], "true")
+        with self.assertRaises(JsoncValidationError):
+            validate_and_merge_userprefs(
+                '{"USERPREFS_CONFIG_LORA_IGNORE_MQTT": "yes"}',
+                template,
+                1000,
+            )
+
     def test_validate_rejects_unknown_key(self):
         with self.assertRaises(JsoncValidationError):
             validate_and_normalize_userprefs(

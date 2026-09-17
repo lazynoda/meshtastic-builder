@@ -98,6 +98,20 @@
                 <small class="field-hint" data-i18n="step3.txPowerHint"></small>
               </label>
             </div>
+            <h3 class="sub-head" data-i18n="step3.mqttHead"></h3>
+            <div class="grid grid-two">
+              <label class="check-line" data-pref-key="USERPREFS_CONFIG_LORA_IGNORE_MQTT">
+                <input id="ignoreMqtt" type="checkbox">
+                <span data-i18n="step3.ignoreMqtt"></span>
+                <small class="field-hint" data-i18n="step3.ignoreMqttHint"></small>
+              </label>
+              <label class="check-line code-option">
+                <input id="okToMqtt" type="checkbox" checked>
+                <span data-i18n="step6.okToMqtt"></span>
+                <span class="badge patch-only" data-i18n="step6.badge"></span>
+                <small class="field-hint" data-i18n="step3.okToMqttHint"></small>
+              </label>
+            </div>
             <p id="advancedUnavailable" class="status-line status-warn" data-i18n="step6.unavailable" hidden></p>
             <div class="code-option">
               <label class="check-line">
@@ -201,11 +215,6 @@
               <label class="check-line" data-pref-key="USERPREFS_MQTT_TLS_ENABLED">
                 <input id="mqttTls" type="checkbox">
                 <span data-i18n="step5.mqttTls"></span>
-              </label>
-              <label class="check-line code-option span-two">
-                <input id="okToMqtt" type="checkbox" checked>
-                <span data-i18n="step6.okToMqtt"></span>
-                <span class="badge patch-only" data-i18n="step6.badge"></span>
               </label>
             </div>
           </section>
