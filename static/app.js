@@ -45,6 +45,7 @@ const FORM_MANAGED_KEYS = new Set([
 const state = {
   deviceFamilies: {},
   extraPrefs: [],
+  presetChannelName: "LongFast",
   templateExamples: {},
   templateDefaults: {},
   currentBuildToken: null,
@@ -639,7 +640,8 @@ function renderExtraPrefs() {
         <input data-field="value" type="text" autocomplete="off" value="${escapeHtml(row.value)}"
           placeholder="${escapeHtml(state.templateExamples[row.key] || "")}">
       </label>
-      <button class="btn btn-mini" type="button" data-action="remove-extra">${escapeHtml(t("channel.remove"))}</button>
+      <button class="btn btn-icon" type="button" data-action="remove-extra"
+        aria-label="${escapeHtml(t("channel.remove"))}" title="${escapeHtml(t("channel.remove"))}">&times;</button>
     </div>`;
     })
     .join("");
@@ -658,9 +660,31 @@ function channelMuteSupported() {
   return state.maxChannels === 8 || state.templateKeys.has("USERPREFS_CHANNEL_0_IS_MUTED");
 }
 
+// Meshtastic names the primary channel after the modem preset (LONG_FAST -> LongFast).
+function presetChannelName() {
+  const preset = $("modemPreset").value.split("_ModemPreset_")[1];
+  if (!preset) return "LongFast";
+  return preset
+    .split("_")
+    .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
+    .join("");
+}
+
+// Only renames while the name is still the one the preset produced, so a name the
+// user typed is never overwritten.
+function syncPresetChannelName() {
+  const next = presetChannelName();
+  const first = state.channels[0];
+  if (first && first.name === state.presetChannelName && first.name !== next) {
+    first.name = next;
+    renderChannels();
+  }
+  state.presetChannelName = next;
+}
+
 function defaultChannel() {
   return {
-    name: "LongFast",
+    name: presetChannelName(),
     psk: "AQ==",
     precision: "14",
     downlink: false,
@@ -690,20 +714,23 @@ function renderChannels() {
           value="${precisionStepIndex(channel.precision)}">
         <small class="field-hint" data-precision-label>${escapeHtml(precisionLabel(channel.precision))}</small>
       </label>
-      <label class="check-line">
-        <input data-field="downlink" type="checkbox" ${channel.downlink ? "checked" : ""}>
-        <span>${escapeHtml(t("channel.downlink"))}</span>
-      </label>
-      <label class="check-line">
-        <input data-field="uplink" type="checkbox" ${channel.uplink ? "checked" : ""}>
-        <span>${escapeHtml(t("channel.uplink"))}</span>
-      </label>
+      <div class="channel-flags">
+        <label class="check-line">
+          <input data-field="uplink" type="checkbox" ${channel.uplink ? "checked" : ""}>
+          <span>${escapeHtml(t("channel.uplink"))}</span>
+        </label>
+        <label class="check-line">
+          <input data-field="downlink" type="checkbox" ${channel.downlink ? "checked" : ""}>
+          <span>${escapeHtml(t("channel.downlink"))}</span>
+        </label>
+      </div>
       ${withMute ? `
       <label class="check-line">
         <input data-field="muted" type="checkbox" ${channel.muted ? "checked" : ""}>
         <span>${escapeHtml(t("channel.muted"))}</span>
       </label>` : ""}
-      <button class="btn btn-mini" type="button" data-action="remove" ${state.channels.length === 1 ? "disabled" : ""}>${escapeHtml(t("channel.remove"))}</button>
+      <button class="btn btn-icon" type="button" data-action="remove" ${state.channels.length === 1 ? "disabled" : ""}
+        aria-label="${escapeHtml(t("channel.remove"))}" title="${escapeHtml(t("channel.remove"))}">&times;</button>
     </div>
   `).join("");
   $("addChannel").disabled = state.channels.length >= state.maxChannels;
@@ -1278,6 +1305,7 @@ function bindEvents() {
   });
   $("refreshVersions").addEventListener("click", () => loadVersions(true).catch((error) => setStatus(error.message, true)));
   $("customLoraEnabled").addEventListener("change", syncCustomLora);
+  $("modemPreset").addEventListener("change", syncPresetChannelName);
   $("copyBuildUrl").addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText($("buildUrl").textContent);

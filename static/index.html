@@ -202,7 +202,7 @@
               </label>
               <label data-pref-key="USERPREFS_MQTT_ROOT_TOPIC">
                 <span data-i18n="step5.mqttRoot"></span>
-                <input id="mqttRootTopic" type="text" autocomplete="off" placeholder="msh/ES">
+                <input id="mqttRootTopic" type="text" autocomplete="off" placeholder="msh/EU-868">
               </label>
               <label class="check-line">
                 <input id="mqttEnabled" type="checkbox">
@@ -243,12 +243,12 @@
             <section id="wifiPanel" class="panel">
               <h2><span data-i18n="radios.wifiHead"></span></h2>
               <p id="wifiUnsupported" class="status-line status-warn" data-i18n="radios.wifiUnsupported" hidden></p>
+              <label class="check-line" data-pref-key="USERPREFS_NETWORK_WIFI_ENABLED">
+                <input id="wifiEnabled" type="checkbox">
+                <span data-i18n="radios.wifiEnabled"></span>
+                <small class="field-hint" data-i18n="radios.wifiHint"></small>
+              </label>
               <div class="grid grid-three">
-                <label class="check-line span-two" data-pref-key="USERPREFS_NETWORK_WIFI_ENABLED">
-                  <input id="wifiEnabled" type="checkbox">
-                  <span data-i18n="radios.wifiEnabled"></span>
-                  <small class="field-hint" data-i18n="radios.wifiHint"></small>
-                </label>
                 <label data-pref-key="USERPREFS_NETWORK_WIFI_SSID">
                   <span data-i18n="radios.wifiSsid"></span>
                   <input id="wifiSsid" type="text" autocomplete="off" maxlength="32">
