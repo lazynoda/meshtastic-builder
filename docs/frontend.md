@@ -100,6 +100,26 @@ quoted by the build script and then fail to compile.
 Every collapsed section is closed by default and its panels are not numbered
 steps.
 
+## What the Preview Guarantees
+
+The textarea is submitted verbatim as `prefsJsonc`, so it is the source of truth
+for the build, not a display. Audited by mutating all 50 controls and diffing the
+preview: every one is reflected, and a full submission produced an artifact whose
+`userPrefs.jsonc` matched the preview key for key and value for value.
+
+Two things reach the firmware without being ordinary entries:
+
+- The template's active (uncommented) defaults. `buildPrefs` seeds them from
+  `state.templateDefaults` so the preview shows them rather than the server
+  silently adding them during the merge.
+- The macros the advanced options expand into, which are not template keys and
+  would be rejected as entries. They appear as JSONC comments, so the text stays
+  submittable while still disclosing them.
+
+When a value fails validation the preview keeps its last good content and the
+status line carries the error. `submitBuild` re-runs `updatePrefsPreview` and
+aborts if it fails, so a stale preview can never be submitted.
+
 ## Comboboxes
 
 The device picker and the free-form key picker are comboboxes, not `<select>`

@@ -46,6 +46,7 @@ const state = {
   deviceFamilies: {},
   extraPrefs: [],
   templateExamples: {},
+  templateDefaults: {},
   currentBuildToken: null,
   pollTimer: null,
   templateKeys: new Set(),
@@ -526,6 +527,7 @@ async function loadTemplate() {
   const template = await response.text();
   state.templateKeys = extractTemplateKeys(template);
   state.templateExamples = extractTemplateExamples(template);
+  state.templateDefaults = extractTemplateDefaults(template);
   // A key the previous tag had may not exist in this one.
   state.extraPrefs = state.extraPrefs.filter((row) => !row.key || state.templateKeys.has(row.key));
   syncTemplateGatedControls();
@@ -555,6 +557,24 @@ function extractTemplateExamples(template) {
     }
   }
   return examples;
+}
+
+// The server merges the template's active (uncommented) entries under the user's
+// values. Seeding the preview with them keeps it equal to what actually gets built
+// instead of quietly gaining keys on the way.
+function extractTemplateDefaults(template) {
+  try {
+    const stripped = template.replace(/^\s*\/\/.*$/gm, "");
+    const parsed = JSON.parse(stripped);
+    if (!parsed || typeof parsed !== "object") return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        ([key, value]) => key.startsWith("USERPREFS_") && (typeof value === "string" || typeof value === "number"),
+      ),
+    );
+  } catch (error) {
+    return {};
+  }
 }
 
 function shortPrefKey(key) {
@@ -841,6 +861,9 @@ function validateChannel(channel, index) {
 function buildPrefs() {
   validateShortName();
   const prefs = {};
+  for (const [key, value] of Object.entries(state.templateDefaults)) {
+    prefs[key] = String(value);
+  }
 
   setPref(prefs, "USERPREFS_CONFIG_OWNER_LONG_NAME", $("longName").value.trim());
   setPref(prefs, "USERPREFS_CONFIG_OWNER_SHORT_NAME", $("shortName").value.trim());
