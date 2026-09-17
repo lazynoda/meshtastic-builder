@@ -29,7 +29,7 @@ class DeviceTests(unittest.TestCase):
         self.assertEqual(len({device.label for device in devices}), len(devices))
         self.assertEqual(len({device.platformio_env for device in devices}), len(devices))
         # The first entry is the default selection on the page.
-        self.assertEqual(devices[0].id, "tbeam")
+        self.assertEqual(devices[0].id, "nrf52-promicro-diy")
 
 
 if __name__ == "__main__":

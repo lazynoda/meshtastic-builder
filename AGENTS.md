@@ -75,8 +75,9 @@ and is not `board_level = extra`. That is the same set flasher.meshtastic.org
 offers. Labels and the `family` field come from `custom_meshtastic_display_name`
 and `custom_meshtastic_architecture`.
 
-The first eight entries keep their original ids and order, because stored build
-rows reference them and the first entry is the page's default selection. Where
+The first eight entries keep their original ids and lead the list, because
+stored build rows reference them. The Pro-micro DIY heads it: the first entry is
+the page's default selection. Where
 several envs share a display name (Mesh Pocket capacities, the RAK4631 Ethernet
 gateway, the T-Deck Pro revision) the label is suffixed to tell them apart.
 
