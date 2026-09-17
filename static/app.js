@@ -1042,17 +1042,124 @@ function codeOptionMacros() {
   return macros;
 }
 
+// The preview follows the order of the form so a key is easy to find, with the
+// keys nobody chose (this firmware's own defaults) last.
+function previewGroups(prefs) {
+  const nativeOkToMqtt = state.buildOptions ? state.buildOptions.okToMqtt.nativeMacro : null;
+  const ordered = [
+    ["step2.title", ["USERPREFS_CONFIG_OWNER_LONG_NAME", "USERPREFS_CONFIG_OWNER_SHORT_NAME", "USERPREFS_TZ_STRING"]],
+    [
+      "step3.title",
+      [
+        "USERPREFS_CONFIG_LORA_REGION",
+        "USERPREFS_LORACONFIG_MODEM_PRESET",
+        "USERPREFS_LORACONFIG_TX_POWER",
+        "USERPREFS_CONFIG_LORA_IGNORE_MQTT",
+        nativeOkToMqtt,
+      ],
+    ],
+    [
+      "behaviour.title",
+      [
+        "USERPREFS_CONFIG_DEVICE_ROLE",
+        "USERPREFS_CONFIG_DEVICE_REBROADCAST_MODE",
+        "USERPREFS_CONFIG_DEVICE_NODE_INFO_BROADCAST_SECS",
+        "USERPREFS_CONFIG_DEVICE_TELEM_UPDATE_INTERVAL",
+      ],
+    ],
+    [
+      "step4.title",
+      ["USERPREFS_CHANNELS_TO_WRITE", ...Object.keys(prefs).filter((key) => /^USERPREFS_CHANNEL_\d+_/.test(key)).sort()],
+    ],
+    [
+      "step5.mqttHead",
+      [
+        "USERPREFS_MQTT_ENABLED",
+        "USERPREFS_MQTT_ADDRESS",
+        "USERPREFS_MQTT_USERNAME",
+        "USERPREFS_MQTT_PASSWORD",
+        "USERPREFS_MQTT_ROOT_TOPIC",
+        "USERPREFS_MQTT_ENCRYPTION_ENABLED",
+        "USERPREFS_MQTT_TLS_ENABLED",
+      ],
+    ],
+    [
+      "radios.title",
+      [
+        "USERPREFS_FIXED_BLUETOOTH",
+        "USERPREFS_NETWORK_WIFI_ENABLED",
+        "USERPREFS_NETWORK_WIFI_SSID",
+        "USERPREFS_NETWORK_WIFI_PSK",
+      ],
+    ],
+    [
+      "position.title",
+      [
+        "USERPREFS_CONFIG_GPS_MODE",
+        "USERPREFS_CONFIG_GPS_UPDATE_INTERVAL",
+        "USERPREFS_CONFIG_POSITION_BROADCAST_INTERVAL",
+        "USERPREFS_CONFIG_SMART_POSITION_ENABLED",
+        "USERPREFS_BLOCK_POSITION_ON_EVENT_CHANNEL",
+        "USERPREFS_FIXED_GPS",
+        "USERPREFS_FIXED_GPS_LAT",
+        "USERPREFS_FIXED_GPS_LON",
+        "USERPREFS_FIXED_GPS_ALT",
+      ],
+    ],
+    [
+      "security.title",
+      [
+        "USERPREFS_USE_ADMIN_KEY_0",
+        "USERPREFS_USE_ADMIN_KEY_1",
+        "USERPREFS_USE_ADMIN_KEY_2",
+        "USERPREFS_CONFIG_SECURITY_PACKET_SIGNATURE_POLICY",
+        "USERPREFS_CONFIG_SECURITY_IS_MANAGED",
+      ],
+    ],
+    ["extra.title", state.extraPrefs.map((row) => row.key).filter(Boolean)],
+  ];
+
+  const groups = [];
+  const placed = new Set();
+  for (const [label, keys] of ordered) {
+    const entries = [];
+    for (const key of keys) {
+      if (!key || placed.has(key) || !(key in prefs)) continue;
+      placed.add(key);
+      entries.push([key, prefs[key]]);
+    }
+    if (entries.length) groups.push({ label: t(label), entries });
+  }
+  const leftover = Object.keys(prefs).filter((key) => !placed.has(key)).sort();
+  if (leftover.length) {
+    groups.push({ label: t("preview.defaults"), entries: leftover.map((key) => [key, prefs[key]]) });
+  }
+  return groups;
+}
+
 function prefsPreviewText(prefs) {
-  const json = JSON.stringify(prefs, null, 2);
+  const groups = previewGroups(prefs);
+  const total = groups.reduce((count, group) => count + group.entries.length, 0);
+  const lines = ["{"];
+  let written = 0;
+  for (const group of groups) {
+    if (written) lines.push("");
+    lines.push(`  // ${group.label}`);
+    for (const [key, value] of group.entries) {
+      written += 1;
+      lines.push(`  ${JSON.stringify(key)}: ${JSON.stringify(String(value))}${written < total ? "," : ""}`);
+    }
+  }
   const macros = codeOptionMacros();
-  if (!macros.length) return `${json}\n`;
-  const comment = [
-    "",
-    `  // ${t("preview.injected")}`,
-    ...macros.map(([key, value]) => `  // "${key}": "${value}"`),
-  ].join("\n");
-  // Comments sit inside the object, so the submitted text still parses as JSONC.
-  return `${json.replace(/\n\}$/, `${comment}\n}`)}\n`;
+  if (macros.length) {
+    lines.push("");
+    lines.push(`  // ${t("preview.injected")}`);
+    for (const [key, value] of macros) {
+      lines.push(`  // ${JSON.stringify(key)}: ${JSON.stringify(value)}`);
+    }
+  }
+  lines.push("}");
+  return `${lines.join("\n")}\n`;
 }
 
 function updatePrefsPreview() {

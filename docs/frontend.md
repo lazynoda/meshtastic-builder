@@ -107,6 +107,11 @@ for the build, not a display. Audited by mutating all 50 controls and diffing th
 preview: every one is reflected, and a full submission produced an artifact whose
 `userPrefs.jsonc` matched the preview key for key and value for value.
 
+Keys are grouped and ordered to mirror the form, with a comment naming each
+block, so a setting is found where the page put it. `previewGroups` holds that
+order; a key missing from it still appears, under the trailing defaults block,
+so nothing can be hidden by forgetting to list it.
+
 Two things reach the firmware without being ordinary entries:
 
 - The template's active (uncommented) defaults. `buildPrefs` seeds them from
