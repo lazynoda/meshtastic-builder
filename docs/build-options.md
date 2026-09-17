@@ -64,9 +64,10 @@ defines present but nothing reading them.
 | --- | --- | --- |
 | `okToMqtt` | `true` / `false` | Sets `config.lora.config_ok_to_mqtt`. The UI checks it by default. |
 | `customLora.bandwidthKhz` | `31`, `62`, `125`, `250`, `500` | Firmware bandwidth codes. `31` means 31.25 kHz and `62` means 62.5 kHz. |
-| `customLora.spreadFactor` | `7`–`12` | |
-| `customLora.codingRate` | `5`–`8` | 4/5 through 4/8. |
+| `customLora.spreadFactor` | `5`–`12` | |
+| `customLora.codingRate` | `5`–`8` | Denominator of 4/N; the UI shows the bare number. |
 | `customLora.channelNum` | `0`–`255` | Frequency slot. `0` derives the slot from the channel name. Uses the pre-existing `USERPREFS_LORACONFIG_CHANNEL_NUM` key. |
+| `customLora.overrideFrequencyMhz` | `0`–`1000`, float | Transmit frequency in MHz. `0` keeps the region frequency. Emits `USERPREFS_LORACONFIG_OVERRIDE_FREQUENCY`. |
 
 Sending `customLora` also emits `USERPREFS_LORACONFIG_USE_PRESET: "false"`, so
 the modem preset is ignored by the radio. The UI disables the preset selector

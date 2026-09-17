@@ -82,9 +82,22 @@ The form is split into the settings most users touch and everything else:
 2. Node: long/short name and timezone.
 3. LoRa radio: region, modem preset, TX power, manual LoRa parameters.
 4. Device: role, rebroadcast mode, node info and device telemetry intervals.
-5. `<details class="advanced-section">`, collapsed by default: Channels, MQTT,
-   Security, Environment sensors. Panels inside it are not numbered steps.
-6. Review and submit.
+5. Channels.
+6. MQTT, including the `ok_to_mqtt` code option.
+7. `<details class="advanced-section">`, collapsed by default: Security and
+   Environment sensors. Panels inside it are not numbered steps.
+8. Review and submit.
+
+Form defaults aim at a quiet mesh: rebroadcast `CORE_PORTNUMS_ONLY`, node info
+every 259200 s (72 h), and both telemetry intervals empty. Empty is not "firmware
+default" for telemetry: `installDefaultModuleConfig` sets `device_update_interval`
+to `MAX_INTERVAL` when the macro is absent, so leaving it blank disables it.
+
+Channel rows carry a drag handle and reorder through pointer events, not HTML5
+drag, so reordering also works on touch screens. Row order is the channel index,
+so dragging a row to the top makes it the primary channel. Precision is a slider
+over `PRECISION_STEPS` (0, 10..19, 32) that shows the approximate radius instead
+of the raw bit count, halving 23.3 km per extra bit as the Meshtastic docs do.
 
 Panels marked `data-gated` hide themselves when every `[data-pref-key]` control
 inside them is absent from the selected tag's template.
@@ -99,6 +112,11 @@ builder applies `docker/patches/userprefs-ext.patch`. Value ranges come from
 `GET /api/build-options`, so they live in `data/build_options.json` and are
 never duplicated in JavaScript. Enabling manual LoRa configuration disables the
 modem preset selector with an inline explanation.
+
+Because these macros are not userPrefs keys, `setPref` would drop them from the
+preview. The preview instead appends them as JSONC comments inside the object, so
+what the user reads matches what the server merges and the submitted text still
+parses.
 
 See [Advanced Build Options](build-options.md) for the backend half.
 

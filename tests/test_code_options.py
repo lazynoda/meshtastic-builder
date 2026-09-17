@@ -101,13 +101,28 @@ class CodeOptionValidationTests(unittest.TestCase):
         self.assertEqual(macros["USERPREFS_LORACONFIG_USE_PRESET"], "false")
         self.assertEqual(macros["USERPREFS_LORACONFIG_SPREAD_FACTOR"], "9")
         self.assertEqual(macros["USERPREFS_LORACONFIG_BANDWIDTH"], "250")
+        self.assertEqual(macros["USERPREFS_LORACONFIG_OVERRIDE_FREQUENCY"], "0.0")
         for value in macros.values():
             self.assertIsInstance(value, str)
+
+    def test_custom_lora_accepts_spread_factor_5_and_override_frequency(self):
+        canonical, macros = validate_code_options(
+            ROOT_DIR,
+            {"customLora": {"spreadFactor": 5, "overrideFrequencyMhz": 869.525}},
+            SUPPORTED_TAG,
+        )
+        self.assertEqual(canonical["customLora"]["spreadFactor"], 5)
+        self.assertEqual(canonical["customLora"]["overrideFrequencyMhz"], 869.525)
+        self.assertEqual(macros["USERPREFS_LORACONFIG_SPREAD_FACTOR"], "5")
+        self.assertEqual(macros["USERPREFS_LORACONFIG_OVERRIDE_FREQUENCY"], "869.525")
 
     def test_rejects_out_of_range_and_unknown_values(self):
         cases = [
             {"okToMqtt": "yes"},
             {"customLora": {"spreadFactor": 13}},
+            {"customLora": {"spreadFactor": 4}},
+            {"customLora": {"overrideFrequencyMhz": 1200}},
+            {"customLora": {"overrideFrequencyMhz": "869.5"}},
             {"customLora": {"codingRate": 4}},
             {"customLora": {"bandwidthKhz": 300}},
             {"customLora": {"channelNum": 256}},

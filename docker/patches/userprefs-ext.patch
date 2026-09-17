@@ -10,6 +10,7 @@ macros are honoured:
   USERPREFS_LORACONFIG_BANDWIDTH     -> config.lora.bandwidth
   USERPREFS_LORACONFIG_SPREAD_FACTOR -> config.lora.spread_factor
   USERPREFS_LORACONFIG_CODING_RATE   -> config.lora.coding_rate
+  USERPREFS_LORACONFIG_OVERRIDE_FREQUENCY -> config.lora.override_frequency
 
 The block is inserted after the existing USERPREFS_LORACONFIG_MODEM_PRESET
 handling so it overrides the unconditional config_ok_to_mqtt default set
@@ -21,7 +22,7 @@ rejected by data/build_options.json (minFirmwareVersion).
 diff --git a/src/mesh/NodeDB.cpp b/src/mesh/NodeDB.cpp
 --- a/src/mesh/NodeDB.cpp
 +++ b/src/mesh/NodeDB.cpp
-@@ -626,6 +626,21 @@ void NodeDB::installDefaultConfig(bool preserveKey = false)
+@@ -626,6 +626,24 @@ void NodeDB::installDefaultConfig(bool preserveKey = false)
      config.lora.modem_preset = USERPREFS_LORACONFIG_MODEM_PRESET;
  #else
      config.lora.modem_preset = meshtastic_Config_LoRaConfig_ModemPreset_LONG_FAST;
@@ -40,6 +41,9 @@ diff --git a/src/mesh/NodeDB.cpp b/src/mesh/NodeDB.cpp
 +#endif
 +#ifdef USERPREFS_LORACONFIG_CODING_RATE
 +    config.lora.coding_rate = USERPREFS_LORACONFIG_CODING_RATE;
++#endif
++#ifdef USERPREFS_LORACONFIG_OVERRIDE_FREQUENCY
++    config.lora.override_frequency = USERPREFS_LORACONFIG_OVERRIDE_FREQUENCY;
  #endif
      config.lora.hop_limit = HOP_RELIABLE;
  #ifdef USERPREFS_CONFIG_LORA_IGNORE_MQTT

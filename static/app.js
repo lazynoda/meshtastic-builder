@@ -104,6 +104,20 @@ const SIGNATURE_POLICY_OPTIONS = [
 // Firmware bandwidth codes are not all the real value in kHz.
 const BANDWIDTH_LABELS = { 31: "31.25", 62: "62.5" };
 
+// Position precision values the Meshtastic clients expose: 0 hides the position,
+// 32 sends it exact, 10..19 truncate the coordinates to that many bits.
+const PRECISION_STEPS = [0, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 32];
+const DEFAULT_PRECISION_INDEX = PRECISION_STEPS.indexOf(14);
+
+// 23.3 km at 10 bits, halved per extra bit: same table the Meshtastic docs publish.
+function precisionLabel(precision) {
+  const bits = Number(precision);
+  if (bits === 0) return t("channel.precisionOff");
+  if (bits >= 32) return t("channel.precisionExact");
+  const metres = 23300 / 2 ** (bits - 10);
+  return metres >= 1000 ? `~${(metres / 1000).toFixed(1)} km` : `~${Math.round(metres)} m`;
+}
+
 async function fetchJson(url, options = {}) {
   const response = await fetch(url, options);
   const payload = await response.json();
@@ -176,7 +190,7 @@ function populateStaticSelects(tag = null) {
     $("rebroadcastMode"),
     REBROADCAST_OPTIONS,
     "meshtastic_Config_DeviceConfig_RebroadcastMode_",
-    "ALL",
+    "CORE_PORTNUMS_ONLY",
     tag,
   );
   fillSelect(
@@ -216,11 +230,15 @@ async function loadBuildOptions() {
   $("loraCodingRate").innerHTML = numericOptionHtml(
     range(fields.codingRate.min, fields.codingRate.max),
     fields.codingRate.default,
-    (value) => `4/${value}`,
   );
   $("loraChannelNum").min = fields.channelNum.min;
   $("loraChannelNum").max = fields.channelNum.max;
   $("loraChannelNum").value = fields.channelNum.default;
+  const frequency = fields.overrideFrequencyMhz;
+  $("loraOverrideFreq").min = frequency.min;
+  $("loraOverrideFreq").max = frequency.max;
+  $("loraOverrideFreq").step = frequency.step;
+  $("loraOverrideFreq").value = frequency.default;
   $("okToMqtt").checked = state.buildOptions.okToMqtt.default;
 }
 
@@ -331,8 +349,11 @@ function defaultChannel() {
 
 function renderChannels() {
   const withMute = channelMuteSupported();
+  const canReorder = state.channels.length > 1;
   $("channelRows").innerHTML = state.channels.map((channel, index) => `
     <div class="channel-row" data-index="${index}">
+      <button class="drag-handle" type="button" data-action="drag" ${canReorder ? "" : "disabled"}
+        aria-label="${escapeHtml(t("channel.reorder"))}" title="${escapeHtml(t("channel.reorder"))}">⠿</button>
       <label>
         ${escapeHtml(t("channel.name"))}
         <input data-field="name" type="text" value="${escapeHtml(channel.name)}" autocomplete="off" required>
@@ -341,9 +362,11 @@ function renderChannels() {
         ${escapeHtml(t("channel.psk"))}
         <input data-field="psk" type="text" value="${escapeHtml(channel.psk)}" autocomplete="off" placeholder="AQ==">
       </label>
-      <label>
+      <label class="precision-cell">
         ${escapeHtml(t("channel.precision"))}
-        <input data-field="precision" type="number" min="0" max="32" value="${escapeHtml(channel.precision)}">
+        <input data-field="precision" type="range" min="0" max="${PRECISION_STEPS.length - 1}"
+          value="${precisionStepIndex(channel.precision)}">
+        <small class="field-hint" data-precision-label>${escapeHtml(precisionLabel(channel.precision))}</small>
       </label>
       <label class="check-line">
         <input data-field="downlink" type="checkbox" ${channel.downlink ? "checked" : ""}>
@@ -366,13 +389,66 @@ function renderChannels() {
   updatePrefsPreview();
 }
 
+function precisionStepIndex(precision) {
+  const index = PRECISION_STEPS.indexOf(Number(precision));
+  return index >= 0 ? index : DEFAULT_PRECISION_INDEX;
+}
+
 function syncChannelFromInput(input) {
   const row = input.closest(".channel-row");
   if (!row) return;
   const channel = state.channels[Number(row.dataset.index)];
   if (!channel) return;
   const field = input.dataset.field;
+  if (field === "precision") {
+    // The slider walks PRECISION_STEPS; the stored value stays the firmware one.
+    channel.precision = String(PRECISION_STEPS[Number(input.value)]);
+    const label = row.querySelector("[data-precision-label]");
+    if (label) label.textContent = precisionLabel(channel.precision);
+    return;
+  }
   channel[field] = input.type === "checkbox" ? input.checked : input.value;
+}
+
+// Reordering channel 0 changes the primary channel, so the whole row order matters.
+// Pointer events (not HTML5 drag) because they also work on touch screens.
+let channelDrag = null;
+
+function onChannelDragStart(event) {
+  const handle = event.target.closest("[data-action='drag']");
+  if (!handle || handle.disabled) return;
+  const row = handle.closest(".channel-row");
+  if (!row) return;
+  event.preventDefault();
+  handle.setPointerCapture(event.pointerId);
+  row.classList.add("dragging");
+  channelDrag = { row, pointerId: event.pointerId };
+}
+
+function onChannelDragMove(event) {
+  if (!channelDrag || event.pointerId !== channelDrag.pointerId) return;
+  const rows = Array.from($("channelRows").querySelectorAll(".channel-row"));
+  const target = rows.find((row) => {
+    if (row === channelDrag.row) return false;
+    const box = row.getBoundingClientRect();
+    return event.clientY >= box.top && event.clientY <= box.bottom;
+  });
+  if (!target) return;
+  const box = target.getBoundingClientRect();
+  const after = event.clientY > box.top + box.height / 2;
+  target.parentNode.insertBefore(channelDrag.row, after ? target.nextSibling : target);
+}
+
+function onChannelDragEnd(event) {
+  if (!channelDrag || event.pointerId !== channelDrag.pointerId) return;
+  channelDrag.row.classList.remove("dragging");
+  channelDrag = null;
+  const order = Array.from(
+    $("channelRows").querySelectorAll(".channel-row"),
+    (row) => Number(row.dataset.index),
+  );
+  state.channels = order.map((index) => state.channels[index]);
+  renderChannels();
 }
 
 function bytesToByteArray(bytes) {
@@ -535,6 +611,7 @@ function buildCodeOptions() {
       spreadFactor: Number($("loraSpreadFactor").value),
       codingRate: Number($("loraCodingRate").value),
       channelNum: Number($("loraChannelNum").value),
+      overrideFrequencyMhz: Number($("loraOverrideFreq").value),
     };
   }
   return options;
@@ -549,16 +626,51 @@ function describeCodeOptions(options) {
   if (options.customLora) {
     const lora = options.customLora;
     const bandwidth = BANDWIDTH_LABELS[lora.bandwidthKhz] || lora.bandwidthKhz;
-    parts.push(`BW ${bandwidth} kHz / SF ${lora.spreadFactor} / CR 4/${lora.codingRate} / slot ${lora.channelNum}`);
+    parts.push(`BW ${bandwidth} kHz / SF ${lora.spreadFactor} / CR ${lora.codingRate} / slot ${lora.channelNum}`);
+    if (lora.overrideFrequencyMhz) {
+      parts.push(`${lora.overrideFrequencyMhz} MHz`);
+    }
   }
   return parts.join(" · ");
+}
+
+// The advanced options are not userPrefs keys: the server expands them into these
+// macros and merges them after the user overrides. Show them so the preview is honest.
+function codeOptionMacros() {
+  const options = buildCodeOptions();
+  const spec = state.buildOptions;
+  if (!options || !spec) return [];
+  const macros = [];
+  if (options.okToMqtt !== undefined) {
+    macros.push([state.codeOptionsNative ? spec.okToMqtt.nativeMacro : spec.okToMqtt.macro, String(options.okToMqtt)]);
+  }
+  if (options.customLora) {
+    macros.push([spec.customLora.usePresetMacro, "false"]);
+    for (const [name, field] of Object.entries(spec.customLora.fields)) {
+      macros.push([field.macro, String(options.customLora[name])]);
+    }
+  }
+  return macros;
+}
+
+function prefsPreviewText(prefs) {
+  const json = JSON.stringify(prefs, null, 2);
+  const macros = codeOptionMacros();
+  if (!macros.length) return `${json}\n`;
+  const comment = [
+    "",
+    `  // ${t("preview.injected")}`,
+    ...macros.map(([key, value]) => `  // "${key}": "${value}"`),
+  ].join("\n");
+  // Comments sit inside the object, so the submitted text still parses as JSONC.
+  return `${json.replace(/\n\}$/, `${comment}\n}`)}\n`;
 }
 
 function updatePrefsPreview() {
   try {
     syncManagedMode();
     const prefs = buildPrefs();
-    $("prefsJsonc").value = `${JSON.stringify(prefs, null, 2)}\n`;
+    $("prefsJsonc").value = prefsPreviewText(prefs);
     if (state.statusIsError) {
       setStatusKey("status.ready");
     }
@@ -689,6 +801,10 @@ function bindEvents() {
     syncChannelFromInput(event.target);
     updatePrefsPreview();
   });
+  $("channelRows").addEventListener("pointerdown", onChannelDragStart);
+  $("channelRows").addEventListener("pointermove", onChannelDragMove);
+  $("channelRows").addEventListener("pointerup", onChannelDragEnd);
+  $("channelRows").addEventListener("pointercancel", onChannelDragEnd);
   $("channelRows").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-action='remove']");
     if (!button) return;

@@ -477,7 +477,7 @@ input[type="checkbox"] {
 /* Channels */
 .channel-row {
   display: grid;
-  grid-template-columns: 1.4fr 1.4fr 0.8fr auto auto auto;
+  grid-template-columns: auto 1.4fr 1.4fr 1.2fr auto auto auto auto;
   gap: 12px;
   align-items: end;
   padding: 14px 0;
@@ -494,8 +494,43 @@ input[type="checkbox"] {
 
 @media (max-width: 720px) {
   .channel-row {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: auto 1fr;
   }
+  .precision-cell {
+    grid-column: span 2;
+  }
+}
+
+/* Reordering channels: pointer events, so the handle must not scroll the page. */
+.drag-handle {
+  align-self: center;
+  touch-action: none;
+  cursor: grab;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 8px 4px;
+}
+
+.drag-handle:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.channel-row.dragging {
+  opacity: 0.6;
+  background: var(--panel2);
+  cursor: grabbing;
+}
+
+.precision-cell input[type="range"] {
+  padding: 0;
+  border: 0;
+  background: none;
+  accent-color: var(--accent);
+  height: 24px;
 }
 
 /* JSON preview */

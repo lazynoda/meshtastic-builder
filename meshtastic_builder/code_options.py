@@ -49,6 +49,22 @@ def _bool_field(payload: dict[str, Any], key: str) -> bool:
     return value
 
 
+def _float_field(payload: dict[str, Any], key: str, spec: dict[str, Any]) -> float:
+    value = payload.get(key, spec["default"])
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"La opcion {key} debe ser un numero.")
+    value = float(value)
+    if value < spec["min"] or value > spec["max"]:
+        raise ValueError(f"La opcion {key} debe estar entre {spec['min']} y {spec['max']}.")
+    return round(value, 4)
+
+
+def _number_field(payload: dict[str, Any], key: str, spec: dict[str, Any]) -> int | float:
+    if spec.get("type") == "float":
+        return _float_field(payload, key, spec)
+    return _int_field(payload, key, spec)
+
+
 def _int_field(payload: dict[str, Any], key: str, spec: dict[str, Any]) -> int:
     value = payload.get(key, spec["default"])
     if isinstance(value, bool) or not isinstance(value, int):
@@ -111,7 +127,7 @@ def validate_code_options(
         unknown_fields = set(custom_lora) - set(spec["fields"])
         if unknown_fields:
             raise ValueError(f"Campos customLora desconocidos: {', '.join(sorted(unknown_fields))}.")
-        values = {name: _int_field(custom_lora, name, field) for name, field in spec["fields"].items()}
+        values = {name: _number_field(custom_lora, name, field) for name, field in spec["fields"].items()}
         canonical["customLora"] = values
         macros[spec["usePresetMacro"]] = "false"
         for name, field in spec["fields"].items():

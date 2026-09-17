@@ -13,12 +13,18 @@
     "fields": {
       "bandwidthKhz": {
         "macro": "USERPREFS_LORACONFIG_BANDWIDTH",
-        "choices": [31, 62, 125, 250, 500],
+        "choices": [
+          31,
+          62,
+          125,
+          250,
+          500
+        ],
         "default": 250
       },
       "spreadFactor": {
         "macro": "USERPREFS_LORACONFIG_SPREAD_FACTOR",
-        "min": 7,
+        "min": 5,
         "max": 12,
         "default": 11
       },
@@ -32,6 +38,14 @@
         "macro": "USERPREFS_LORACONFIG_CHANNEL_NUM",
         "min": 0,
         "max": 255,
+        "default": 0
+      },
+      "overrideFrequencyMhz": {
+        "macro": "USERPREFS_LORACONFIG_OVERRIDE_FREQUENCY",
+        "type": "float",
+        "min": 0,
+        "max": 1000,
+        "step": 0.001,
         "default": 0
       }
     }
