@@ -81,6 +81,10 @@ Detailed Compose instructions, including remote Docker via
 `DOCKER_HOST=ssh://docker-host.example`, are in
 [docs/compose-flow.md](docs/compose-flow.md).
 
+`compose.yml` reads its settings from `.env`. For a deployment on another host,
+copy `docker-compose.example.yaml` instead: it carries the same services with
+the values written out inline and a note on why each one is set that way.
+
 Current remote phone-test stack:
 
 ```text

@@ -1,0 +1,117 @@
+# Example deployment for the Meshtastic firmware builder.
+#
+# Copy to compose.yaml (or keep it alongside and pass -f) and edit the marked
+# values. Unlike the repo's compose.yml, which reads everything from .env, this
+# file spells the settings out so you can see what a real deployment looks like.
+#
+# Before the first `docker compose up`, build the firmware builder image. Compose
+# does NOT build it: the worker launches it as a sibling container, so it has to
+# exist on the Docker daemon the worker talks to.
+#
+#   docker build -f docker/builder.Dockerfile -t meshtastic-firmware-builder:local .
+#
+# That takes roughly an hour and produces an ~8 GB image, because it clones the
+# firmware repository and prewarms the PlatformIO toolchains.
+
+services:
+  web:
+    build: .
+    command: python -m meshtastic_builder.app
+    restart: unless-stopped
+    ports:
+      # Left side is the host. Behind a reverse proxy, keep 127.0.0.1 so the app
+      # is not reachable directly; drop the prefix only to expose it on the LAN.
+      - "127.0.0.1:8080:8080"
+    environment:
+      # EDIT ME. Every private build link handed to a user is built from this.
+      # Point it at the public origin, not at an internal address, or people get
+      # links they cannot open. There is no email fallback: the link is the only
+      # way back to a build.
+      MB_BASE_URL: https://builder.example.org
+
+      # Bind inside the container. Always 0.0.0.0, otherwise the published port
+      # reaches nothing. Host exposure is controlled by `ports:` above.
+      MB_HOST: 0.0.0.0
+      MB_PORT: 8080
+
+      # Trust the first X-Forwarded-For hop for rate limiting. Set to 1 ONLY when
+      # a reverse proxy is the sole route in. Exposed directly, any client can
+      # forge the header and bypass rate limiting.
+      MB_TRUST_PROXY: 1
+
+      MB_DATA_DIR: /data
+      MB_DB_PATH: /data/meshtastic-builder.sqlite
+      MB_ARTIFACT_DIR: /data/artifacts
+
+      # How long a finished ZIP stays downloadable. The worker deletes expired
+      # artifacts and the page shows this number next to the submit button.
+      MB_ARTIFACT_TTL_DAYS: 7
+
+      # Newest tags marked supported when a tag is first cached. 0 = all.
+      MB_AUTO_SUPPORT_LATEST_TAGS: 20
+      MB_GITHUB_MAX_TAG_PAGES: 20
+    volumes:
+      - app-data:/data
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen("http://127.0.0.1:8080/api/devices", timeout=5)
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  worker:
+    build: .
+    command: python -m meshtastic_builder.worker
+    restart: unless-stopped
+    environment:
+      MB_BASE_URL: https://builder.example.org
+      MB_DATA_DIR: /data
+      MB_DB_PATH: /data/meshtastic-builder.sqlite
+      MB_ARTIFACT_DIR: /data/artifacts
+      MB_ARTIFACT_TTL_DAYS: 7
+      MB_AUTO_SUPPORT_LATEST_TAGS: 20
+      MB_GITHUB_MAX_TAG_PAGES: 20
+
+      # docker = real firmware builds. fake = skip PlatformIO and emit a stub ZIP,
+      # useful to exercise the queue without an 8 GB image.
+      MB_BUILDER_MODE: docker
+      MB_BUILDER_IMAGE: meshtastic-firmware-builder:local
+      MB_DOCKER_BINARY: docker
+
+      # copy, not auto: the worker drives the host daemon through the mounted
+      # socket, so a bind mount of /data/jobs/... would be resolved against the
+      # HOST filesystem, where that path does not exist, and the builder would
+      # start with an empty input directory. copy streams the inputs in instead.
+      MB_DOCKER_TRANSPORT: copy
+
+      # Builder containers need the network for firmware tags whose PlatformIO
+      # packages are not prewarmed into the image. Use none only when the image
+      # covers your exact tag and device set.
+      MB_DOCKER_NETWORK: bridge
+
+      # Limits for each builder container. Firmware builds are CPU-bound; lower
+      # the CPU quota on a small host, at the cost of slower builds.
+      MB_DOCKER_CPUS: 4
+      MB_DOCKER_MEMORY: 4g
+      MB_DOCKER_PIDS_LIMIT: 512
+      MB_BUILD_TIMEOUT_SECONDS: 3600
+    volumes:
+      - app-data:/data
+      # The worker is the only component allowed to touch Docker. Mounting the
+      # socket grants control of the daemon, which is equivalent to root on the
+      # host, so keep this off the web container and do not add it elsewhere.
+      - /var/run/docker.sock:/var/run/docker.sock
+
+      # Building on a REMOTE daemon instead? Drop the socket mount above, set
+      # DOCKER_HOST here, and mount the SSH key the worker should use:
+      #   environment:
+      #     DOCKER_HOST: ssh://user@192.168.0.10
+      #   volumes:
+      #     - ./deploy/id_ed25519:/root/.ssh/id_ed25519:ro
+
+volumes:
+  app-data:

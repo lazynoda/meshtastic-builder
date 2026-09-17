@@ -121,7 +121,9 @@ builder.meshtastic.es {
 Checklist for a fresh host:
 
 1. Point DNS at the host and open ports 80/443 for the proxy only.
-2. Set `MB_BASE_URL=https://builder.meshtastic.es` and `MB_TRUST_PROXY=1` in `.env`.
+2. Set `MB_BASE_URL=https://builder.meshtastic.es` and `MB_TRUST_PROXY=1` in `.env`,
+   or start from `docker-compose.example.yaml`, which spells the same settings out
+   inline with the reasoning for each one.
    Enable `MB_TRUST_PROXY` only when the app port is not reachable directly, as
    `X-Forwarded-For` is otherwise trivially spoofed.
 3. Stop publishing the `web` port to the public interface; let the proxy reach it
