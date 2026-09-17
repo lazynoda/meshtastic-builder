@@ -159,6 +159,10 @@ Current remote Compose handoff state as of 2026-09-16:
   `nrf52_promicro_diy_tcxo` (about 5 minutes) and `heltec-v4` with manual LoRa
   parameters plus `okToMqtt` (about 7 minutes, 23 MB ZIP with `.bin`,
   `.factory.bin`, bootloader, partitions, LittleFS, `.elf`, `.map`)
+- Both code-option paths verified with manual frequency 869.525 MHz, spread
+  factor 5 and coding rate 6: `heltec-v4` at `v2.8.0.7239fe8` (native macros)
+  and `nrf52_promicro_diy_tcxo` at `v2.7.26.54e0d8d` (NodeDB patch applied).
+  Each artifact carries `USERPREFS_LORACONFIG_OVERRIDE_FREQUENCY`.
 - The image was pruned from that host once already (found 2026-09-16); if
   `docker images meshtastic-firmware-builder` is empty, rebuild before
   expecting real builds to pass

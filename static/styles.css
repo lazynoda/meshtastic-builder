@@ -404,12 +404,19 @@ input[type="checkbox"] {
 .check-line {
   flex-direction: row;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
   text-transform: none;
   letter-spacing: normal;
   font-size: 0.78rem;
   color: var(--text);
   padding: 6px 0;
+}
+
+/* A hint next to a checkbox squeezes the label on a phone; give it its own line. */
+.check-line .field-hint {
+  flex-basis: 100%;
+  margin-left: 26px;
 }
 
 .field-hint {
