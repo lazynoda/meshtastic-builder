@@ -51,3 +51,9 @@ RUN chmod +x /usr/local/bin/build-firmware \
 
 WORKDIR /opt/firmware
 ENTRYPOINT ["/usr/local/bin/build-firmware"]
+
+# Nothing runs this image between builds, so `docker system prune -a` counts it
+# as unused and deletes an hour of prewarming. Prune with
+# `--filter "label!=keep"` to spare it. Kept last so adding it never invalidates
+# the prewarm layer above.
+LABEL keep="true"
