@@ -4,7 +4,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from meshtastic_builder.config import load_config
-from meshtastic_builder.db import initialize_database, upsert_firmware_versions
+from meshtastic_builder.db import initialize_database, public_build_view, upsert_firmware_versions
 from meshtastic_builder.firmware import userprefs_cache_path
 from meshtastic_builder.submissions import create_build_submission
 
@@ -48,6 +48,52 @@ class SubmissionTests(unittest.TestCase):
             self.assertIn(result["public"]["token"], result["downloadUrl"])
             self.assertIn('"USERPREFS_CONFIG_OWNER_SHORT_NAME": "TST"', result["row"]["prefs_jsonc"])
             self.assertIn('"USERPREFS_TZ_STRING": "CET-1CEST,M3.5.0,M10.5.0/3"', result["row"]["prefs_jsonc"])
+            self.assertEqual(result["public"]["ownerShortName"], "TST")
+
+    def test_public_view_exposes_only_the_node_names_from_prefs(self):
+        row = {
+            "public_token": "t" * 32,
+            "status": "queued",
+            "device_id": "tbeam",
+            "platformio_env": "tbeam",
+            "firmware_tag": "v-test",
+            "firmware_sha": "abc123",
+            "code_options": None,
+            "attempts": 0,
+            "created_at": "now",
+            "started_at": None,
+            "finished_at": None,
+            "expires_at": None,
+            "artifact_sha256": None,
+            "artifact_size_bytes": None,
+            "error_message": None,
+            "prefs_jsonc": (
+                '{"USERPREFS_CONFIG_OWNER_LONG_NAME": "lazynoda builder",'
+                ' "USERPREFS_CONFIG_OWNER_SHORT_NAME": "lazy",'
+                ' "USERPREFS_NETWORK_WIFI_PSK": "hunter2"}'
+            ),
+        }
+
+        view = public_build_view(row)
+
+        self.assertEqual(view["ownerLongName"], "lazynoda builder")
+        self.assertEqual(view["ownerShortName"], "lazy")
+        # The ZIP behind the token carries the secrets; the JSON status must not.
+        self.assertNotIn("hunter2", str(view))
+        self.assertNotIn("prefs_jsonc", view)
+
+    def test_public_view_survives_missing_or_unreadable_prefs(self):
+        base = {key: None for key in (
+            "public_token", "status", "device_id", "platformio_env", "firmware_tag",
+            "firmware_sha", "code_options", "attempts", "created_at", "started_at",
+            "finished_at", "expires_at", "artifact_sha256", "artifact_size_bytes",
+            "error_message",
+        )}
+        for prefs in (None, "", "not json", '["a list"]', "{}"):
+            with self.subTest(prefs=prefs):
+                view = public_build_view({**base, "prefs_jsonc": prefs})
+                self.assertIsNone(view["ownerLongName"])
+                self.assertIsNone(view["ownerShortName"])
 
     def test_create_build_submission_rejects_unknown_userpref(self):
         with tempfile.TemporaryDirectory() as tmp:

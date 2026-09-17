@@ -47,6 +47,7 @@ const FORM_MANAGED_KEYS = new Set([
 
 const state = {
   deviceFamilies: {},
+  deviceLabels: {},
   extraPrefs: [],
   presetChannelName: "LongFast",
   templateExamples: {},
@@ -424,7 +425,20 @@ function renderTtlNotice() {
   const days = state.buildOptions?.artifactTtlDays;
   if (!days) return;
   $("submitTtl").textContent = t("step7.ttl", { days });
-  $("resultTtl").textContent = t("result.ttl", { days });
+}
+
+// expires_at is only set once a build succeeds, so until then all we can promise
+// is the window length. Rendered in the viewer's timezone: the server stores UTC
+// and these links get shared across them.
+function renderExpiry(expiresAt) {
+  const deadline = expiresAt ? new Date(expiresAt) : null;
+  if (deadline && !Number.isNaN(deadline.getTime())) {
+    const date = deadline.toLocaleString(currentLang(), { dateStyle: "long", timeStyle: "short" });
+    $("resultTtl").textContent = t("result.ttlUntil", { date });
+    return;
+  }
+  const days = state.buildOptions?.artifactTtlDays;
+  $("resultTtl").textContent = days ? t("result.ttl", { days }) : "";
 }
 
 function syncAdvancedAvailability() {
@@ -493,9 +507,16 @@ function syncTemplateGatedControls() {
   syncWifiAvailability();
 }
 
-async function loadDevices() {
+// Split out because the build page needs the labels but none of the form wiring.
+async function loadDeviceCatalog() {
   const { devices } = await fetchJson("/api/devices");
   state.deviceFamilies = Object.fromEntries(devices.map((device) => [device.id, device.family]));
+  state.deviceLabels = Object.fromEntries(devices.map((device) => [device.id, device.label]));
+  return devices;
+}
+
+async function loadDevices() {
+  const devices = await loadDeviceCatalog();
   $("deviceCombo").innerHTML = comboHtml(
     devices.map((device) => ({ value: device.id, label: device.label })),
     devices.length ? devices[0].id : "",
@@ -1045,21 +1066,31 @@ function buildCodeOptions() {
   return options;
 }
 
-function describeCodeOptions(options) {
-  if (!options) return "";
-  const parts = [];
-  if (options.okToMqtt !== undefined) {
-    parts.push(`ok_to_mqtt=${options.okToMqtt}`);
-  }
-  if (options.customLora) {
-    const lora = options.customLora;
-    const bandwidth = BANDWIDTH_LABELS[lora.bandwidthKhz] || lora.bandwidthKhz;
-    parts.push(`BW ${bandwidth} kHz / SF ${lora.spreadFactor} / CR ${lora.codingRate} / slot ${lora.channelNum}`);
-    if (lora.overrideFrequencyMhz) {
-      parts.push(`${lora.overrideFrequencyMhz} MHz`);
-    }
-  }
-  return parts.join(" · ");
+// Stroke paths for a 24x24 viewBox, drawn with currentColor so .build-status
+// can tint them per state. Emoji render differently on every platform, and the
+// build page is mostly read on phones.
+const STATUS_ICONS = {
+  queued: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 1.8"/>',
+  running: '<path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7.5V12l3 1.8"/>',
+  succeeded: '<circle cx="12" cy="12" r="9"/><path d="m7.8 12.2 2.9 2.9 5.5-6.2"/>',
+  failed: '<circle cx="12" cy="12" r="9"/><path d="M12 7.2v5.4"/><path d="M12 16.2v.6"/>',
+  expired: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 1.8"/><path d="m5.6 5.6 12.8 12.8"/>',
+};
+
+function statusIconHtml(status) {
+  return (
+    `<svg class="status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ` +
+    `stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${STATUS_ICONS[status]}</svg>`
+  );
+}
+
+function renderBuildStatus(status) {
+  const el = $("buildStatus");
+  // The column is CHECK-constrained server side, but this string ends up in a
+  // class name and next to innerHTML, so only render states we know.
+  const known = Object.hasOwn(STATUS_ICONS, status) ? status : "queued";
+  el.dataset.state = known;
+  el.innerHTML = `${statusIconHtml(known)}<span>${escapeHtml(t(`buildStatus.${known}`))}</span>`;
 }
 
 // The advanced options are not userPrefs keys: the server expands them into these
@@ -1237,7 +1268,7 @@ async function submitBuild(event) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    history.replaceState(null, "", `/?build=${encodeURIComponent(result.build.token)}`);
+    history.replaceState(null, "", `/build/${encodeURIComponent(result.build.token)}`);
     showBuild(result.build, result.downloadUrl, result.buildUrl);
     startPolling(result.build.token);
     setStatusKey("status.queued");
@@ -1253,16 +1284,17 @@ function showBuild(build, downloadUrl = null, buildUrl = null) {
   if (downloadUrl) state.lastDownloadUrl = downloadUrl;
   if (buildUrl) state.lastBuildUrl = buildUrl;
   $("result").hidden = false;
-  $("buildStatus").textContent = build.status;
-  $("buildToken").textContent = build.token;
+  renderBuildStatus(build.status);
+  $("buildNode").textContent = build.ownerLongName || "-";
+  $("buildShortName").textContent = build.ownerShortName || "-";
+  $("buildDevice").textContent = state.deviceLabels?.[build.deviceId] || build.deviceId;
+  $("buildFirmware").textContent = build.firmwareTag;
 
-  const url = state.lastBuildUrl || `${location.origin}/?build=${build.token}`;
+  renderExpiry(build.expiresAt);
+
+  const url = state.lastBuildUrl || `${location.origin}/build/${build.token}`;
   $("buildUrl").textContent = url;
   $("buildUrl").href = url;
-
-  const summary = describeCodeOptions(build.codeOptions);
-  $("buildOptionsRow").hidden = !summary;
-  $("buildOptions").textContent = summary;
 
   const link = $("downloadLink");
   if (build.status === "succeeded") {
@@ -1270,6 +1302,9 @@ function showBuild(build, downloadUrl = null, buildUrl = null) {
     link.href = state.lastDownloadUrl || `/download/${build.token}`;
   } else if (build.status === "failed") {
     link.textContent = build.error || t("result.failed");
+    link.removeAttribute("href");
+  } else if (build.status === "expired") {
+    link.textContent = t("result.expired");
     link.removeAttribute("href");
   } else {
     link.textContent = t("result.pending");
@@ -1399,8 +1434,26 @@ bindCombos();
 state.channels = [defaultChannel()];
 renderChannels();
 
-const requestedBuild = new URLSearchParams(location.search).get("build");
-Promise.all([loadDevices(), loadBuildOptions()])
-  .then(() => loadVersions(false))
-  .then(() => (requestedBuild ? loadExistingBuild(requestedBuild) : undefined))
-  .catch((error) => setStatus(error.message, true));
+const buildViewToken = decodeURIComponent(/^\/build\/([^/]+)\/?$/.exec(location.pathname)?.[1] ?? "");
+
+if (buildViewToken) {
+  // Permalink view: only the header, the build panel and the footer. The status
+  // line lives inside the form, so move it out before hiding it or a failed
+  // lookup would have nowhere to report. Devices and firmware tags are form-only
+  // data, and loadVersions() hits GitHub, so neither is worth loading here.
+  document.querySelector(".app-main").prepend($("statusText"));
+  $("buildForm").hidden = true;
+  $("refreshVersions").hidden = true;
+  // Swap the keys rather than the text: applyI18n() re-reads them on every
+  // language switch, so "Request created" would come back otherwise.
+  $("resultTitle").dataset.i18n = "result.titleView";
+  $("resultKeep").dataset.i18n = "result.keepView";
+  applyI18n();
+  Promise.all([loadBuildOptions(), loadDeviceCatalog()])
+    .then(() => loadExistingBuild(buildViewToken))
+    .catch((error) => setStatus(error.message, true));
+} else {
+  Promise.all([loadDevices(), loadBuildOptions()])
+    .then(() => loadVersions(false))
+    .catch((error) => setStatus(error.message, true));
+}

@@ -243,10 +243,30 @@ def decode_code_options(raw: Any) -> dict[str, Any] | None:
         return None
 
 
+def owner_names(raw: Any) -> tuple[str | None, str | None]:
+    """Node identity for the build page. The rest of userPrefs stays private:
+    it carries the WiFi and MQTT passwords."""
+    if not raw:
+        return None, None
+    try:
+        prefs = json.loads(raw)
+    except (TypeError, ValueError):
+        return None, None
+    if not isinstance(prefs, dict):
+        return None, None
+    return (
+        prefs.get("USERPREFS_CONFIG_OWNER_LONG_NAME") or None,
+        prefs.get("USERPREFS_CONFIG_OWNER_SHORT_NAME") or None,
+    )
+
+
 def public_build_view(row: dict[str, Any]) -> dict[str, Any]:
+    long_name, short_name = owner_names(row.get("prefs_jsonc"))
     return {
         "token": row["public_token"],
         "status": row["status"],
+        "ownerLongName": long_name,
+        "ownerShortName": short_name,
         "deviceId": row["device_id"],
         "platformioEnv": row["platformio_env"],
         "firmwareTag": row["firmware_tag"],

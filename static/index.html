@@ -395,16 +395,18 @@
         </form>
 
         <section id="result" class="panel" hidden>
-          <h2><span data-i18n="result.title"></span></h2>
-          <p class="status-line" data-i18n="result.keep"></p>
+          <h2><span id="resultTitle" data-i18n="result.title"></span></h2>
+          <p id="resultKeep" class="status-line" data-i18n="result.keep"></p>
           <div class="result-url">
             <a id="buildUrl" href="#"></a>
             <button id="copyBuildUrl" class="btn btn-mini" type="button" data-i18n="result.copy"></button>
           </div>
           <dl class="result-list">
-            <div><dt data-i18n="result.status"></dt><dd id="buildStatus"></dd></div>
-            <div><dt data-i18n="result.token"></dt><dd id="buildToken"></dd></div>
-            <div id="buildOptionsRow" hidden><dt data-i18n="result.options"></dt><dd id="buildOptions"></dd></div>
+            <div><dt data-i18n="result.status"></dt><dd id="buildStatus" class="build-status"></dd></div>
+            <div><dt data-i18n="result.node"></dt><dd id="buildNode"></dd></div>
+            <div><dt data-i18n="result.shortName"></dt><dd id="buildShortName"></dd></div>
+            <div><dt data-i18n="result.device"></dt><dd id="buildDevice"></dd></div>
+            <div><dt data-i18n="result.firmware"></dt><dd id="buildFirmware"></dd></div>
             <div><dt data-i18n="result.download"></dt><dd><a id="downloadLink" href="#"></a></dd></div>
           </dl>
           <p id="resultTtl" class="status-line"></p>
