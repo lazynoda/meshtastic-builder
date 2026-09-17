@@ -85,10 +85,11 @@ The form is split into the settings most users touch and everything else:
 5. Channels.
 6. MQTT, including the `ok_to_mqtt` code option.
 7. `<details class="collapsible">`: Bluetooth and WiFi.
-8. A second `<details class="collapsible">`: Security and Environment sensors.
-9. Review and submit.
+8. `<details class="collapsible">`: Security.
+9. `<details class="collapsible">`: Environment sensors.
+10. Review and submit.
 
-Both collapsed sections are closed by default and their panels are not numbered
+Every collapsed section is closed by default and its panels are not numbered
 steps. Bluetooth and WiFi are ordinary settings rather than advanced ones, but
 they are folded away because the page is long.
 

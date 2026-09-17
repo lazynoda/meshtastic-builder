@@ -48,8 +48,10 @@ const DICT = {
     "radios.wifiPsk": "Contrasena WiFi",
     "radios.wifiPskHint": "Se compila en el firmware en claro, igual que la de MQTT.",
 
+    "security.title": "Seguridad",
+    "security.hint": "Claves de administracion remota y firma de paquetes.",
     "advanced.title": "Ajustes avanzados",
-    "advanced.hint": "Claves de administracion y sensores. Los valores por defecto sirven para la mayoria.",
+    "advanced.hint": "Sensores ambientales. Los valores por defecto sirven para la mayoria.",
     "sensors.title": "Sensores ambientales",
 
     "step4.title": "Canales",
@@ -199,8 +201,10 @@ const DICT = {
     "radios.wifiPsk": "WiFi password",
     "radios.wifiPskHint": "Compiled into the firmware in clear text, like the MQTT one.",
 
+    "security.title": "Security",
+    "security.hint": "Remote admin keys and packet signing.",
     "advanced.title": "Advanced settings",
-    "advanced.hint": "Admin keys and sensors. Defaults work for most nodes.",
+    "advanced.hint": "Environment sensors. Defaults work for most nodes.",
     "sensors.title": "Environment sensors",
 
     "step4.title": "Channels",
