@@ -116,7 +116,38 @@ The tag sync follows GitHub pagination up to `MB_GITHUB_MAX_TAG_PAGES`. If the n
 
 ## Artifact Contents
 
-The builder ZIP includes compiled firmware files and `BUILD_INFO.txt` with tag, SHA, device environment, timestamp, and source URL metadata.
+The builder ZIP carries only what a flasher consumes, plus `FLASHING.txt` with
+per-chip instructions, `BUILD_INFO.txt` with tag, SHA, device environment,
+timestamp and source URL metadata, and the `userPrefs.jsonc` the firmware was
+compiled against.
+
+- ESP32: `firmware-*-update.bin` (app image alone, written at `0x10000`),
+  `firmware-*.factory.bin` (bootloader + partition table + app, written at
+  `0x0`), `littlefs-*.bin` for the spiffs partition, plus `bootloader.bin` and
+  `partitions.bin` for flashing part by part.
+- nRF52: `firmware-*.uf2` and `firmware-*.hex`. No factory image, no partition
+  table and no filesystem image: those are ESP32 concepts.
+
+Only `.elf` and `.map` are excluded (see `docker/build_firmware.sh`): they were
+81% of the download and matter solely for decoding a backtrace.
+
+### Why the app image is named `-update.bin`
+
+flasher.meshtastic.org only loads a release manifest for firmware it hosts, so a
+ZIP the user picks themselves always takes the web flasher's legacy path. That
+path searches the archive for `firmware-<target>-<version>-update.bin` and
+explicitly excludes `*.factory.bin`, so naming the app image that way is what
+lets the ZIP be selected as-is instead of being unzipped first.
+
+Its "erase and install" option cannot work with this ZIP on 2.8 firmware: it asks
+for `bleota-s3.bin`, which upstream removed in 2.8. Use esptool for a full
+install; `FLASHING.txt` in the ZIP carries the commands with this build's own
+spiffs offset, read from its `partitions.bin`.
+
+The upstream `bin/device-install.sh` is also unusable here, for a different
+reason: it wants `firmware-*.mt.json`, which only `pio run -t mtjson` emits, and
+`mt-<mcu>-ota.bin`, which upstream CI downloads from the separate
+`meshtastic/esp32-unified-ota` repository.
 
 ## Tests
 
