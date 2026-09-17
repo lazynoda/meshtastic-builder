@@ -67,16 +67,22 @@ Preference *values* are shape-checked in `meshtastic_builder/jsonc.py` because
 `bin/platformio-custom.py` emits `meshtastic_`- and `{`-prefixed values into
 `-D` flags unquoted. Do not relax those regexes.
 
-Current enabled device IDs and PlatformIO environments:
+`data/devices.json` carries 95 devices, generated from the firmware's own
+metadata at `v2.8.0.7239fe8` rather than typed by hand. The rule for inclusion is
+every env under `variants/**/platformio.ini` that declares
+`custom_meshtastic_display_name`, sets `custom_meshtastic_actively_supported = true`
+and is not `board_level = extra`. That is the same set flasher.meshtastic.org
+offers. Labels and the `family` field come from `custom_meshtastic_display_name`
+and `custom_meshtastic_architecture`.
 
-- `tbeam` -> `tbeam`
-- `heltec-v3` -> `heltec-v3`
-- `heltec-v4` -> `heltec-v4`
-- `heltec-mesh-node-t114` -> `heltec-mesh-node-t114`
-- `tracker-t1000-e` -> `tracker-t1000-e`
-- `heltec-wsl-v3` -> `heltec-wsl-v3`
-- `rak4631` -> `rak4631`
-- `nrf52-promicro-diy` -> `nrf52_promicro_diy_tcxo`
+The first eight entries keep their original ids and order, because stored build
+rows reference them and the first entry is the page's default selection. Where
+several envs share a display name (Mesh Pocket capacities, the RAK4631 Ethernet
+gateway, the T-Deck Pro revision) the label is suffixed to tell them apart.
+
+Regenerate after a firmware bump rather than editing by hand, and remember the
+list describes the newest supported tag: an env added upstream after an older tag
+will not build against that tag.
 
 The Pro-micro DIY variant is the TCXO release env. Its `-inkhud` and
 `-easypromicro` siblings are `board_level = extra` and are not exposed.

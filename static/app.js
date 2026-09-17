@@ -1,4 +1,7 @@
-const WIFI_FAMILIES = new Set(["esp32", "esp32-s3", "esp32-c3", "esp32-c6"]);
+// Families whose boards can have WiFi. rp2040 is mixed (the Pico W has it, the
+// plain Pico does not), so it stays in: showing an inert field beats hiding a
+// real one, and nrf52840 genuinely has no WiFi radio at all.
+const WIFI_FAMILIES = new Set(["esp32", "esp32-s3", "esp32-c3", "esp32-c6", "rp2040"]);
 
 // Keys the dedicated controls own. Everything else in the selected tag's template
 // is offered in the free-form section, so the two sets must never overlap.
