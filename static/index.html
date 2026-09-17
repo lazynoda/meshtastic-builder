@@ -277,7 +277,10 @@
               <textarea id="prefsJsonc" name="prefsJsonc" spellcheck="false" readonly></textarea>
             </details>
             <div class="submit-row">
-              <p class="status-line" data-i18n="step7.noEmail"></p>
+              <div>
+                <p class="status-line" data-i18n="step7.noEmail"></p>
+                <p id="submitTtl" class="status-line"></p>
+              </div>
               <div class="submit-cell">
                 <button id="submitBuild" class="btn btn-primary" type="submit" data-i18n="step7.submit"></button>
               </div>
@@ -299,7 +302,7 @@
             <div id="buildOptionsRow" hidden><dt data-i18n="result.options"></dt><dd id="buildOptions"></dd></div>
             <div><dt data-i18n="result.download"></dt><dd><a id="downloadLink" href="#"></a></dd></div>
           </dl>
-          <p class="status-line" data-i18n="result.ttl"></p>
+          <p id="resultTtl" class="status-line"></p>
         </section>
       </main>
     </div>

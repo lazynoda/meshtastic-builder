@@ -240,6 +240,14 @@ async function loadBuildOptions() {
   $("loraOverrideFreq").step = frequency.step;
   $("loraOverrideFreq").value = frequency.default;
   $("okToMqtt").checked = state.buildOptions.okToMqtt.default;
+  renderTtlNotice();
+}
+
+function renderTtlNotice() {
+  const days = state.buildOptions?.artifactTtlDays;
+  if (!days) return;
+  $("submitTtl").textContent = t("step7.ttl", { days });
+  $("resultTtl").textContent = t("result.ttl", { days });
 }
 
 function syncAdvancedAvailability() {
@@ -827,6 +835,7 @@ function bindEvents() {
     button.addEventListener("click", () => setLang(button.dataset.lang));
   });
   document.addEventListener("languagechange", () => {
+    renderTtlNotice();
     renderChannels();
     if (state.statusKey) setStatusKey(state.statusKey);
     if (state.lastBuild) showBuild(state.lastBuild);

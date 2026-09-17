@@ -32,6 +32,9 @@ frontend uses it to render controls and to gate behaviour by firmware version:
   itself, so no source patch is shipped and `okToMqtt` uses `nativeMacro`.
 - `eightChannelsSinceFirmwareVersion`: from this version 8 channels are
   accepted instead of 3.
+- `artifactTtlDays`: added by the server from `MB_ARTIFACT_TTL_DAYS`, not from
+  the JSON file. The page prints it next to the submit button and in the result
+  panel, so the retention copy cannot drift from what cleanup actually enforces.
 
 See [Advanced Build Options](build-options.md).
 

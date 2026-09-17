@@ -80,7 +80,10 @@ class MeshtasticBuilderHandler(BaseHTTPRequestHandler):
             if path == "/api/build-options":
                 if not send_body:
                     return self.head_not_allowed()
-                return self.json_response(load_build_options(self.config.root_dir))
+                options = load_build_options(self.config.root_dir)
+                # The page states the retention window next to the submit button.
+                options["artifactTtlDays"] = self.config.artifact_ttl_days
+                return self.json_response(options)
             if path == "/api/firmware-versions":
                 if not send_body:
                     return self.head_not_allowed()
