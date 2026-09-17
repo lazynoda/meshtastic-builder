@@ -12,7 +12,7 @@ from urllib.parse import parse_qs, urlparse
 from .code_options import load_build_options
 from .config import Config, ensure_directories, load_config
 from .cleanup import build_is_expired, expire_build_artifact
-from .db import get_build_by_token, initialize_database, public_build_view
+from .db import build_stats, get_build_by_token, initialize_database, public_build_view
 from .devices import enabled_devices
 from .firmware import (
     FirmwareLookupError,
@@ -77,6 +77,8 @@ class MeshtasticBuilderHandler(BaseHTTPRequestHandler):
                         ]
                     }
                 )
+            if path in {"/api/health", "/health"}:
+                return self.serve_health(send_body=send_body)
             if path == "/api/build-options":
                 if not send_body:
                     return self.head_not_allowed()
@@ -167,6 +169,26 @@ class MeshtasticBuilderHandler(BaseHTTPRequestHandler):
         if not isinstance(payload, dict):
             raise ValueError("La peticion debe ser un objeto JSON.")
         return payload
+
+    def serve_health(self, *, send_body: bool = True) -> None:
+        """Public liveness probe. Touches the database so it fails when the queue does."""
+        try:
+            stats = build_stats(self.config)
+        except Exception:  # noqa: BLE001
+            # The reason could name paths or SQL, and this endpoint is public.
+            payload = {"status": "error", "database": "unavailable"}
+            status = HTTPStatus.SERVICE_UNAVAILABLE
+        else:
+            payload = {"status": "ok", "builds": stats}
+            status = HTTPStatus.OK
+        if not send_body:
+            body_length = len(json.dumps(payload, default=_json_default).encode("utf-8"))
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(body_length))
+            self.end_headers()
+            return
+        return self.json_response(payload, status=status)
 
     def serve_static(self, relative_name: str, *, send_body: bool = True) -> None:
         static_root = self.config.root_dir / "static"

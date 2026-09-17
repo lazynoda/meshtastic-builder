@@ -61,6 +61,10 @@ tag/device set that the service exposes.
 The service requires no user accounts, API keys, or outbound credentials. It
 stores no email address: a build is reachable only through its private token.
 
+`/api/health` is unauthenticated, so it reports only aggregate counts and the
+time of the last request. It carries no token, no preferences and no device or
+firmware choice, and its failure body names no path or query.
+
 `userPrefs.jsonc` is not returned by public status endpoints. MQTT credentials
 entered in the form are compiled into the firmware in clear text, which is a
 property of `userPrefs.jsonc` itself; the UI warns about it.

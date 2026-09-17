@@ -2,6 +2,34 @@
 
 All API responses are JSON unless noted.
 
+## `GET /api/health`
+
+Public liveness probe, also served at `GET /health`. Both accept `HEAD`.
+
+It queries the database rather than only answering from the process, so an
+unreachable or corrupt SQLite file is reported instead of hidden. `200` with
+`"status": "ok"` when the queue is readable, `503` with `"status": "error"` when
+it is not. The failure body names no path, driver or query, because the endpoint
+is unauthenticated.
+
+Counts are aggregate only. Nothing here is tied to an individual request: no
+tokens, no preferences, no device or firmware choices.
+
+```json
+{
+  "status": "ok",
+  "builds": {
+    "total": 42,
+    "byStatus": {"expired": 4, "failed": 1, "queued": 2, "running": 1, "succeeded": 34},
+    "queued": 2,
+    "running": 1,
+    "lastRequestedAt": "2026-09-17T04:31:25+00:00"
+  }
+}
+```
+
+`lastRequestedAt` is `null` until the first build is requested.
+
 ## `GET /api/devices`
 
 Returns enabled devices from `data/devices.json`.

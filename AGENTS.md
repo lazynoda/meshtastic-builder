@@ -347,6 +347,8 @@ Keep these invariants:
 - A failed `git apply` must fail the build before `pio run`, never continue.
 - Public URLs must use cryptographically random tokens, not DB IDs.
 - Public status endpoints must not expose the full `userPrefs.jsonc`.
+- `/api/health` is public: keep it aggregate-only, and keep failure details out
+  of its body.
 - Preference values must stay shape-checked; they reach the compiler as `-D` flags.
 - Downloads must fail after expiry.
 - Docker input mount should remain read-only.

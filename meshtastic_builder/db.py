@@ -392,6 +392,31 @@ def list_expired_successes(config: Config) -> list[dict[str, Any]]:
     return [row_to_dict(row) for row in rows if row is not None]
 
 
+def build_stats(config: Config) -> dict[str, Any]:
+    """Counts for the public health endpoint.
+
+    Deliberately aggregate only: this is served unauthenticated, so it must not
+    expose tokens, prefs, device choices or anything else tied to one request.
+    """
+    with connection(config) as conn:
+        counts = {
+            str(row["status"]): int(row["total"])
+            for row in conn.execute(
+                "SELECT status, COUNT(*) AS total FROM build_requests GROUP BY status"
+            ).fetchall()
+        }
+        last_requested = conn.execute(
+            "SELECT MAX(created_at) AS last FROM build_requests"
+        ).fetchone()["last"]
+    return {
+        "total": sum(counts.values()),
+        "byStatus": {status: counts.get(status, 0) for status in sorted(STATUSES)},
+        "queued": counts.get("queued", 0),
+        "running": counts.get("running", 0),
+        "lastRequestedAt": last_requested,
+    }
+
+
 def mark_build_expired(config: Config, build_id: int) -> None:
     with connection(config) as conn:
         conn.execute(
