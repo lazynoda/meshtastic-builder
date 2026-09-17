@@ -3,6 +3,8 @@ const DICT = {
     "page.title": "Meshtastic Builder",
     "header.tagline": "Firmware Meshtastic a medida, sin editar JSON a mano",
     "header.refresh": "Actualizar tags",
+    "footer.trademark":
+      "Meshtastic es una marca registrada de Meshtastic LLC. Este proyecto no esta afiliado ni respaldado por Meshtastic LLC, ni por ninguna de las marcas de los dispositivos listados. Es un proyecto hecho por aficion.",
 
     "step1.title": "Dispositivo y firmware",
     "step1.device": "Dispositivo",
@@ -179,6 +181,8 @@ const DICT = {
     "page.title": "Meshtastic Builder",
     "header.tagline": "Custom Meshtastic firmware without hand-editing JSON",
     "header.refresh": "Refresh tags",
+    "footer.trademark":
+      "Meshtastic is a registered trademark of Meshtastic LLC. This project is not affiliated with or endorsed by Meshtastic LLC, nor by any of the device brands listed. It is a hobby project.",
 
     "step1.title": "Device and firmware",
     "step1.device": "Device",

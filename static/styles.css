@@ -568,6 +568,26 @@ input[type="checkbox"] {
   height: 24px;
 }
 
+.app-footer {
+  padding: 0 24px 32px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.app-footer p {
+  margin: 0;
+  font-size: 0.7rem;
+  line-height: 1.5;
+  color: var(--muted);
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .app-footer {
+    padding: 0 16px 24px;
+  }
+}
+
 /* Combobox: filters its options by substring as you type. */
 .combo {
   position: relative;
