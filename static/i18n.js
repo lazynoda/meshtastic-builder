@@ -267,7 +267,7 @@ const DICT = {
     "channel.defaultName": "Channel",
 
     "step5.tz": "Time zone (POSIX TZ)",
-    "step5.tzPeninsula": "Mainland Spain and Balearics",
+    "step5.tzPeninsula": "Peninsula and Balearic Islands",
     "step5.tzCanarias": "Canary Islands",
     "step5.mqttHead": "MQTT",
     "mqtt.hint": "Broker, credentials and packet forwarding.",
