@@ -183,7 +183,11 @@ write_flashing_notes "${OUTPUT_DIR}/files"
 
 {
   echo ""
-  echo "builder_image_created_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  # When this firmware was compiled, not when the image was prewarmed: the
+  # image stamp is written into the prewarm layer, so it only moves when the
+  # prewarmed content itself is rebuilt.
+  echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo "builder_image_created_at=$(cat /etc/builder-image-created-at 2>/dev/null || echo unknown)"
   echo "actual_git_sha=$(git rev-parse HEAD)"
   echo "platformio_env=${PIO_ENV}"
   echo "platformio_version=$(pio --version)"

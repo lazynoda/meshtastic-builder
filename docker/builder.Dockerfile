@@ -42,6 +42,9 @@ RUN git clone --recursive "${MESHTASTIC_REPO}" /opt/firmware \
 COPY docker/build_firmware.sh /usr/local/bin/build-firmware
 RUN chmod +x /usr/local/bin/build-firmware \
     && /usr/local/bin/build-firmware --prewarm "${MESHTASTIC_REF}" ${PREWARM_ENVS} \
+    # Provenance for BUILD_INFO.txt. Written in this layer on purpose: a cached
+    # prewarm layer means identical content, so the original date stays honest.
+    && date -u +%Y-%m-%dT%H:%M:%SZ > /etc/builder-image-created-at \
     && rm -rf \
       /opt/firmware/.pio/build \
       /opt/platformio/.cache/downloads \
