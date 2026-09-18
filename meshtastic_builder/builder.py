@@ -17,6 +17,8 @@ PATCH_RELATIVE_PATH = Path("docker") / "patches" / "userprefs-ext.patch"
 
 PATCH_FAILURE_MARKER = "CODE_OPTIONS_PATCH_FAILED"
 
+BUILD_CACHE_PATH = "/pio-cache"
+
 
 @dataclass(frozen=True)
 class BuildArtifact:
@@ -135,6 +137,29 @@ def docker_transport(config: Config) -> str:
     return "bind"
 
 
+def build_cache_args(config: Config) -> list[str]:
+    """Docker args that share PlatformIO's object cache across builds.
+
+    The image drops .pio/build after prewarming, so every container used to
+    recompile the whole tree from scratch. PlatformIO keys its build cache by
+    source content and build flags, so the toolchain and libdeps objects
+    survive from one build to the next and only the userPrefs-dependent
+    translation units are rebuilt. A named volume, not a bind mount: the
+    daemon is remote, so host paths do not resolve here.
+    """
+    volume = config.docker_cache_volume.strip()
+    if not volume:
+        return []
+    # ponytail: nothing prunes this volume; PlatformIO never evicts entries.
+    # Add a size cap (or periodic `docker volume rm`) if the host runs short.
+    return [
+        "-v",
+        f"{volume}:{BUILD_CACHE_PATH}",
+        "-e",
+        f"PLATFORMIO_BUILD_CACHE_DIR={BUILD_CACHE_PATH}",
+    ]
+
+
 def run_docker_build_bind(
     config: Config,
     build: dict[str, object],
@@ -154,6 +179,7 @@ def run_docker_build_bind(
         config.docker_memory,
         "--pids-limit",
         str(config.docker_pids_limit),
+        *build_cache_args(config),
         "-v",
         f"{input_dir.resolve()}:/work/input:ro",
         "-v",
@@ -207,6 +233,7 @@ def run_docker_build_copy(
         config.docker_memory,
         "--pids-limit",
         str(config.docker_pids_limit),
+        *build_cache_args(config),
         config.builder_image,
         str(build["firmware_tag"]),
         str(build["firmware_sha"]),

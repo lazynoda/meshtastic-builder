@@ -98,6 +98,13 @@ services:
       MB_DOCKER_CPUS: 4
       MB_DOCKER_MEMORY: 4g
       MB_DOCKER_PIDS_LIMIT: 512
+
+      # Named Docker volume mounted into every builder container as
+      # PlatformIO's build cache. The image keeps dependency sources but no
+      # compiled objects, so without this every build recompiles the whole
+      # tree. Set it empty to disable. It is created on first use and
+      # nothing prunes it.
+      MB_DOCKER_CACHE_VOLUME: meshtastic-builder-pio-cache
       MB_BUILD_TIMEOUT_SECONDS: 3600
     volumes:
       - app-data:/data

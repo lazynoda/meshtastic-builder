@@ -37,6 +37,7 @@ Configuration is read from environment variables.
 | `MB_DOCKER_CPUS` | `4` | CPU quota for firmware builder containers. T114/nRF52 builds are CPU-bound, so this default keeps a limit while avoiding the previous 2-CPU bottleneck. |
 | `MB_DOCKER_MEMORY` | `4g` | Memory limit for firmware builder containers. |
 | `MB_DOCKER_PIDS_LIMIT` | `512` | PID limit for firmware builder containers. |
+| `MB_DOCKER_CACHE_VOLUME` | `meshtastic-builder-pio-cache` | Named Docker volume mounted at `/pio-cache` and used as `PLATFORMIO_BUILD_CACHE_DIR`, so compiled objects survive between builds. Empty disables it. Nothing prunes the volume. |
 | `MB_BUILD_TIMEOUT_SECONDS` | `3600` | Per-build timeout. |
 | `MB_STALE_RUNNING_SECONDS` | `7200` | Running jobs older than this are requeued. |
 | `MB_ARTIFACT_TTL_DAYS` | `7` | Download availability after successful build. |

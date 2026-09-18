@@ -7,7 +7,12 @@ from pathlib import Path
 from subprocess import CompletedProcess
 from unittest.mock import patch
 
-from meshtastic_builder.builder import docker_transport, run_build, run_docker_build
+from meshtastic_builder.builder import (
+    build_cache_args,
+    docker_transport,
+    run_build,
+    run_docker_build,
+)
 from meshtastic_builder.config import load_config
 
 
@@ -63,6 +68,7 @@ class BuilderTests(unittest.TestCase):
                 docker_cpus="3",
                 docker_memory="5g",
                 docker_pids_limit=256,
+                docker_cache_volume="cache-vol",
                 builder_image="builder:test",
                 build_timeout_seconds=123,
             )
@@ -86,7 +92,18 @@ class BuilderTests(unittest.TestCase):
             self.assertIn("--pids-limit", command)
             self.assertIn("256", command)
             self.assertIn("builder:test", command)
+            self.assertIn("cache-vol:/pio-cache", command)
+            self.assertIn("PLATFORMIO_BUILD_CACHE_DIR=/pio-cache", command)
             self.assertEqual(command[-3:], ["v-test", "abc123", "tbeam"])
+
+    def test_empty_cache_volume_mounts_nothing(self):
+        config = replace(load_config(), docker_cache_volume="  ")
+        self.assertEqual(build_cache_args(config), [])
+        config = replace(load_config(), docker_cache_volume="vol")
+        self.assertEqual(
+            build_cache_args(config),
+            ["-v", "vol:/pio-cache", "-e", "PLATFORMIO_BUILD_CACHE_DIR=/pio-cache"],
+        )
 
     def test_docker_build_failure_raises_with_log(self):
         with tempfile.TemporaryDirectory() as tmp:

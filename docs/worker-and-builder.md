@@ -53,6 +53,8 @@ docker run --rm \
   --cpus <MB_DOCKER_CPUS> \
   --memory <MB_DOCKER_MEMORY> \
   --pids-limit <MB_DOCKER_PIDS_LIMIT> \
+  -v <MB_DOCKER_CACHE_VOLUME>:/pio-cache \
+  -e PLATFORMIO_BUILD_CACHE_DIR=/pio-cache \
   -v <job-input>:/work/input:ro \
   -v <job-output>:/work/output \
   <MB_BUILDER_IMAGE> \
@@ -67,6 +69,12 @@ then removes the container.
 
 `MB_DOCKER_TRANSPORT=auto` selects `copy` when `DOCKER_HOST` starts with
 `ssh://`, `tcp://`, `http://`, or `https://`; otherwise it selects `bind`.
+
+Both transports mount `MB_DOCKER_CACHE_VOLUME` at `/pio-cache`. The prewarm step
+deletes `.pio/build` from the image, so without that volume every container
+recompiles the full tree; PlatformIO reuses cached objects whose sources and
+build flags are unchanged. A named volume is required because the daemon may be
+remote, where a host path would not resolve.
 
 `auto` cannot detect one important case: a worker running *inside* a container
 with the host Docker socket mounted. There `DOCKER_HOST` is unset, so `auto`
