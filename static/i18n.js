@@ -46,7 +46,7 @@ const DICT = {
     "radios.wifiEnabled": "Activar WiFi",
     "radios.wifiHint": "Solo en placas ESP32. Aumenta bastante el consumo.",
     "radios.wifiSsid": "Nombre de red (SSID)",
-    "radios.wifiPsk": "Contrasena WiFi",
+    "radios.wifiPsk": "Contraseña WiFi",
     "radios.wifiPskHint": "Se compila en el firmware en claro, igual que la de MQTT.",
 
     "extra.title": "Otros valores de configuracion",
@@ -100,7 +100,7 @@ const DICT = {
     "step5.mqttAddress": "Servidor MQTT",
     "step5.mqttEnabled": "Activar MQTT",
     "step5.mqttUsername": "Usuario MQTT",
-    "step5.mqttPassword": "Contrasena MQTT",
+    "step5.mqttPassword": "Contraseña MQTT",
     "step5.mqttPasswordHint": "Se compila en el firmware en claro. Usa credenciales dedicadas.",
     "step5.mqttRoot": "Topic raiz",
     "step5.mqttEncryption": "Cifrado de paquetes MQTT",
@@ -184,10 +184,10 @@ const DICT = {
     "label.adminKey2": "La clave de administracion 3",
     "label.mqttAddress": "El servidor MQTT",
     "label.mqttUsername": "El usuario MQTT",
-    "label.mqttPassword": "La contrasena MQTT",
+    "label.mqttPassword": "La contraseña MQTT",
     "label.mqttRoot": "El topic raiz MQTT",
     "label.wifiSsid": "El SSID WiFi",
-    "label.wifiPsk": "La contrasena WiFi",
+    "label.wifiPsk": "La contraseña WiFi",
 
     "nav.about": "Acerca de",
 
@@ -198,7 +198,7 @@ const DICT = {
       "Firmware Meshtastic compilado con tus preferencias ya dentro, en lugar del firmware de serie que llega con la region, los nombres, la seguridad y casi todo lo demas sin configurar. Rellenas el formulario, el servidor compila el firmware para tu dispositivo y te descargas el ZIP.",
     "about.whereTitle": "Donde se ejecuta",
     "about.where":
-      "La pagina y el compilador corren en una maquina alojada por @lazynoda (o sea, yo). Si, tecnicamente podria ver tu contrasena WiFi. No lo voy a hacer. Tampoco me voy a plantar en tu casa, a cientos de kilometros, solo para usar tu WiFi.",
+      "La pagina y el compilador corren en una maquina alojada por @lazynoda (o sea, yo). Si, tecnicamente podria ver tu contraseña WiFi. No lo voy a hacer. Tampoco me voy a plantar en tu casa, a cientos de kilometros, solo para usar tu WiFi.",
     "about.retentionTitle": "Cuanto se guarda tu build",
     "about.retention":
       "Tu build y su ZIP se guardan {days} dias desde que termina la compilacion, para que tengas tiempo de descargarlo. Despues, un script automatico los borra.",
@@ -206,7 +206,7 @@ const DICT = {
     "about.firmware":
       "El firmware es el original de <a href=\"https://github.com/meshtastic/firmware\" target=\"_blank\" rel=\"noreferrer\">github.com/meshtastic/firmware</a>, sin modificar. Solo hay un caso en el que se parchea el codigo: cuando eliges una version anterior a la 2.8 y pides configuracion LoRa manual. La pagina te avisa cuando pasa.",
     "about.comingSoon":
-      "Viene un cambio mas: poder fijar la clave privada del nodo. Desde la 2.8 el ID del nodo se calcula a partir de esa clave, asi que un reset de fabrica mantiene el mismo ID si la clave esta fijada. Publicare los cambios exactos cuando este hecho.",
+      "En breves vendra un cambio mas: poder fijar la clave privada del nodo. Desde la 2.8 el ID del nodo se calcula a partir de esa clave, asi que un reset de fabrica mantiene el mismo ID si la clave esta fijada. Publicare los cambios exactos cuando este hecho.",
     "about.trustTitle": "Confianza",
     "about.trust":
       "Se que lo siguiente va contra esta misma pagina, pero por razones obvias hay que decirlo: no aceptes firmware de fuentes en las que no confies. Puede llevar no solo preferencias de usuario distintas, sino un comportamiento alterado del firmware, que incluso podria incumplir la normativa de tu pais. Solo fuentes de confianza.",

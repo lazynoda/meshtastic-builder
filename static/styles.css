@@ -621,11 +621,23 @@ input[type="checkbox"] {
   padding: 1px 5px;
 }
 
-.panel-warn {
-  border-color: rgba(251, 191, 36, 0.35);
+.prose section {
+  margin-bottom: 28px;
 }
 
-.panel-warn h2 {
+.prose section:last-child {
+  margin-bottom: 0;
+}
+
+.prose h2 {
+  font-size: 0.95rem;
+  margin: 0 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-warn h2 {
   color: var(--warn);
 }
 
