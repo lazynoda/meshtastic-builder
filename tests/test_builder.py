@@ -10,7 +10,6 @@ from unittest.mock import patch
 from meshtastic_builder import builder
 from meshtastic_builder.build_failures import BuildFailure
 from meshtastic_builder.builder import (
-    build_cache_args,
     docker_transport,
     run_build,
     run_docker_build,
@@ -70,7 +69,6 @@ class BuilderTests(unittest.TestCase):
                 docker_cpus="3",
                 docker_memory="5g",
                 docker_pids_limit=256,
-                docker_cache_volume="cache-vol",
                 builder_image="builder:test",
                 build_timeout_seconds=123,
             )
@@ -95,18 +93,35 @@ class BuilderTests(unittest.TestCase):
             self.assertIn("--pids-limit", command)
             self.assertIn("256", command)
             self.assertIn("builder:test", command)
-            self.assertIn("cache-vol:/pio-cache", command)
-            self.assertIn("PLATFORMIO_BUILD_CACHE_DIR=/pio-cache", command)
             self.assertEqual(command[-3:], ["v-test", "abc123", "tbeam"])
 
-    def test_empty_cache_volume_mounts_nothing(self):
-        config = replace(load_config(), docker_cache_volume="  ")
-        self.assertEqual(build_cache_args(config), [])
-        config = replace(load_config(), docker_cache_volume="vol")
-        self.assertEqual(
-            build_cache_args(config),
-            ["-v", "vol:/pio-cache", "-e", "PLATFORMIO_BUILD_CACHE_DIR=/pio-cache"],
-        )
+    def test_no_platformio_build_cache_is_mounted(self):
+        """SCons skips a target's post-actions on a cache hit.
+
+        Meshtastic writes the .uf2 and the .factory.bin inside post-actions, as
+        side effects rather than declared targets, so a fully cached build ships
+        a ZIP with nothing flashable in it. Reintroducing the cache brings that
+        back; see the comment in builder.py.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            input_dir = tmp_path / "input"
+            output_dir = tmp_path / "output"
+            final_zip = tmp_path / "final.zip"
+            input_dir.mkdir()
+            output_dir.mkdir()
+            (output_dir / "produced.zip").write_bytes(b"zip-content")
+            config = replace(load_config(), root_dir=tmp_path, docker_transport="bind")
+
+            with patch("meshtastic_builder.builder.subprocess.run") as run:
+                run.return_value.returncode = 0
+                run.return_value.stdout = "ok"
+                run.return_value.stderr = ""
+                run_docker_build(config, test_build(), input_dir, output_dir, final_zip)
+
+            command = " ".join(run.call_args.args[0])
+            self.assertNotIn("pio-cache", command)
+            self.assertNotIn("PLATFORMIO_BUILD_CACHE_DIR", command)
 
     def test_docker_build_failure_raises_with_log(self):
         with tempfile.TemporaryDirectory() as tmp:

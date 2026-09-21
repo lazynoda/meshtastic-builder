@@ -42,7 +42,6 @@ services:
       MB_DOCKER_CPUS: ${MB_DOCKER_CPUS:-4}
       MB_DOCKER_MEMORY: ${MB_DOCKER_MEMORY:-4g}
       MB_DOCKER_PIDS_LIMIT: ${MB_DOCKER_PIDS_LIMIT:-512}
-      MB_DOCKER_CACHE_VOLUME: ${MB_DOCKER_CACHE_VOLUME:-meshtastic-builder-pio-cache}
       MB_BUILD_TIMEOUT_SECONDS: ${MB_BUILD_TIMEOUT_SECONDS:-3600}
     volumes:
       - app-data:/data

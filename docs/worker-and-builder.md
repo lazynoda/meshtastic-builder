@@ -53,8 +53,6 @@ docker run --rm \
   --cpus <MB_DOCKER_CPUS> \
   --memory <MB_DOCKER_MEMORY> \
   --pids-limit <MB_DOCKER_PIDS_LIMIT> \
-  -v <MB_DOCKER_CACHE_VOLUME>:/pio-cache \
-  -e PLATFORMIO_BUILD_CACHE_DIR=/pio-cache \
   -v <job-input>:/work/input:ro \
   -v <job-output>:/work/output \
   <MB_BUILDER_IMAGE> \
@@ -78,16 +76,36 @@ path against its own filesystem, does not find it, creates an empty directory, a
 the build dies inside the container with
 `cp: cannot stat '/work/input/userPrefs.jsonc': No such file or directory`.
 
-Both transports mount `MB_DOCKER_CACHE_VOLUME` at `/pio-cache`. The prewarm step
-deletes `.pio/build` from the image, so without that volume every container
-recompiles the full tree; PlatformIO reuses cached objects whose sources and
-build flags are unchanged. A named volume is required because the daemon may be
-remote, where a host path would not resolve.
+`compose.yml` still pins `copy` for its worker rather than relying on `auto`.
 
-`auto` cannot detect one important case: a worker running *inside* a container
-with the host Docker socket mounted. There `DOCKER_HOST` is unset, so `auto`
-picks `bind`, but the daemon resolves the job paths on the host, not in the
-worker container. `compose.yml` therefore pins `copy` for its worker.
+## Why There Is No PlatformIO Build Cache
+
+Every build recompiles the whole tree. That is deliberate, and it costs roughly
+5 to 12 minutes per build.
+
+PlatformIO's `build_cache_dir` is a SCons `CacheDir`, and SCons does **not** run a
+target's post-actions when it retrieves that target from the cache. Meshtastic
+generates its flashable images inside post-actions:
+
+- `extra_scripts/nrf52_extra.py` hangs the `.uf2` off `$BUILD_DIR/${PROGNAME}.hex`
+- `extra_scripts/esp32_extra.py` hangs the `.factory.bin` off `$BUILD_DIR/${PROGNAME}.bin`
+
+Those files are side effects, not declared SCons targets, so they are never put
+in the cache and never regenerated from it. A build whose targets all come back
+from the cache therefore **succeeds and produces nothing flashable**, and nothing
+in the build output says so.
+
+Observed on `nrf52_promicro_diy_tcxo` at `v2.8.0.47db0e3`: a 15-second cache-hit
+build left `.elf`, `.hex` and `-ota.zip` in `.pio/build` and no `.uf2`, and the
+ZIP went out with a `.hex` that needs a SWD or J-Link programmer while
+`FLASHING.txt` still told the reader to double-tap reset and copy a file that was
+not there. The same failure applies to ESP32, where a missing `.factory.bin` also
+flips `write_flashing_notes` into its nRF52 branch.
+
+ccache would give the build time back without the bug, because it caches below
+SCons and every target is still genuinely built. That needs the toolchain wrapped
+in the builder image. Until then: full compiles. Do not reintroduce
+`PLATFORMIO_BUILD_CACHE_DIR`.
 
 `MB_DOCKER_NETWORK` defaults to `bridge` because users can select historical
 firmware tags whose PlatformIO dependencies may differ from the image build ref.

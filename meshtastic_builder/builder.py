@@ -28,8 +28,6 @@ PATCH_RELATIVE_PATH = Path("docker") / "patches" / "userprefs-ext.patch"
 # can never pick up userPrefs.jsonc or BUILD_INFO.txt.
 PATCH_INPUT_DIR = "patches"
 
-BUILD_CACHE_PATH = "/pio-cache"
-
 # Present in every container runtime we target. Used to tell whether this process
 # shares a filesystem namespace with the Docker daemon.
 CONTAINER_MARKER = Path("/.dockerenv")
@@ -243,27 +241,20 @@ def docker_transport(config: Config) -> str:
     return "bind"
 
 
-def build_cache_args(config: Config) -> list[str]:
-    """Docker args that share PlatformIO's object cache across builds.
-
-    The image drops .pio/build after prewarming, so every container used to
-    recompile the whole tree from scratch. PlatformIO keys its build cache by
-    source content and build flags, so the toolchain and libdeps objects
-    survive from one build to the next and only the userPrefs-dependent
-    translation units are rebuilt. A named volume, not a bind mount: the
-    daemon is remote, so host paths do not resolve here.
-    """
-    volume = config.docker_cache_volume.strip()
-    if not volume:
-        return []
-    # ponytail: nothing prunes this volume; PlatformIO never evicts entries.
-    # Add a size cap (or periodic `docker volume rm`) if the host runs short.
-    return [
-        "-v",
-        f"{volume}:{BUILD_CACHE_PATH}",
-        "-e",
-        f"PLATFORMIO_BUILD_CACHE_DIR={BUILD_CACHE_PATH}",
-    ]
+# There is deliberately no PlatformIO build cache here. `build_cache_dir` is a
+# SCons CacheDir, and SCons does not run a target's post-actions when it
+# retrieves that target from the cache. Meshtastic generates its flashable
+# images inside post-actions - extra_scripts/nrf52_extra.py hangs the .uf2 off
+# `$BUILD_DIR/${PROGNAME}.hex`, extra_scripts/esp32_extra.py hangs the
+# .factory.bin off `$BUILD_DIR/${PROGNAME}.bin` - and those files are side
+# effects, not declared targets, so they are never cached and never regenerated.
+# A fully cached build therefore succeeds and ships a ZIP with nothing flashable
+# in it. Reproduced on nrf52_promicro_diy_tcxo: 15s build, .elf/.hex/.zip
+# present, no .uf2.
+#
+# ponytail: ccache would give the speed back without the bug, because it caches
+# below SCons and every target is still built. That needs the toolchain wrapped
+# in the builder image; until then, full compiles.
 
 
 def package_output(output_dir: Path, final_zip: Path, log: str) -> str:
@@ -306,7 +297,6 @@ def run_docker_build_bind(
         config.docker_memory,
         "--pids-limit",
         str(config.docker_pids_limit),
-        *build_cache_args(config),
         "-v",
         f"{input_dir.resolve()}:/work/input:ro",
         "-v",
@@ -340,7 +330,6 @@ def run_docker_build_copy(
         config.docker_memory,
         "--pids-limit",
         str(config.docker_pids_limit),
-        *build_cache_args(config),
         config.builder_image,
         str(build["firmware_tag"]),
         str(build["firmware_sha"]),
