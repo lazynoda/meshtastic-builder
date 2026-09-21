@@ -45,11 +45,16 @@ const FORM_MANAGED_KEYS = new Set([
   "USERPREFS_USE_ADMIN_KEY_2",
 ]);
 
+// The form opens on the custom LoRa profile most users build, so the primary
+// channel is named for it instead of for a modem preset that is switched off.
+// Picking a preset still renames it, via syncPresetChannelName().
+const DEFAULT_CHANNEL_NAME = "SFNarrow";
+
 const state = {
   deviceFamilies: {},
   deviceLabels: {},
   extraPrefs: [],
-  presetChannelName: "LongFast",
+  presetChannelName: DEFAULT_CHANNEL_NAME,
   templateExamples: {},
   templateDefaults: {},
   currentBuildToken: null,
@@ -713,10 +718,10 @@ function syncPresetChannelName() {
 
 function defaultChannel() {
   return {
-    name: presetChannelName(),
+    name: DEFAULT_CHANNEL_NAME,
     psk: "AQ==",
     precision: "14",
-    downlink: false,
+    downlink: true,
     uplink: true,
     muted: false,
   };
@@ -1367,7 +1372,6 @@ function bindEvents() {
     state.channels.push({
       ...defaultChannel(),
       name: `${t("channel.defaultName")} ${state.channels.length + 1}`,
-      uplink: false,
     });
     renderChannels();
   });

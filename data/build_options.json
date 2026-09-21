@@ -38,7 +38,7 @@
         "macro": "USERPREFS_LORACONFIG_CHANNEL_NUM",
         "min": 0,
         "max": 255,
-        "default": 0
+        "default": 4
       },
       "overrideFrequencyMhz": {
         "macro": "USERPREFS_LORACONFIG_OVERRIDE_FREQUENCY",
