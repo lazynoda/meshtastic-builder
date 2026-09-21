@@ -10,6 +10,7 @@ development loop.
 | File | Purpose |
 | --- | --- |
 | `static/index.html` | Page shell and the step form. |
+| `static/about.html` | The `/about` page: what the service is, where it runs, retention, trust. |
 | `static/styles.css` | Design tokens, shell, panels, buttons, form controls. |
 | `static/i18n.js` | Spanish/English dictionary, `t()`, language toggle. |
 | `static/app.js` | Form logic, `userPrefs.jsonc` generation, submit and polling. |
@@ -39,13 +40,23 @@ Design rules worth keeping:
 
 `i18n.js` holds one flat dictionary per language. Static markup is translated
 through `data-i18n` and `data-i18n-placeholder` attributes; strings built in
-JavaScript call `t(key, vars)` with `{name}` placeholders.
+JavaScript call `t(key, vars)` with `{name}` placeholders. `data-i18n-html`
+exists for the few strings that carry an inline link or `<code>` span; it
+assigns `innerHTML`, so only dictionary text may use it.
 
 The initial language comes from `localStorage`, falling back to
 `navigator.language`. Switching dispatches a `languagechange` event, which
 re-renders the channel rows, the status line and the result panel.
 
 Backend error messages are still Spanish only and are shown verbatim.
+
+## The About Page
+
+`/about` is served by the same handler from `static/about.html`. It loads
+`i18n.js` but not `app.js`, which queries form elements that do not exist
+there, so its own inline script does the language binding. The retention window
+is read from `/api/build-options` rather than written into the copy, so it
+cannot drift from `MB_ARTIFACT_TTL_DAYS`.
 
 ## Deep Links
 

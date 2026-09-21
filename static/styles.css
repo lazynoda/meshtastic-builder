@@ -71,6 +71,7 @@ h3 {
 
 .app-header .logo {
   display: flex;
+  text-decoration: none;
   align-items: center;
   gap: 10px;
   font-family: var(--mono);
@@ -100,6 +101,19 @@ h3 {
   display: flex;
   align-items: center;
   gap: 14px;
+}
+
+.app-header .header-link {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+
+.app-header .header-link:hover {
+  color: var(--accent);
 }
 
 .app-header .tagline {
@@ -254,6 +268,8 @@ h3 {
 /* Buttons */
 .btn {
   font-family: var(--mono);
+  display: inline-block;
+  text-decoration: none;
   font-size: 0.8rem;
   padding: 10px 16px;
   border-radius: var(--radius);
@@ -566,6 +582,51 @@ input[type="checkbox"] {
   background: none;
   accent-color: var(--accent);
   height: 24px;
+}
+
+/* Prose pages (/about). The form pages have no running text, so paragraph,
+   link and inline-code rules live here rather than on the base elements. */
+.prose h1 {
+  font-size: 1.2rem;
+  margin: 0 0 20px;
+}
+
+.prose p {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  color: var(--text);
+}
+
+.prose p:last-child {
+  margin-bottom: 0;
+}
+
+.prose a {
+  color: var(--accent2);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.prose a:hover {
+  color: var(--accent);
+}
+
+.prose code {
+  font-family: var(--mono);
+  font-size: 0.85em;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.panel-warn {
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
+.panel-warn h2 {
+  color: var(--warn);
 }
 
 .app-footer {

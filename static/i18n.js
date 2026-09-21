@@ -188,6 +188,30 @@ const DICT = {
     "label.mqttRoot": "El topic raiz MQTT",
     "label.wifiSsid": "El SSID WiFi",
     "label.wifiPsk": "La contrasena WiFi",
+
+    "nav.about": "Acerca de",
+
+    "about.title": "Sobre este proyecto",
+    "nav.builder": "Volver al compilador",
+    "about.whatTitle": "Que es esto",
+    "about.what":
+      "Firmware Meshtastic compilado con tus preferencias ya dentro, en lugar del firmware de serie que llega con la region, los nombres, la seguridad y casi todo lo demas sin configurar. Rellenas el formulario, el servidor compila el firmware para tu dispositivo y te descargas el ZIP.",
+    "about.whereTitle": "Donde se ejecuta",
+    "about.where":
+      "La pagina y el compilador corren en una maquina alojada por @lazynoda (o sea, yo). Si, tecnicamente podria ver tu contrasena WiFi. No lo voy a hacer. Tampoco me voy a plantar en tu casa, a cientos de kilometros, solo para usar tu WiFi.",
+    "about.retentionTitle": "Cuanto se guarda tu build",
+    "about.retention":
+      "Tu build y su ZIP se guardan {days} dias desde que termina la compilacion, para que tengas tiempo de descargarlo. Despues, un script automatico los borra.",
+    "about.firmwareTitle": "Que firmware se usa",
+    "about.firmware":
+      "El firmware es el original de <a href=\"https://github.com/meshtastic/firmware\" target=\"_blank\" rel=\"noreferrer\">github.com/meshtastic/firmware</a>, sin modificar. Solo hay un caso en el que se parchea el codigo: cuando eliges una version anterior a la 2.8 y pides configuracion LoRa manual. La pagina te avisa cuando pasa.",
+    "about.comingSoon":
+      "Viene un cambio mas: poder fijar la clave privada del nodo. Desde la 2.8 el ID del nodo se calcula a partir de esa clave, asi que un reset de fabrica mantiene el mismo ID si la clave esta fijada. Publicare los cambios exactos cuando este hecho.",
+    "about.trustTitle": "Confianza",
+    "about.trust":
+      "Se que lo siguiente va contra esta misma pagina, pero por razones obvias hay que decirlo: no aceptes firmware de fuentes en las que no confies. Puede llevar no solo preferencias de usuario distintas, sino un comportamiento alterado del firmware, que incluso podria incumplir la normativa de tu pais. Solo fuentes de confianza.",
+    "about.diy":
+      "Si prefieres compilarlo tu mismo, copia el <code>userPrefs.jsonc</code> generado y sigue la <a href=\"https://meshtastic.es/docs/configuracion-avanzada/preferencias-de-usuario\" target=\"_blank\" rel=\"noreferrer\">guia de preferencias de usuario de meshtastic.es</a>.",
   },
   en: {
     "page.title": "Meshtastic Builder",
@@ -377,6 +401,30 @@ const DICT = {
     "label.mqttRoot": "The MQTT root topic",
     "label.wifiSsid": "The WiFi SSID",
     "label.wifiPsk": "The WiFi password",
+
+    "nav.about": "About",
+
+    "about.title": "About this project",
+    "nav.builder": "Back to the builder",
+    "about.whatTitle": "What this is",
+    "about.what":
+      "Meshtastic firmware compiled with your preferences already baked in, instead of the stock firmware that ships with the region, the names, the security keys and most everything else unset. You fill in the form, the server compiles the firmware for your device, and you download the ZIP.",
+    "about.whereTitle": "Where it runs",
+    "about.where":
+      "The page and the builder run on a machine hosted by @lazynoda (that is me). Yes, technically I could read your WiFi password. I am not going to. I am also not driving hundreds of kilometres to your house just to use your WiFi.",
+    "about.retentionTitle": "How long your build is kept",
+    "about.retention":
+      "Your build and its ZIP are kept for {days} days after the build finishes, so you have time to download it. After that an automated script deletes them.",
+    "about.firmwareTitle": "Which firmware is used",
+    "about.firmware":
+      "The firmware is the original from <a href=\"https://github.com/meshtastic/firmware\" target=\"_blank\" rel=\"noreferrer\">github.com/meshtastic/firmware</a>, unmodified. There is exactly one case where the code is patched: when you pick a version older than 2.8 and ask for a manual LoRa config. The page warns you when that happens.",
+    "about.comingSoon":
+      "One more change is coming: setting the node private key. Since 2.8 the node ID is derived from that key, so a factory reset keeps the same node ID when the key is set. I will publish the exact changes once it is done.",
+    "about.trustTitle": "Trust",
+    "about.trust":
+      "I know the next sentence goes against this very page, but for obvious reasons it has to be said: do not accept firmware from sources you do not trust. It can carry not only different user preferences but altered firmware behaviour, which could even break the regulations where you live. Trusted sources only.",
+    "about.diy":
+      "If you would rather build it yourself, copy the generated <code>userPrefs.jsonc</code> and follow the <a href=\"https://meshtastic.es/docs/configuracion-avanzada/preferencias-de-usuario\" target=\"_blank\" rel=\"noreferrer\">user preferences guide on meshtastic.es</a>.",
   },
 };
 
@@ -404,6 +452,11 @@ function applyI18n() {
   document.title = t("page.title");
   for (const el of document.querySelectorAll("[data-i18n]")) {
     el.textContent = t(el.dataset.i18n);
+  }
+  // A few strings carry inline links or <code> spans. They come from the
+  // dictionary above, never from user input, so writing them as HTML is safe.
+  for (const el of document.querySelectorAll("[data-i18n-html]")) {
+    el.innerHTML = t(el.dataset.i18nHtml);
   }
   for (const el of document.querySelectorAll("[data-i18n-placeholder]")) {
     el.placeholder = t(el.dataset.i18nPlaceholder);

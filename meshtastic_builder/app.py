@@ -64,6 +64,8 @@ class MeshtasticBuilderHandler(BaseHTTPRequestHandler):
                 if legacy_token:
                     return self.redirect(f"/build/{validate_public_token(legacy_token)}")
                 return self.serve_static("index.html", send_body=send_body)
+            if path == "/about":
+                return self.serve_static("about.html", send_body=send_body)
             if path.startswith("/build/"):
                 # The permalink reuses index.html; app.js strips the form when the
                 # path carries a token and renders the build panel only.

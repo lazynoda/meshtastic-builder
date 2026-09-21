@@ -79,6 +79,10 @@ class BuildPermalinkTests(unittest.TestCase):
         self.assertEqual(handler.status, HTTPStatus.MOVED_PERMANENTLY)
         self.assertEqual(handler.headers_sent["Location"], f"/build/{TOKEN}")
 
+    def test_about_path_serves_the_about_page(self):
+        handler = RoutingHandler().get("/about")
+        self.assertEqual(handler.served, "about.html")
+
     def test_bad_token_never_reaches_the_page(self):
         for path in (f"/build/{'../' * 3}etc/passwd", "/build/short", "/?build=%2e%2e%2f"):
             with self.subTest(path=path):
