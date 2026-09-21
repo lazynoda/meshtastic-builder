@@ -641,6 +641,65 @@ input[type="checkbox"] {
   color: var(--warn);
 }
 
+/* The two firmware patches on /about. Numbered because "there are exactly two"
+   is the point of the section. */
+.mod-list {
+  margin: 0 0 14px;
+  padding-left: 20px;
+}
+
+.mod-list li {
+  margin-bottom: 14px;
+}
+
+.mod-list li:last-child {
+  margin-bottom: 0;
+}
+
+.mod-list h3 {
+  font-size: 0.9rem;
+  margin: 0 0 6px;
+  color: var(--accent2);
+}
+
+/* A failed build explains itself here instead of in the download link text. */
+.build-failure {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  background: var(--panel2);
+}
+
+.build-failure h3 {
+  font-size: 0.85rem;
+  margin: 0 0 8px;
+  color: var(--danger);
+}
+
+.build-failure p {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+}
+
+.build-failure p:last-child {
+  margin-bottom: 0;
+}
+
+.build-failure-detail {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  /* Compiler diagnostics are long and must not stretch the panel. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .app-footer {
   padding: 0 24px 32px;
   max-width: 960px;

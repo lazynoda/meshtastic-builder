@@ -19,7 +19,9 @@ The UI is available in Spanish and English.
 - `meshtastic_builder.code_options`: advanced build option allowlist.
 - `meshtastic_builder.cleanup`: expires old artifacts.
 - `docker/builder.Dockerfile`: PlatformIO/Meshtastic build image.
-- `docker/patches/userprefs-ext.patch`: adds the missing `USERPREFS_*` reads.
+- `docker/patches/userprefs-ext.patch`: adds the missing `USERPREFS_*` reads below firmware 2.8.
+- `docker/patches/fixed-gps-nodedb.patch`: upstream PR #11825 verbatim, so a
+  fixed position compiles on firmware 2.8.x.
 - `data/devices.json`: allowlisted devices and PlatformIO environments.
 - `data/build_options.json`: allowlisted advanced build options.
 - `static/`: the frontend, served as-is with no build step.

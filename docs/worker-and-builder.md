@@ -8,8 +8,8 @@ The worker loop:
 2. Claims the oldest `queued` job transactionally.
 3. Creates a temporary job directory.
 4. Writes `userPrefs.jsonc` and `BUILD_INFO.txt`.
-5. Copies `docker/patches/userprefs-ext.patch` into the job input when the build
-   has advanced options (see [Advanced Build Options](build-options.md)).
+5. Copies the firmware patches this build needs into `input/patches/` — see
+   [Advanced Build Options](build-options.md) for which patch applies when.
 6. Runs either fake mode or Docker mode.
 7. Stores the ZIP under `artifact_dir/<public_token>.zip`.
 8. Records SHA256, size, finish time, and expiry time.
@@ -68,7 +68,15 @@ the container with `docker cp`, starts the build, copies `/work/output` back, an
 then removes the container.
 
 `MB_DOCKER_TRANSPORT=auto` selects `copy` when `DOCKER_HOST` starts with
-`ssh://`, `tcp://`, `http://`, or `https://`; otherwise it selects `bind`.
+`ssh://`, `tcp://`, `http://`, or `https://`, and also when the worker itself runs
+in a container (`/.dockerenv` exists), because a worker reaching the host daemon
+through a mounted socket does not share that daemon's filesystem either. It
+selects `bind` only when the worker and the daemon see the same paths.
+
+Picking `bind` wrongly fails silently at first: the daemon resolves the job input
+path against its own filesystem, does not find it, creates an empty directory, and
+the build dies inside the container with
+`cp: cannot stat '/work/input/userPrefs.jsonc': No such file or directory`.
 
 Both transports mount `MB_DOCKER_CACHE_VOLUME` at `/pio-cache`. The prewarm step
 deletes `.pio/build` from the image, so without that volume every container
@@ -104,10 +112,25 @@ The remote Docker path has been validated with `DOCKER_HOST=ssh://docker-host.ex
 - installs Git, Python, PlatformIO CLI, Zip tools,
 - clones `meshtastic/firmware` with tags and submodules,
 - checks out `MESHTASTIC_REF` (`latest` = newest release tag at image build time),
-- prewarms PlatformIO dependencies for `PREWARM_ENVS` against that ref,
+- prewarms PlatformIO dependencies for `PREWARM_ENVS` against that ref, using
+  `docker/prewarm.sh`,
 - installs PlatformIO pinned to `PLATFORMIO_VERSION` (6.1.19),
 - disables PlatformIO telemetry and upgrade checks,
-- installs `docker/build_firmware.sh` as the entrypoint.
+- installs `docker/build_firmware.sh` as the entrypoint, in a layer **after** the
+  prewarm.
+
+That last ordering is deliberate. The prewarm layer costs about an hour and 8 GB,
+and Docker discards it whenever an earlier layer changes. Prewarming therefore
+has its own script, so editing the runtime entrypoint — which happens whenever a
+patch, a phase banner or a failure marker changes — rebuilds in seconds instead
+of re-prewarming. Edits to `docker/prewarm.sh` still cost a full rebuild; keep
+that file boring.
+
+`latest` resolves with `git tag --sort=-v:refname`, which compares the trailing
+short SHA as a version component rather than by date. Two tags sharing a version
+(`v2.8.0.7239fe8` and `v2.8.0.47db0e3`) therefore sort by that SHA, not by
+release order. Pass `MESHTASTIC_REF` explicitly when it matters which tag gets
+prewarmed; it only affects cache warmth, never which tag a build compiles.
 
 The default `PREWARM_ENVS` is `heltec-v4 nrf52_promicro_diy_tcxo`: the two most
 requested devices, covering the ESP32-S3 and nRF52 toolchains. For production
@@ -148,12 +171,62 @@ Inputs:
 
 - `/work/input/userPrefs.jsonc`
 - `/work/input/BUILD_INFO.txt`
-- `/work/input/userprefs-ext.patch` (optional)
+- `/work/input/patches/*.patch` (optional, zero or more)
 
-The optional patch is applied with `git apply` after checkout and before
-`pio run`. Its presence is the only signal; the positional argument contract is
-unchanged. A failed `git apply` exits 3 with `CODE_OPTIONS_PATCH_FAILED` so a
-build can never compile with the defines present but unread.
+Every patch in `input/patches/` is applied with `git apply` in name order, after
+checkout and before `pio run`. Their presence is the only signal; the positional
+argument contract is unchanged. The worker decides which patches a tag needs, so
+the container applies what it was handed and nothing else — a patch subdirectory
+rather than the input root, so the glob can never pick up `userPrefs.jsonc`.
+
+A failed `git apply` exits 3 after printing
+`MB_FAILURE code=patch_failed phase=patches detail=<patch file>`, so a build can
+never compile without a change the user was promised.
+
+## Reading A Build Log
+
+The log is written to be scanned, not waded through. The container prints a
+`##### phase: <name> #####` banner before checkout, patches, inputs, compile and
+package; the worker wraps each Docker step in a `===== <step> =====` block; and a
+failed build's stored log opens with the summary, so the first five lines say
+what broke:
+
+```
+===== BUILD FAILED =====
+code:   compile_error
+phase:  compile
+detail: src/mesh/NodeDB.cpp:705:27: error: 'info' was not declared in this scope
+========================
+```
+
+Read one without opening SQLite by hand:
+
+```bash
+python3 -m meshtastic_builder build-log <public-token>
+python3 -m meshtastic_builder build-log <public-token> --full
+```
+
+Build logs contain the full PlatformIO `-D` dump, which includes the WiFi PSK
+and the MQTT password. They are never served over HTTP; this is a host-side
+command only.
+
+### Failure Codes
+
+The worker classifies every failure into one of these, stored in
+`build_requests.error_code`. The page translates the code; `error_message` holds
+one quoted line of evidence, and only lines matching a diagnostic pattern are
+ever lifted out of the log, so secrets in the flag dump cannot reach it.
+
+| Code | Meaning |
+| --- | --- |
+| `patch_failed` | A required firmware patch did not apply; the build stopped before `pio run`. |
+| `compile_error` | PlatformIO reported a compiler or linker error. |
+| `firmware_too_big` | The image overflowed the device's flash or RAM region. |
+| `no_artifacts` | The build finished but produced no firmware files. |
+| `timeout` | A step exceeded its timeout. |
+| `infrastructure` | Docker create/copy failed, or an input never reached the container. |
+| `internal` | An unexpected worker exception; the log is the traceback. |
+| `unknown` | Nothing in the log matched; the exit code is the only evidence. |
 
 Output:
 

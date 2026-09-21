@@ -7,6 +7,8 @@ from pathlib import Path
 from subprocess import CompletedProcess
 from unittest.mock import patch
 
+from meshtastic_builder import builder
+from meshtastic_builder.build_failures import BuildFailure
 from meshtastic_builder.builder import (
     build_cache_args,
     docker_transport,
@@ -79,7 +81,8 @@ class BuilderTests(unittest.TestCase):
                 run.return_value.stderr = ""
                 log = run_docker_build(config, test_build(), input_dir, output_dir, final_zip)
 
-            self.assertEqual(log, "ok")
+            self.assertIn("ok", log)
+            self.assertIn("===== build =====", log)
             self.assertEqual(final_zip.read_bytes(), b"zip-content")
             command = run.call_args.args[0]
             self.assertIn("--rm", command)
@@ -119,18 +122,56 @@ class BuilderTests(unittest.TestCase):
                 run.return_value.returncode = 42
                 run.return_value.stdout = "stdout"
                 run.return_value.stderr = "stderr"
-                with self.assertRaises(RuntimeError) as ctx:
+                with self.assertRaises(BuildFailure) as ctx:
                     run_docker_build(config, test_build(), input_dir, output_dir, final_zip)
 
-            self.assertIn("exit code 42", str(ctx.exception))
-            self.assertIn("stderr", str(ctx.exception))
+            # Nothing in the output looks like a diagnostic, so the code stays
+            # unknown - but the full log still travels with the failure.
+            self.assertEqual(ctx.exception.code, "unknown")
+            self.assertIn("code 42", ctx.exception.detail)
+            self.assertIn("stderr", ctx.exception.log)
+
+    def test_compiler_error_is_named_and_quoted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            input_dir = tmp_path / "input"
+            output_dir = tmp_path / "output"
+            final_zip = tmp_path / "final.zip"
+            input_dir.mkdir()
+            output_dir.mkdir()
+            config = replace(load_config(), root_dir=tmp_path, docker_transport="bind")
+
+            with patch("meshtastic_builder.builder.subprocess.run") as run:
+                run.return_value.returncode = 1
+                run.return_value.stdout = (
+                    "Compiling NodeDB.cpp\n"
+                    "src/mesh/NodeDB.cpp:705:27: error: 'info' was not declared in this scope\n"
+                )
+                run.return_value.stderr = ""
+                with self.assertRaises(BuildFailure) as ctx:
+                    run_docker_build(config, test_build(), input_dir, output_dir, final_zip)
+
+            self.assertEqual(ctx.exception.code, "compile_error")
+            self.assertIn("'info' was not declared", ctx.exception.detail)
 
     def test_auto_docker_transport_uses_copy_for_remote_docker_host(self):
         config = replace(load_config(), docker_transport="auto")
-        with patch.dict(os.environ, {"DOCKER_HOST": "ssh://docker-host.example"}):
-            self.assertEqual(docker_transport(config), "copy")
-        with patch.dict(os.environ, {"DOCKER_HOST": ""}):
-            self.assertEqual(docker_transport(config), "bind")
+        with patch.object(builder, "CONTAINER_MARKER", Path("/nonexistent-container-marker")):
+            with patch.dict(os.environ, {"DOCKER_HOST": "ssh://docker-host.example"}):
+                self.assertEqual(docker_transport(config), "copy")
+            with patch.dict(os.environ, {"DOCKER_HOST": ""}):
+                self.assertEqual(docker_transport(config), "bind")
+
+    def test_auto_docker_transport_uses_copy_inside_a_container(self):
+        # The worker in Compose reaches the host daemon through a mounted socket,
+        # so its own paths mean nothing to that daemon and bind would mount empty.
+        config = replace(load_config(), docker_transport="auto")
+        with tempfile.TemporaryDirectory() as tmp:
+            marker = Path(tmp) / ".dockerenv"
+            marker.write_text("", encoding="utf-8")
+            with patch.object(builder, "CONTAINER_MARKER", marker):
+                with patch.dict(os.environ, {"DOCKER_HOST": ""}):
+                    self.assertEqual(docker_transport(config), "copy")
 
     def test_docker_copy_transport_copies_inputs_and_outputs(self):
         with tempfile.TemporaryDirectory() as tmp:

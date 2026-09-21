@@ -49,14 +49,67 @@ Macro values are always emitted as **strings** (`"true"`, `"250"`) because
 2. `meshtastic_builder.code_options` validates it against `data/build_options.json`.
 3. Valid options are stored in `build_requests.code_options` and expanded into
    synthetic `USERPREFS_*` keys merged onto the tag template.
-4. The worker copies the patch into the job input directory only when the build
-   has code options **and** the tag is below `nativeSinceFirmwareVersion`.
-5. `docker/build_firmware.sh` applies the patch after checkout and **before**
-   `pio run`. If `git apply` fails, the build stops with exit code 3 and prints
-   `CODE_OPTIONS_PATCH_FAILED`, which the worker turns into a readable error.
+4. The worker copies the patch into `input/patches/` only when the build has
+   code options **and** the tag is below `nativeSinceFirmwareVersion`.
+5. `docker/build_firmware.sh` applies every patch in `input/patches/`, in name
+   order, after checkout and **before** `pio run`. If `git apply` fails, the
+   build stops with exit code 3 and prints
+   `MB_FAILURE code=patch_failed phase=patches detail=<patch file>`, which the
+   worker turns into the `patch_failed` reason the page renders.
 
 That ordering is the safety property: a build never silently compiles with the
 defines present but nothing reading them.
+
+## The Two Patches
+
+There are two, for unrelated reasons and with opposite firmware windows. Both
+are repo-controlled files under `docker/patches/`; users never supply patch
+content, and both are described on `/about` because they change what ends up on
+someone's radio.
+
+| Patch | Applied when | Why |
+| --- | --- | --- |
+| `userprefs-ext.patch` | code options requested **and** tag `< 2.8.0` | `installDefaultConfig()` never reads the LoRa/MQTT macros there, so the defines would compile in and be ignored. |
+| `fixed-gps-nodedb.patch` | prefs define `USERPREFS_FIXED_GPS` **and** tag `>= 2.8.0` | The 2.8 NodeDB restructuring left the fixed-position block using a removed `info` local, so the build fails to compile. |
+
+### fixed-gps-nodedb.patch
+
+Upstream commit `94bb21ecc` (PR #10413, "2.8: NodeDB shrink, decoupling, and
+restructuring") dropped
+
+```cpp
+meshtastic_NodeInfoLite *info = getOrCreateMeshNode(getNodeNum());
+```
+
+from `NodeDB::NodeDB()` but left the `#ifdef USERPREFS_FIXED_GPS` block using
+`info`, so the build dies with:
+
+```
+src/mesh/NodeDB.cpp:705:27: error: 'info' was not declared in this scope
+```
+
+Upstream CI never hits it: their shipped `userPrefs.jsonc` keeps all four
+`USERPREFS_FIXED_GPS*` keys commented out, so the block is never compiled there.
+This service sets `USERPREFS_FIXED_GPS` whenever the user asks for a fixed
+position (`static/app.js`), so every 2.8.x fixed-position build hits it.
+
+The patch is upstream's own fix, taken verbatim from
+<https://github.com/meshtastic/firmware/pull/11825>, merged to the firmware
+`develop` branch on 2026-09-12 as `df47f95ff`. Nothing about it is
+locally invented: keeping the compiled firmware as close to upstream as possible
+is the point.
+
+Tags below `2.8.0` still declare `info` and compile the block as shipped, so
+fixed position works there with **no patch at all**. Only the patch is gated,
+never the feature.
+
+`fixedGpsPatch.fixedSinceFirmwareVersion` is `null` because no released tag
+carries the fix yet — `v2.8.0.47db0e3` is dated 2026-08-31, before the merge.
+Set it to the first tag that ships PR #11825 and the patch stops being applied
+from that tag on; leaving it stale would make `git apply` fail and stop builds.
+
+Verified with `git apply --check`: applies on `v2.8.0.7239fe8` and
+`v2.8.0.47db0e3`, refuses on `v2.7.26.54e0d8d` (which does not need it).
 
 ## Available Options
 
@@ -92,13 +145,15 @@ leave the region band plan while a raw frequency can.
 
 ## Version Support
 
-`data/build_options.json` carries three version fences:
+`data/build_options.json` carries these version fences:
 
 | Key | Meaning |
 | --- | --- |
 | `minFirmwareVersion` (`2.6.4`) | Below this the options are rejected with a 400 and the panel is hidden. |
 | `nativeSinceFirmwareVersion` (`2.8.0`) | From this version the firmware reads the macros itself; no patch is shipped. |
 | `eightChannelsSinceFirmwareVersion` (`2.8.0`) | From this version 8 channels are accepted instead of 3. |
+| `fixedGpsPatch.minFirmwareVersion` (`2.8.0`) | From this version a fixed position needs `fixed-gps-nodedb.patch`. |
+| `fixedGpsPatch.fixedSinceFirmwareVersion` (`null`) | The first release carrying upstream PR #11825; from it, that patch is no longer applied. |
 
 The patch applies cleanly from `v2.6.4` to `v2.7.26`, fails on `v2.2.x` and
 older, and **also fails on `v2.8.0`** because upstream rewrote the surrounding

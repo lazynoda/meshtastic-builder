@@ -60,8 +60,27 @@ there; the MQTT flag is named `USERPREFS_CONFIG_LORA_CONFIG_OK_TO_MQTT` upstream
 `docker/patches/userprefs-ext.patch`, is applied inside the builder container
 before `pio run`. That patch applies from `v2.6.4` to `v2.7.26` and **fails on
 `v2.8.0`** — which is why the version switch exists, not an accident. Older tags
-are rejected via `minFirmwareVersion`. Full details in `docs/build-options.md`.
-Users never supply patch content.
+are rejected via `minFirmwareVersion`.
+
+A second repo-controlled patch, `docker/patches/fixed-gps-nodedb.patch`, runs on
+the opposite window: firmware `2.8.0` and newer, and only when the prefs define
+`USERPREFS_FIXED_GPS`. The 2.8 NodeDB restructuring (upstream `94bb21ecc`,
+PR #10413) removed the `info` local from `NodeDB::NodeDB()` but left the
+fixed-position block using it, so every 2.8.x fixed-position build fails with
+`'info' was not declared in this scope`. Upstream never sees it because their
+shipped `userPrefs.jsonc` keeps the `USERPREFS_FIXED_GPS*` keys commented out.
+The patch is upstream's own fix, <https://github.com/meshtastic/firmware/pull/11825>,
+copied verbatim — keep it that way: the compiled firmware should differ from
+upstream only by code upstream itself accepted. Clear
+`fixedGpsPatch.fixedSinceFirmwareVersion` in `data/build_options.json` once a
+released tag carries the fix, or `git apply` will start failing.
+
+Fixed position itself is **not** version-gated and must not be: below `2.8.0` the
+firmware compiles that block as shipped. Only the patch is gated.
+
+Both patches are staged into `input/patches/` and applied in name order by the
+container. Full details in `docs/build-options.md`. Users never supply patch
+content.
 
 Preference *values* are shape-checked in `meshtastic_builder/jsonc.py` because
 `bin/platformio-custom.py` emits `meshtastic_`- and `{`-prefixed values into
@@ -124,7 +143,10 @@ docker build -f docker/builder.Dockerfile -t meshtastic-firmware-builder:local .
 
 The Dockerfile checks out the newest release tag (`MESHTASTIC_REF=latest`) and
 prewarms `heltec-v4` and `nrf52_promicro_diy_tcxo`, the two most requested
-devices, so ESP32-S3 and nRF52 toolchains are both cached. The entrypoint only
+devices, so ESP32-S3 and nRF52 toolchains are both cached. Prewarming lives in
+`docker/prewarm.sh` and `docker/build_firmware.sh` is copied in *after* that
+layer: editing the runtime entrypoint must stay a seconds-long rebuild, so do not
+move that COPY back above the prewarm. The entrypoint only
 runs `git fetch` when the requested SHA is missing from the image, and
 PlatformIO telemetry and upgrade checks are disabled, so builds of prewarmed
 tags need no Internet access.
@@ -250,7 +272,8 @@ define, and the patched `NodeDB.cpp` compiled without errors. Artifact was
 `8816e055f9e04446edf9c1edbbc460621a93599dd25b34b6aa1ac4aea261f876`.
 
 The failure path was verified separately by feeding the builder a deliberately
-unapplicable patch: it exited 3 with `CODE_OPTIONS_PATCH_FAILED` before `pio run`.
+unapplicable patch: it exited 3 before `pio run`, now printing
+`MB_FAILURE code=patch_failed phase=patches detail=<patch file>`.
 
 Note the builder image had to be rebuilt from scratch on that host
 (about one hour, 8.06 GB). It prewarms against `master`, so older tags still
@@ -305,7 +328,7 @@ Fake mode is useful but does not prove real Meshtastic builds. A production-read
 These are the current main unfinished items:
 
 1. Add automated smoke-test status for firmware tags and devices, including
-   `git apply --check` of `docker/patches/userprefs-ext.patch` per tag.
+   `git apply --check` of every `docker/patches/*.patch` per tag.
 2. Add persistent rate limiting before public deployment.
 3. Consider S3/MinIO or another persistent artifact store for production.
 
@@ -352,6 +375,11 @@ Keep these invariants:
 - Synthetic `USERPREFS_*` macros must be merged after user overrides so
   `prefsJsonc` cannot set them.
 - A failed `git apply` must fail the build before `pio run`, never continue.
+- Firmware patches must be upstream-accepted code copied verbatim where one
+  exists, never a locally invented edit, and every patch must be described on
+  `/about`: it changes what runs on someone's radio.
+- Build logs hold the full `-D` dump (WiFi PSK, MQTT password). Never serve
+  them over HTTP, and only lift diagnostic-shaped lines into `error_message`.
 - Public URLs must use cryptographically random tokens, not DB IDs.
 - Public status endpoints must not expose the full `userPrefs.jsonc`.
 - `/api/health` is public: keep it aggregate-only, and keep failure details out

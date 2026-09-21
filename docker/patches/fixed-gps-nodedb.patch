@@ -1,0 +1,56 @@
+Fixed-position build fix for Meshtastic Builder.
+
+Upstream commit 94bb21ecc ("2.8: NodeDB shrink, decoupling, and restructuring",
+PR #10413) removed the local
+
+  meshtastic_NodeInfoLite *info = getOrCreateMeshNode(getNodeNum());
+
+from NodeDB::NodeDB() but left the #ifdef USERPREFS_FIXED_GPS block still using
+it, so any build that defines USERPREFS_FIXED_GPS fails to compile with
+
+  src/mesh/NodeDB.cpp: error: 'info' was not declared in this scope
+
+Upstream CI never sees it: their shipped userPrefs.jsonc keeps all four
+USERPREFS_FIXED_GPS* keys commented out, so the block is never compiled there.
+This builder sets USERPREFS_FIXED_GPS whenever the user asks for a fixed
+position, so every 2.8.x build with a fixed position hits it.
+
+The hunk below is upstream's own fix, taken verbatim from
+
+  https://github.com/meshtastic/firmware/pull/11825
+
+which was merged into the firmware `develop` branch on 2026-09-12 as df47f95ff.
+No released tag contains it yet: v2.8.0.47db0e3, the newest tag, is dated
+2026-08-31. data/build_options.json gates this patch on
+fixedGpsPatch.fixedSinceFirmwareVersion; set that to the first tag that ships
+the fix and the patch stops being applied.
+
+Applies to v2.8.0.7239fe8 and v2.8.0.47db0e3. Tags below 2.8.0 still declare
+`info` and compile the block as-is, so they are excluded by
+fixedGpsPatch.minFirmwareVersion.
+
+diff --git a/src/mesh/NodeDB.cpp b/src/mesh/NodeDB.cpp
+index b0b3df57b7b..d48d9746250 100644
+--- a/src/mesh/NodeDB.cpp
++++ b/src/mesh/NodeDB.cpp
+@@ -708,11 +708,18 @@ NodeDB::NodeDB()
+ #if !MESHTASTIC_EXCLUDE_POSITIONDB
+         {
+             concurrency::LockGuard guard(&satelliteMutex);
+-            nodePositions[info->num] = TypeConversions::ConvertToPositionLite(fixedGPS);
++            nodePositions[getNodeNum()] = TypeConversions::ConvertToPositionLite(fixedGPS);
+         }
++        // nodePositions is a member map, so the nodeDatabase CRC compare above cannot see this write -
++        // and it has already run. Flag the segment or the fixed position is only persisted by chance.
++        saveWhat |= SEGMENT_NODEDATABASE;
+ #endif
+-        nodeDB->setLocalPosition(fixedGPS);
++        setLocalPosition(fixedGPS);
+         config.position.fixed_position = true;
++        // Same for config, whose CRC compare also ran before this block. Keep that compare's
++        // degraded-boot guard so an unreadable config is never overwritten with UNSET defaults.
++        if (!configDecodeFailed)
++            saveWhat |= SEGMENT_CONFIG;
+ #endif
+     }
+ #endif

@@ -5,6 +5,7 @@ import socket
 import time
 import traceback
 
+from .build_failures import CODE_INTERNAL, BuildFailure, classify_build_log, failure_summary
 from .builder import run_build
 from .cleanup import expire_old_artifacts
 from .config import Config, ensure_directories, load_config
@@ -37,11 +38,43 @@ def process_one(config: Config, worker_id: str) -> bool:
         )
         print(f"Build {token} succeeded: {artifact.path}")
         return True
-    except Exception as exc:  # noqa: BLE001
-        log = traceback.format_exc()
-        mark_build_failure(config, int(build["id"]), error_message=str(exc), build_log=log)
-        print(f"Build {token} failed: {exc}")
+    except BuildFailure as failure:
+        _record_failure(config, build, failure.code, failure.phase, failure.detail, failure.log)
         return True
+    except Exception as exc:  # noqa: BLE001
+        # Nothing named it, so the traceback is the log and the exception is the
+        # evidence line. Still classified, in case a builder marker made it into
+        # an exception message on the way up.
+        trace = traceback.format_exc()
+        code, phase, detail = classify_build_log(str(exc))
+        if code == "unknown":
+            code, phase, detail = CODE_INTERNAL, "worker", str(exc)
+        _record_failure(config, build, code, phase, detail, trace)
+        return True
+
+
+def _record_failure(
+    config: Config,
+    build: dict[str, object],
+    code: str,
+    phase: str,
+    detail: str,
+    log: str,
+) -> None:
+    """Store the failure and print the one line an operator needs to triage it."""
+    summary = failure_summary(code, phase, detail)
+    mark_build_failure(
+        config,
+        int(build["id"]),
+        error_message=detail,
+        error_code=code,
+        # The summary leads, so `head` on a stored log answers "what broke".
+        build_log=f"{summary}\n{log}",
+    )
+    print(
+        f"Build {build['public_token']} FAILED "
+        f"[{code}/{phase or 'unknown'}] {build['platformio_env']} at {build['firmware_tag']}: {detail}"
+    )
 
 
 def run_worker(config: Config | None = None, *, once: bool = False, poll_seconds: float = 5.0) -> None:

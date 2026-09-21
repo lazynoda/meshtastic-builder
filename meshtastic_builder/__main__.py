@@ -5,6 +5,7 @@ from pathlib import Path
 
 from .admin import (
     docker_status,
+    print_build_log,
     print_versions,
     refresh_firmware_versions,
     set_firmware_supported,
@@ -18,6 +19,15 @@ from .worker import run_worker
 
 
 def main() -> None:
+    try:
+        _dispatch()
+    except ValueError as exc:
+        # Operator mistakes - an unknown tag, an unknown build token - are not
+        # bugs, so they get one line instead of a traceback.
+        raise SystemExit(f"error: {exc}") from exc
+
+
+def _dispatch() -> None:
     parser = argparse.ArgumentParser(prog="meshtastic-builder")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("serve")
@@ -32,6 +42,10 @@ def main() -> None:
     set_unsupported.add_argument("tag")
     validate_devices = sub.add_parser("validate-devices")
     validate_devices.add_argument("repo_path")
+    build_log = sub.add_parser("build-log")
+    build_log.add_argument("token")
+    build_log.add_argument("--full", action="store_true", help="Print the whole log, not the tail.")
+    build_log.add_argument("--tail-lines", type=int, default=40)
     docker_status_parser = sub.add_parser("docker-status")
     docker_status_parser.add_argument("--timeout-seconds", type=int, default=10)
     worker = sub.add_parser("worker")
@@ -65,6 +79,8 @@ def main() -> None:
             invalid = invalid or not bool(item["valid"])
         if invalid:
             raise SystemExit(1)
+    elif args.command == "build-log":
+        print_build_log(config, args.token, tail_lines=args.tail_lines, full=args.full)
     elif args.command == "docker-status":
         status = docker_status(config, timeout_seconds=args.timeout_seconds)
         print("OK" if status["ok"] else "ERROR")

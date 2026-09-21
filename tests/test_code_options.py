@@ -7,14 +7,15 @@ from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
+from meshtastic_builder.build_failures import BuildFailure
 from meshtastic_builder.builder import (
-    PATCH_FAILURE_MARKER,
     raise_build_failure,
     run_build,
     run_fake_build,
 )
 from meshtastic_builder.code_options import (
     code_options_need_patch,
+    fixed_gps_patch_needed,
     load_build_options,
     max_channels,
     parse_version,
@@ -223,7 +224,9 @@ class CodeOptionBuilderTests(unittest.TestCase):
         real_fake_build = run_fake_build
 
         def spy(build, input_dir, final_zip):
-            seen.extend(sorted(path.name for path in input_dir.iterdir()))
+            # Recursive: patches now live in an input subdirectory so the
+            # container's glob can never pick up userPrefs.jsonc.
+            seen.extend(sorted(str(path.relative_to(input_dir)) for path in input_dir.rglob("*")))
             return real_fake_build(build, input_dir, final_zip)
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -235,24 +238,28 @@ class CodeOptionBuilderTests(unittest.TestCase):
 
     def test_patch_is_shipped_and_recorded_when_options_present(self):
         inputs, info = self.run_and_capture_inputs('{"okToMqtt": true}')
-        self.assertIn("userprefs-ext.patch", inputs)
+        self.assertIn("patches/userprefs-ext.patch", inputs)
         self.assertIn('code_options={"okToMqtt": true}', info)
 
     def test_no_patch_shipped_when_firmware_reads_the_macros_natively(self):
         inputs, info = self.run_and_capture_inputs('{"okToMqtt": true}', NATIVE_TAG)
-        self.assertNotIn("userprefs-ext.patch", inputs)
+        self.assertNotIn("patches/userprefs-ext.patch", inputs)
         self.assertIn('code_options={"okToMqtt": true}', info)
 
     def test_no_patch_shipped_without_code_options(self):
         inputs, info = self.run_and_capture_inputs(None)
-        self.assertNotIn("userprefs-ext.patch", inputs)
+        self.assertNotIn("patches/userprefs-ext.patch", inputs)
         self.assertIn("code_options=none", info)
 
-    def test_patch_failure_marker_becomes_readable_error(self):
-        with self.assertRaises(RuntimeError) as ctx:
-            raise_build_failure(3, f"...\n{PATCH_FAILURE_MARKER}: nope\n")
-        self.assertIn("opciones avanzadas", str(ctx.exception))
-        self.assertNotIn(PATCH_FAILURE_MARKER, str(ctx.exception))
+    def test_patch_failure_is_named_not_dumped(self):
+        with self.assertRaises(BuildFailure) as ctx:
+            raise_build_failure(
+                3,
+                "applying...\nMB_FAILURE code=patch_failed phase=patches detail=userprefs-ext.patch\n",
+            )
+        self.assertEqual(ctx.exception.code, "patch_failed")
+        self.assertEqual(ctx.exception.phase, "patches")
+        self.assertEqual(ctx.exception.detail, "userprefs-ext.patch")
 
 
 class CodeOptionMigrationTests(unittest.TestCase):
@@ -321,3 +328,65 @@ class CodeOptionMigrationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FixedGpsPatchTests(unittest.TestCase):
+    """The 2.8 fixed-position build fix (upstream PR #11825).
+
+    Only the patch is version-gated. Fixed position itself works on every
+    supported tag: below 2.8.0 the firmware compiles that block as shipped.
+    """
+
+    def setUp(self):
+        self.options = load_build_options(ROOT_DIR)
+        self.keys = {"USERPREFS_FIXED_GPS", "USERPREFS_FIXED_GPS_LAT", "USERPREFS_FIXED_GPS_LON"}
+
+    def test_needed_only_from_2_8_0(self):
+        self.assertTrue(fixed_gps_patch_needed(self.options, NATIVE_TAG, self.keys))
+        self.assertFalse(fixed_gps_patch_needed(self.options, SUPPORTED_TAG, self.keys))
+        self.assertFalse(fixed_gps_patch_needed(self.options, OLD_TAG, self.keys))
+
+    def test_not_needed_without_a_fixed_position(self):
+        self.assertFalse(fixed_gps_patch_needed(self.options, NATIVE_TAG, {"USERPREFS_TZ_STRING"}))
+
+    def test_stops_once_a_release_carries_the_upstream_fix(self):
+        options = dict(self.options)
+        options["fixedGpsPatch"] = dict(options["fixedGpsPatch"], fixedSinceFirmwareVersion="2.8.1")
+        self.assertTrue(fixed_gps_patch_needed(options, NATIVE_TAG, self.keys))
+        self.assertFalse(fixed_gps_patch_needed(options, "v2.8.1.abc1234", self.keys))
+
+    def test_patch_ships_only_for_a_fixed_position_build_on_2_8(self):
+        prefs_with_gps = (
+            '{"USERPREFS_ALLOWED": "true", "USERPREFS_FIXED_GPS": "",\n'
+            ' "USERPREFS_FIXED_GPS_LAT": "40.4285", "USERPREFS_FIXED_GPS_LON": "-0.3226"}\n'
+        )
+        seen: list[str] = []
+        real_fake_build = run_fake_build
+
+        def spy(build, input_dir, final_zip):
+            seen.extend(sorted(str(p.relative_to(input_dir)) for p in input_dir.rglob("*")))
+            return real_fake_build(build, input_dir, final_zip)
+
+        def run(prefs, tag):
+            seen.clear()
+            with tempfile.TemporaryDirectory() as tmp:
+                config = replace(temp_config(Path(tmp)), builder_mode="fake")
+                build = {
+                    "public_token": "token-fixed-gps",
+                    "device_id": "tbeam",
+                    "platformio_env": "tbeam",
+                    "firmware_tag": tag,
+                    "firmware_sha": "abc123",
+                    "prefs_jsonc": prefs,
+                    "code_options": None,
+                }
+                with patch("meshtastic_builder.builder.run_fake_build", side_effect=spy):
+                    run_build(config, build)
+            return list(seen)
+
+        self.assertIn("patches/fixed-gps-nodedb.patch", run(prefs_with_gps, NATIVE_TAG))
+        self.assertNotIn("patches/fixed-gps-nodedb.patch", run(prefs_with_gps, SUPPORTED_TAG))
+        self.assertNotIn(
+            "patches/fixed-gps-nodedb.patch",
+            run('{"USERPREFS_ALLOWED": "true"}\n', NATIVE_TAG),
+        )

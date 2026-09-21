@@ -30,7 +30,17 @@ Worker logs include:
 - firmware tag,
 - success/failure state.
 
-Build logs are truncated and stored in `build_requests.build_log`.
+A failed build prints one triage line:
+
+```
+Build <token> FAILED [compile_error/compile] nrf52_promicro_diy_tcxo at v2.8.0.47db0e3: src/mesh/NodeDB.cpp:705:27: error: ...
+```
+
+Build logs are truncated and stored in `build_requests.build_log`, newest 20 KB,
+with the failure summary at the top. Read one with
+`python3 -m meshtastic_builder build-log <token>`. See
+[Worker And Builder](worker-and-builder.md) for the phase banners and the failure
+codes.
 
 ## Cleanup
 
@@ -152,7 +162,7 @@ workers want about 8 cores. No code change is required.
 - Set `MB_BASE_URL` to the public HTTPS origin.
 - Build and pin a known-good builder image.
 - Decide which firmware tags are supported.
-- Re-verify `docker/patches/userprefs-ext.patch` when widening the supported tag
+- Re-verify `docker/patches/*.patch` when widening the supported tag
   range. See [Advanced Build Options](build-options.md).
 - Run at least one real Docker build smoke test before accepting users.
 - Consider moving from SQLite to Postgres if multiple web instances are needed.

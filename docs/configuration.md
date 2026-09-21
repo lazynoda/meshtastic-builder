@@ -33,7 +33,7 @@ Configuration is read from environment variables.
 | `MB_BUILDER_IMAGE` | `meshtastic-firmware-builder:local` | Docker image used by the worker. |
 | `MB_DOCKER_BINARY` | `docker` | Docker CLI executable. |
 | `MB_DOCKER_NETWORK` | `bridge` | Network mode for builder containers. Use `none` only with images prewarmed for the target tag/device set. |
-| `MB_DOCKER_TRANSPORT` | `auto` | `auto`, `bind`, or `copy`. `auto` uses `copy` for remote `DOCKER_HOST` values such as `ssh://...` and `bind` otherwise. |
+| `MB_DOCKER_TRANSPORT` | `auto` | `auto`, `bind`, or `copy`. `auto` uses `copy` for remote `DOCKER_HOST` values such as `ssh://...` and for a worker running inside a container, and `bind` otherwise. |
 | `MB_DOCKER_CPUS` | `4` | CPU quota for firmware builder containers. T114/nRF52 builds are CPU-bound, so this default keeps a limit while avoiding the previous 2-CPU bottleneck. |
 | `MB_DOCKER_MEMORY` | `4g` | Memory limit for firmware builder containers. |
 | `MB_DOCKER_PIDS_LIMIT` | `512` | PID limit for firmware builder containers. |

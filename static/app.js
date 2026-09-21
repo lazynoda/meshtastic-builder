@@ -1306,12 +1306,14 @@ function showBuild(build, downloadUrl = null, buildUrl = null) {
   $("buildUrl").textContent = url;
   $("buildUrl").href = url;
 
+  renderBuildFailure(build);
+
   const link = $("downloadLink");
   if (build.status === "succeeded") {
     link.textContent = t("result.downloadZip");
     link.href = state.lastDownloadUrl || `/download/${build.token}`;
   } else if (build.status === "failed") {
-    link.textContent = build.error || t("result.failed");
+    link.textContent = t("result.failed");
     link.removeAttribute("href");
   } else if (build.status === "expired") {
     link.textContent = t("result.expired");
@@ -1320,6 +1322,32 @@ function showBuild(build, downloadUrl = null, buildUrl = null) {
     link.textContent = t("result.pending");
     link.removeAttribute("href");
   }
+}
+
+// The server sends a stable reason code plus at most one quoted line from the
+// build log. The code is what gets translated; the detail line stays verbatim
+// because it is a compiler diagnostic and translating it would help nobody.
+function renderBuildFailure(build) {
+  const panel = $("buildFailure");
+  if (build.status !== "failed") {
+    panel.hidden = true;
+    return;
+  }
+  const code = build.errorCode || "unknown";
+  // A code this page does not know about still renders as a real sentence.
+  const known = t(`buildError.${code}`) !== `buildError.${code}`;
+  const key = known ? code : "unknown";
+  $("buildFailureReason").textContent = t(`buildError.${key}`);
+  $("buildFailureHint").textContent = t(`buildError.${key}Hint`);
+  const detail = $("buildFailureDetail");
+  if (build.error) {
+    detail.textContent = `${t("buildError.detail")}: ${build.error}`;
+    detail.hidden = false;
+  } else {
+    detail.textContent = "";
+    detail.hidden = true;
+  }
+  panel.hidden = false;
 }
 
 function startPolling(token) {

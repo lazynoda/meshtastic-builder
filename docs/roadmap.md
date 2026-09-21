@@ -31,7 +31,7 @@
 ## Next Milestones
 
 1. Add automated smoke-test status for supported firmware tags and devices,
-   including `git apply --check` of the userPrefs patch per tag.
+   including `git apply --check` of every `docker/patches/*.patch` per tag.
 2. Generate preference UI controls from a maintained schema.
 3. Add persistent rate limiting.
 4. Add production object storage support.

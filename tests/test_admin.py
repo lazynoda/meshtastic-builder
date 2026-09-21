@@ -5,14 +5,24 @@ from pathlib import Path
 from subprocess import CompletedProcess, TimeoutExpired
 from unittest.mock import patch
 
+import io
+from contextlib import redirect_stdout
+
 from meshtastic_builder.admin import (
     docker_status,
     extract_platformio_envs,
+    print_build_log,
     set_firmware_supported,
     validate_devices_against_repo,
 )
 from meshtastic_builder.config import load_config
-from meshtastic_builder.db import get_firmware_version, initialize_database, upsert_firmware_versions
+from meshtastic_builder.db import (
+    create_build_request,
+    get_firmware_version,
+    initialize_database,
+    mark_build_failure,
+    upsert_firmware_versions,
+)
 
 
 class AdminTests(unittest.TestCase):
@@ -91,3 +101,63 @@ class AdminTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BuildLogTests(unittest.TestCase):
+    """`build-log` is how a failure gets triaged without opening SQLite."""
+
+    def _failed_build(self, tmp, log_lines):
+        config = replace(
+            load_config(),
+            data_dir=Path(tmp),
+            db_path=Path(tmp) / "test.sqlite",
+            artifact_dir=Path(tmp) / "artifacts",
+            job_dir=Path(tmp) / "jobs",
+            cache_dir=Path(tmp) / "cache",
+        )
+        initialize_database(config)
+        build = create_build_request(
+            config,
+            device_id="tbeam",
+            platformio_env="tbeam",
+            firmware_tag="v-test",
+            firmware_sha="abc123",
+            prefs_jsonc="{}\n",
+            code_options=None,
+        )
+        mark_build_failure(
+            config,
+            int(build["id"]),
+            error_message="src/mesh/NodeDB.cpp:705:27: error: 'info' was not declared in this scope",
+            error_code="compile_error",
+            build_log="\n".join(log_lines),
+        )
+        return config, str(build["public_token"])
+
+    def test_prints_the_code_and_the_tail(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config, token = self._failed_build(tmp, [f"line {n}" for n in range(100)])
+            out = io.StringIO()
+            with redirect_stdout(out):
+                print_build_log(config, token, tail_lines=5)
+            text = out.getvalue()
+
+            self.assertIn("code:     compile_error", text)
+            self.assertIn("'info' was not declared", text)
+            self.assertIn("line 99", text)
+            self.assertNotIn("line 50", text)
+
+    def test_full_prints_everything(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config, token = self._failed_build(tmp, [f"line {n}" for n in range(100)])
+            out = io.StringIO()
+            with redirect_stdout(out):
+                print_build_log(config, token, tail_lines=5, full=True)
+
+            self.assertIn("line 0", out.getvalue())
+
+    def test_unknown_token_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config, _token = self._failed_build(tmp, ["only line"])
+            with self.assertRaises(ValueError):
+                print_build_log(config, "not-a-real-token")

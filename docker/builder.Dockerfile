@@ -39,9 +39,11 @@ RUN git clone --recursive "${MESHTASTIC_REPO}" /opt/firmware \
     && git fetch --tags --force \
     && mkdir -p /work/input /work/output
 
-COPY docker/build_firmware.sh /usr/local/bin/build-firmware
-RUN chmod +x /usr/local/bin/build-firmware \
-    && /usr/local/bin/build-firmware --prewarm "${MESHTASTIC_REF}" ${PREWARM_ENVS} \
+# Only the prewarm script, so the expensive layer below depends on as little as
+# possible. Editing the runtime entrypoint must not invalidate it.
+COPY docker/prewarm.sh /usr/local/bin/prewarm-firmware
+RUN chmod +x /usr/local/bin/prewarm-firmware \
+    && /usr/local/bin/prewarm-firmware "${MESHTASTIC_REF}" ${PREWARM_ENVS} \
     # Provenance for BUILD_INFO.txt. Written in this layer on purpose: a cached
     # prewarm layer means identical content, so the original date stays honest.
     && date -u +%Y-%m-%dT%H:%M:%SZ > /etc/builder-image-created-at \
@@ -51,6 +53,12 @@ RUN chmod +x /usr/local/bin/build-firmware \
       /opt/platformio/.cache/tmp \
       /root/.cache/pip \
       /tmp/*
+
+# After the prewarm on purpose. This script changes whenever a patch, a phase
+# banner or a failure marker changes; copied in earlier, every such edit would
+# discard about an hour of prewarming for a shell diff.
+COPY docker/build_firmware.sh /usr/local/bin/build-firmware
+RUN chmod +x /usr/local/bin/build-firmware
 
 WORKDIR /opt/firmware
 ENTRYPOINT ["/usr/local/bin/build-firmware"]

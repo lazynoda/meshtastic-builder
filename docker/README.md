@@ -8,6 +8,12 @@ docker build -f docker/builder.Dockerfile -t meshtastic-firmware-builder:local .
 
 The image clones `meshtastic/firmware`, fetches tags, installs PlatformIO, and prewarms packages for the environments in `PREWARM_ENVS`.
 
+Two scripts, on purpose. `docker/prewarm.sh` runs once at image build time and
+owns the expensive layer; `docker/build_firmware.sh` is the runtime entrypoint
+and is copied in afterwards, so editing it rebuilds in seconds rather than
+re-prewarming for an hour. Editing `docker/prewarm.sh` does cost the full
+rebuild.
+
 The Dockerfile checks out the newest release tag (`--build-arg MESHTASTIC_REF=vX.Y.Z.sha`
 to pin one) and prewarms `heltec-v4` and `nrf52_promicro_diy_tcxo`. For broader
 validation or production images, pass:

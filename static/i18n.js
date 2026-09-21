@@ -191,6 +191,27 @@ const DICT = {
 
     "nav.about": "Acerca de",
 
+    "buildError.title": "Por que fallo",
+    "buildError.detail": "Detalle tecnico",
+    "buildError.patch_failed":
+      "No se pudo aplicar al codigo del firmware una modificacion que esta compilacion necesitaba.",
+    "buildError.patch_failedHint":
+      "Esa modificacion no encaja en la version que elegiste. Prueba otra version de firmware, o desactiva las opciones avanzadas.",
+    "buildError.compile_error": "El firmware no compilo con esta combinacion de version, dispositivo y ajustes.",
+    "buildError.compile_errorHint":
+      "Casi siempre es un fallo del propio firmware en esa version, no de lo que pusiste. Prueba con otra version.",
+    "buildError.firmware_too_big": "El firmware compilado no cabe en la memoria de este dispositivo.",
+    "buildError.firmware_too_bigHint": "Quita opciones o elige un dispositivo con mas memoria.",
+    "buildError.no_artifacts": "La compilacion termino sin generar ningun fichero de firmware.",
+    "buildError.no_artifactsHint": "Vuelve a intentarlo. Si se repite con el mismo dispositivo, avisame.",
+    "buildError.timeout": "La compilacion tardo demasiado y se cancelo.",
+    "buildError.timeoutHint": "Vuelve a intentarlo: suele salir a la segunda, con las dependencias ya en cache.",
+    "buildError.infrastructure": "Fallo el sistema de compilacion, no tu configuracion.",
+    "buildError.infrastructureHint": "No es culpa tuya. Vuelve a intentarlo en un rato.",
+    "buildError.internal": "Fallo el sistema de compilacion, no tu configuracion.",
+    "buildError.internalHint": "No es culpa tuya. Vuelve a intentarlo en un rato.",
+    "buildError.unknown": "La compilacion fallo por un motivo que no supimos identificar.",
+    "buildError.unknownHint": "Vuelve a intentarlo. Si se repite, avisame con el enlace de esta pagina.",
     "about.title": "Sobre este proyecto",
     "nav.builder": "Volver al compilador",
     "about.whatTitle": "Que es esto",
@@ -204,7 +225,15 @@ const DICT = {
       "Tu build y su ZIP se guardan {days} dias desde que termina la compilacion, para que tengas tiempo de descargarlo. Despues, un script automatico los borra.",
     "about.firmwareTitle": "Que firmware se usa",
     "about.firmware":
-      "El firmware es el original de <a href=\"https://github.com/meshtastic/firmware\" target=\"_blank\" rel=\"noreferrer\">github.com/meshtastic/firmware</a>, sin modificar. Solo hay un caso en el que se parchea el codigo: cuando eliges una version anterior a la 2.8 y pides configuracion LoRa manual. La pagina te avisa cuando pasa.",
+      "El firmware es el original de <a href=\"https://github.com/meshtastic/firmware\" target=\"_blank\" rel=\"noreferrer\">github.com/meshtastic/firmware</a>. Casi todas las compilaciones salen sin tocar una sola linea. Hay exactamente dos casos en los que se modifica el codigo antes de compilar, y son estos:",
+    "about.mod1Title": "Configuracion LoRa manual por debajo de la 2.8",
+    "about.mod1":
+      "Esas versiones convierten en define cada clave de <code>userPrefs.jsonc</code>, pero luego no leen las de LoRa manual ni la de <code>okToMqtt</code>, asi que lo que pides se compila y se ignora. El parche añade los <code>#ifdef</code> que faltan en <code>installDefaultConfig()</code> para que se lean de verdad. Desde la 2.8 el firmware ya los lee solo y no se parchea nada. El formulario marca estas opciones como <em>Parche de codigo</em> cuando las activas.",
+    "about.mod2Title": "Posicion fija en la 2.8.0",
+    "about.mod2":
+      "La 2.8 reorganizo NodeDB y dejo el bloque de posicion fija usando una variable que ya no existe, asi que cualquier compilacion con posicion fija se cae con <code>'info' was not declared in this scope</code>. Upstream no lo detecta porque su <code>userPrefs.jsonc</code> lleva esas claves comentadas y ese bloque nunca se compila alli. Aqui se aplica el arreglo de los propios desarrolladores de Meshtastic, <a href=\"https://github.com/meshtastic/firmware/pull/11825\" target=\"_blank\" rel=\"noreferrer\">PR #11825</a>, copiado tal cual y sin cambiarle nada. En cuanto salga una version que ya lo incluya, se deja de aplicar. Por debajo de la 2.8 no hace falta: ahi la posicion fija compila tal cual, y no se toca nada.",
+    "about.firmwareClosing":
+      "Los dos parches estan en <a href=\"https://github.com/lazynoda/meshtastic-builder/tree/main/docker/patches\" target=\"_blank\" rel=\"noreferrer\">el repositorio de este servicio</a>, se pueden leer enteros, y nunca los escribe quien pide la compilacion. Si un parche no aplica limpiamente, la compilacion se para antes de compilar en vez de seguir sin el.",
     "about.comingSoon":
       "En breves vendra un cambio mas: poder fijar la clave privada del nodo. Desde la 2.8 el ID del nodo se calcula a partir de esa clave, asi que un reset de fabrica mantiene el mismo ID si la clave esta fijada. Publicare los cambios exactos cuando este hecho.",
     "about.trustTitle": "Confianza",
@@ -404,6 +433,27 @@ const DICT = {
 
     "nav.about": "About",
 
+    "buildError.title": "Why it failed",
+    "buildError.detail": "Technical detail",
+    "buildError.patch_failed":
+      "A change this build needed could not be applied to the firmware source.",
+    "buildError.patch_failedHint":
+      "That change does not fit the version you picked. Try another firmware version, or turn the advanced options off.",
+    "buildError.compile_error": "The firmware did not compile with this combination of version, device and settings.",
+    "buildError.compile_errorHint":
+      "This is almost always a bug in that firmware version rather than in what you entered. Try another version.",
+    "buildError.firmware_too_big": "The compiled firmware does not fit in this device's memory.",
+    "buildError.firmware_too_bigHint": "Drop some options or pick a device with more memory.",
+    "buildError.no_artifacts": "The build finished without producing any firmware file.",
+    "buildError.no_artifactsHint": "Try again. If it keeps happening on the same device, tell me.",
+    "buildError.timeout": "The build took too long and was cancelled.",
+    "buildError.timeoutHint": "Try again: it usually passes on the second run, with the dependencies already cached.",
+    "buildError.infrastructure": "The build system failed, not your configuration.",
+    "buildError.infrastructureHint": "Not your fault. Try again in a while.",
+    "buildError.internal": "The build system failed, not your configuration.",
+    "buildError.internalHint": "Not your fault. Try again in a while.",
+    "buildError.unknown": "The build failed for a reason we could not identify.",
+    "buildError.unknownHint": "Try again. If it keeps happening, send me the link to this page.",
     "about.title": "About this project",
     "nav.builder": "Back to the builder",
     "about.whatTitle": "What this is",
@@ -417,7 +467,15 @@ const DICT = {
       "Your build and its ZIP are kept for {days} days after the build finishes, so you have time to download it. After that an automated script deletes them.",
     "about.firmwareTitle": "Which firmware is used",
     "about.firmware":
-      "The firmware is the original from <a href=\"https://github.com/meshtastic/firmware\" target=\"_blank\" rel=\"noreferrer\">github.com/meshtastic/firmware</a>, unmodified. There is exactly one case where the code is patched: when you pick a version older than 2.8 and ask for a manual LoRa config. The page warns you when that happens.",
+      "The firmware is the original from <a href=\"https://github.com/meshtastic/firmware\" target=\"_blank\" rel=\"noreferrer\">github.com/meshtastic/firmware</a>. Almost every build compiles without a single line touched. There are exactly two cases where the code is modified before compiling, and these are them:",
+    "about.mod1Title": "Manual LoRa config below 2.8",
+    "about.mod1":
+      "Those versions turn every <code>userPrefs.jsonc</code> key into a compiler define, but then never read the manual LoRa ones or <code>okToMqtt</code>, so what you asked for is compiled in and ignored. The patch adds the missing <code>#ifdef</code> blocks to <code>installDefaultConfig()</code> so they are actually read. From 2.8 the firmware reads them by itself and nothing is patched. The form tags these options as <em>Source patch</em> when you enable them.",
+    "about.mod2Title": "Fixed position on 2.8.0",
+    "about.mod2":
+      "2.8 restructured NodeDB and left the fixed-position block using a variable that no longer exists, so any build with a fixed position dies with <code>'info' was not declared in this scope</code>. Upstream never notices because their own <code>userPrefs.jsonc</code> keeps those keys commented out, so that block is never compiled there. This service applies the Meshtastic developers' own fix, <a href=\"https://github.com/meshtastic/firmware/pull/11825\" target=\"_blank\" rel=\"noreferrer\">PR #11825</a>, copied verbatim with nothing changed. Once a release ships it, this stops being applied. Below 2.8 nothing is needed: fixed position compiles as shipped and nothing is touched.",
+    "about.firmwareClosing":
+      "Both patches live in <a href=\"https://github.com/lazynoda/meshtastic-builder/tree/main/docker/patches\" target=\"_blank\" rel=\"noreferrer\">this service's repository</a>, can be read in full, and are never written by whoever requests a build. If a patch does not apply cleanly the build stops before compiling instead of carrying on without it.",
     "about.comingSoon":
       "One more change is coming: setting the node private key. Since 2.8 the node ID is derived from that key, so a factory reset keeps the same node ID when the key is set. I will publish the exact changes once it is done.",
     "about.trustTitle": "Trust",

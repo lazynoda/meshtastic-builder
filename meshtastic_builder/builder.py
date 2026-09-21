@@ -8,16 +8,31 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from .code_options import code_options_need_patch, load_build_options
+from .build_failures import (
+    CODE_INFRASTRUCTURE,
+    CODE_NO_ARTIFACTS,
+    CODE_TIMEOUT,
+    BuildFailure,
+    classify_build_log,
+)
+from .code_options import code_options_need_patch, fixed_gps_patch_needed, load_build_options
 from .config import Config
 from .db import iso_now
+from .jsonc import extract_userpref_keys
 
 
 PATCH_RELATIVE_PATH = Path("docker") / "patches" / "userprefs-ext.patch"
 
-PATCH_FAILURE_MARKER = "CODE_OPTIONS_PATCH_FAILED"
+# The builder container applies every patch dropped in this subdirectory of the
+# input mount, in name order. A subdirectory, not the input root, so the glob
+# can never pick up userPrefs.jsonc or BUILD_INFO.txt.
+PATCH_INPUT_DIR = "patches"
 
 BUILD_CACHE_PATH = "/pio-cache"
+
+# Present in every container runtime we target. Used to tell whether this process
+# shares a filesystem namespace with the Docker daemon.
+CONTAINER_MARKER = Path("/.dockerenv")
 
 
 @dataclass(frozen=True)
@@ -68,13 +83,7 @@ def run_build(config: Config, build: dict[str, object]) -> BuildArtifact:
     output_dir.mkdir(parents=True, exist_ok=True)
     (input_dir / "userPrefs.jsonc").write_text(str(build["prefs_jsonc"]), encoding="utf-8")
     (input_dir / "BUILD_INFO.txt").write_text(build_info(build), encoding="utf-8")
-    if build.get("code_options") and code_options_need_patch(
-        load_build_options(config.root_dir), str(build["firmware_tag"])
-    ):
-        patch = config.root_dir / PATCH_RELATIVE_PATH
-        if not patch.is_file():
-            raise RuntimeError(f"Falta el parche de opciones avanzadas en {patch}.")
-        shutil.copyfile(patch, input_dir / "userprefs-ext.patch")
+    stage_patches(config, build, input_dir)
 
     try:
         if config.builder_mode == "fake":
@@ -90,6 +99,49 @@ def run_build(config: Config, build: dict[str, object]) -> BuildArtifact:
     finally:
         if job_root.exists():
             shutil.rmtree(job_root, ignore_errors=True)
+
+
+def stage_patches(config: Config, build: dict[str, object], input_dir: Path) -> list[str]:
+    """Copy the firmware patches this build needs into the container input.
+
+    Two independent reasons to patch, each with its own firmware window:
+
+    - userprefs-ext: below 2.8.0 the firmware ignores the advanced-option macros,
+      so the build only honours them once the patch teaches installDefaultConfig
+      to read them. From 2.8.0 the firmware reads them itself.
+    - fixed-gps-nodedb: from 2.8.0 the fixed-position block fails to compile
+      upstream. Below 2.8.0 it compiles as shipped and must be left alone.
+
+    Users never supply patch content; only these repo-controlled files are ever
+    staged. Returns the staged file names, for the build log.
+    """
+    options = load_build_options(config.root_dir)
+    firmware_tag = str(build["firmware_tag"])
+    wanted: list[Path] = []
+
+    if build.get("code_options") and code_options_need_patch(options, firmware_tag):
+        wanted.append(config.root_dir / PATCH_RELATIVE_PATH)
+
+    pref_keys = extract_userpref_keys(str(build["prefs_jsonc"]))
+    if fixed_gps_patch_needed(options, firmware_tag, pref_keys):
+        wanted.append(config.root_dir / str(options["fixedGpsPatch"]["patchFile"]))
+
+    if not wanted:
+        return []
+
+    patch_dir = input_dir / PATCH_INPUT_DIR
+    patch_dir.mkdir(parents=True, exist_ok=True)
+    staged: list[str] = []
+    for patch in wanted:
+        if not patch.is_file():
+            raise BuildFailure(
+                CODE_INFRASTRUCTURE,
+                phase="patches",
+                detail=f"Missing firmware patch {patch.name} in the builder image.",
+            )
+        shutil.copyfile(patch, patch_dir / patch.name)
+        staged.append(patch.name)
+    return staged
 
 
 def run_fake_build(build: dict[str, object], input_dir: Path, final_zip: Path) -> str:
@@ -114,25 +166,79 @@ def run_docker_build(
     if transport == "copy":
         return run_docker_build_copy(config, build, input_dir, output_dir, final_zip)
     if transport != "bind":
-        raise ValueError(f"Unsupported Docker transport: {config.docker_transport}")
+        raise BuildFailure(
+            CODE_INFRASTRUCTURE,
+            phase="setup",
+            detail=f"Unsupported Docker transport: {config.docker_transport}",
+        )
     return run_docker_build_bind(config, build, input_dir, output_dir, final_zip)
 
 
-def raise_build_failure(returncode: int, log: str) -> None:
-    if PATCH_FAILURE_MARKER in log:
-        raise RuntimeError(
-            "Las opciones avanzadas no se pudieron aplicar a esta version de firmware. "
-            "Prueba con una version mas reciente o desactiva las opciones avanzadas."
+def section(title: str, body: str) -> str:
+    """One labelled block of the build log, so the phases stay findable by eye."""
+    return f"\n===== {title} =====\n{body.strip()}\n"
+
+
+def run_step(
+    command: list[str],
+    *,
+    config: Config,
+    phase: str,
+    timeout: int,
+) -> tuple[subprocess.CompletedProcess[str], str]:
+    """Run one docker step, returning it with its output already labelled."""
+    try:
+        proc = subprocess.run(
+            command,
+            cwd=str(config.root_dir),
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
         )
-    raise RuntimeError(f"Docker build failed with exit code {returncode}.\n{log[-4000:]}")
+    except subprocess.TimeoutExpired as exc:
+        raise BuildFailure(
+            CODE_TIMEOUT,
+            phase=phase,
+            detail=f"Step timed out after {timeout}s.",
+            log=section(phase, _decode(exc.stdout) + _decode(exc.stderr)),
+        ) from exc
+    body = (proc.stdout or "") + ("\n" + proc.stderr if proc.stderr else "")
+    return proc, section(phase, body)
+
+
+def _decode(stream: object) -> str:
+    if stream is None:
+        return ""
+    if isinstance(stream, bytes):
+        return stream.decode("utf-8", "replace")
+    return str(stream)
+
+
+def raise_build_failure(returncode: int, log: str) -> None:
+    """Name what killed the build, instead of handing 4 KB of PlatformIO to a user."""
+    code, phase, detail = classify_build_log(log)
+    if not detail:
+        detail = f"The builder exited with code {returncode}."
+    raise BuildFailure(code, phase=phase or "build", detail=detail, log=log)
 
 
 def docker_transport(config: Config) -> str:
+    """Pick the transport that can actually hand the job inputs to the daemon.
+
+    Bind only works when the daemon resolves our paths in our own filesystem.
+    A remote DOCKER_HOST breaks that, and so does running this worker in a
+    container that reaches the host daemon through a mounted socket: the daemon
+    resolves /data/jobs/<token>/input against the host, silently creates it
+    empty, and the builder dies on a missing userPrefs.jsonc.
+    """
     configured = config.docker_transport.strip().lower()
     if configured != "auto":
         return configured
     docker_host = os.getenv("DOCKER_HOST", "").strip().lower()
     if docker_host.startswith(("ssh://", "tcp://", "http://", "https://")):
+        return "copy"
+    if CONTAINER_MARKER.exists():
         return "copy"
     return "bind"
 
@@ -158,6 +264,27 @@ def build_cache_args(config: Config) -> list[str]:
         "-e",
         f"PLATFORMIO_BUILD_CACHE_DIR={BUILD_CACHE_PATH}",
     ]
+
+
+def package_output(output_dir: Path, final_zip: Path, log: str) -> str:
+    """Take the builder's zip, or make one, and fail by name when there is nothing."""
+    zip_candidates = sorted(output_dir.glob("*.zip"), key=lambda path: path.stat().st_mtime, reverse=True)
+    if zip_candidates:
+        shutil.copy2(zip_candidates[0], final_zip)
+        return log
+
+    files = [path for path in output_dir.rglob("*") if path.is_file()]
+    if not files:
+        raise BuildFailure(
+            CODE_NO_ARTIFACTS,
+            phase="package",
+            detail="The build finished but produced no firmware files.",
+            log=log,
+        )
+    with zipfile.ZipFile(final_zip, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for path in files:
+            zf.write(path, path.relative_to(output_dir))
+    return log + section("package", "Packaged output directory because builder did not emit a zip.")
 
 
 def run_docker_build_bind(
@@ -189,30 +316,10 @@ def run_docker_build_bind(
         str(build["firmware_sha"]),
         str(build["platformio_env"]),
     ]
-    proc = subprocess.run(
-        command,
-        cwd=str(config.root_dir),
-        capture_output=True,
-        text=True,
-        timeout=config.build_timeout_seconds,
-        check=False,
-    )
-    log = (proc.stdout or "") + ("\n" + proc.stderr if proc.stderr else "")
+    proc, log = run_step(command, config=config, phase="build", timeout=config.build_timeout_seconds)
     if proc.returncode != 0:
         raise_build_failure(proc.returncode, log)
-
-    zip_candidates = sorted(output_dir.glob("*.zip"), key=lambda path: path.stat().st_mtime, reverse=True)
-    if zip_candidates:
-        shutil.copy2(zip_candidates[0], final_zip)
-        return log
-
-    files = [path for path in output_dir.rglob("*") if path.is_file()]
-    if not files:
-        raise RuntimeError("Docker build completed but produced no files.")
-    with zipfile.ZipFile(final_zip, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        for path in files:
-            zf.write(path, path.relative_to(output_dir))
-    return log + "\nPackaged output directory because builder did not emit a zip."
+    return package_output(output_dir, final_zip, log)
 
 
 def run_docker_build_copy(
@@ -239,78 +346,66 @@ def run_docker_build_copy(
         str(build["firmware_sha"]),
         str(build["platformio_env"]),
     ]
-    create_proc = subprocess.run(
-        create_command,
-        cwd=str(config.root_dir),
-        capture_output=True,
-        text=True,
-        timeout=120,
-        check=False,
-    )
-    create_log = (create_proc.stdout or "") + ("\n" + create_proc.stderr if create_proc.stderr else "")
+    create_proc, create_log = run_step(create_command, config=config, phase="create", timeout=120)
     if create_proc.returncode != 0:
-        raise RuntimeError(
-            f"Docker container creation failed with exit code {create_proc.returncode}.\n{create_log[-4000:]}"
+        raise BuildFailure(
+            CODE_INFRASTRUCTURE,
+            phase="create",
+            detail=f"Could not create the builder container (exit {create_proc.returncode}).",
+            log=create_log,
         )
     container_id = (create_proc.stdout or "").strip().splitlines()[-1].strip()
     if not container_id:
-        raise RuntimeError("Docker container creation did not return a container id.")
+        raise BuildFailure(
+            CODE_INFRASTRUCTURE,
+            phase="create",
+            detail="Docker container creation did not return a container id.",
+            log=create_log,
+        )
 
     logs = [create_log]
     try:
-        copy_input = subprocess.run(
+        copy_input, copy_log = run_step(
             [config.docker_binary, "cp", f"{input_dir.resolve()}/.", f"{container_id}:/work/input"],
-            cwd=str(config.root_dir),
-            capture_output=True,
-            text=True,
+            config=config,
+            phase="copy-input",
             timeout=120,
-            check=False,
         )
-        logs.append((copy_input.stdout or "") + ("\n" + copy_input.stderr if copy_input.stderr else ""))
+        logs.append(copy_log)
         if copy_input.returncode != 0:
-            raise RuntimeError(
-                f"Docker input copy failed with exit code {copy_input.returncode}.\n{logs[-1][-4000:]}"
+            raise BuildFailure(
+                CODE_INFRASTRUCTURE,
+                phase="copy-input",
+                detail=f"Could not copy the build inputs into the container (exit {copy_input.returncode}).",
+                log="".join(logs),
             )
 
-        start_proc = subprocess.run(
+        start_proc, start_log = run_step(
             [config.docker_binary, "start", "-a", container_id],
-            cwd=str(config.root_dir),
-            capture_output=True,
-            text=True,
+            config=config,
+            phase="build",
             timeout=config.build_timeout_seconds,
-            check=False,
         )
-        logs.append((start_proc.stdout or "") + ("\n" + start_proc.stderr if start_proc.stderr else ""))
+        logs.append(start_log)
         if start_proc.returncode != 0:
             raise_build_failure(start_proc.returncode, "".join(logs))
 
-        copy_output = subprocess.run(
+        copy_output, output_log = run_step(
             [config.docker_binary, "cp", f"{container_id}:/work/output/.", str(output_dir.resolve())],
-            cwd=str(config.root_dir),
-            capture_output=True,
-            text=True,
+            config=config,
+            phase="copy-output",
             timeout=120,
-            check=False,
         )
-        logs.append((copy_output.stdout or "") + ("\n" + copy_output.stderr if copy_output.stderr else ""))
+        logs.append(output_log)
         if copy_output.returncode != 0:
-            raise RuntimeError(
-                f"Docker output copy failed with exit code {copy_output.returncode}.\n{logs[-1][-4000:]}"
+            raise BuildFailure(
+                CODE_INFRASTRUCTURE,
+                phase="copy-output",
+                detail=f"Could not copy the build output out of the container (exit {copy_output.returncode}).",
+                log="".join(logs),
             )
 
-        log = "".join(logs)
-        zip_candidates = sorted(output_dir.glob("*.zip"), key=lambda path: path.stat().st_mtime, reverse=True)
-        if zip_candidates:
-            shutil.copy2(zip_candidates[0], final_zip)
-            return log
-
-        files = [path for path in output_dir.rglob("*") if path.is_file()]
-        if not files:
-            raise RuntimeError("Docker build completed but produced no files.")
-        with zipfile.ZipFile(final_zip, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-            for path in files:
-                zf.write(path, path.relative_to(output_dir))
-        return log + "\nPackaged output directory because builder did not emit a zip."
+        return package_output(output_dir, final_zip, "".join(logs))
     finally:
         subprocess.run(
             [config.docker_binary, "rm", "-f", container_id],

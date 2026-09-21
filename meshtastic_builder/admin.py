@@ -7,7 +7,13 @@ import subprocess
 from pathlib import Path
 
 from .config import Config, load_config
-from .db import connection, get_firmware_version, initialize_database, list_firmware_versions
+from .db import (
+    connection,
+    get_build_by_token,
+    get_firmware_version,
+    initialize_database,
+    list_firmware_versions,
+)
 from .devices import enabled_devices
 from .firmware import refresh_firmware_versions
 
@@ -95,6 +101,41 @@ def print_versions(config: Config, *, include_unsupported: bool) -> None:
     for item in versions:
         state = "supported" if item["supported"] else "unsupported"
         print(f"{item['tag']}\t{item['sha']}\t{state}\t{item['smoke_test_status']}")
+
+
+def print_build_log(config: Config, token: str, *, tail_lines: int = 40, full: bool = False) -> None:
+    """Show why one build failed, without opening SQLite by hand.
+
+    Build logs carry the whole PlatformIO `-D` dump, which includes the WiFi PSK
+    and the MQTT password, so they are never served over HTTP. This is an
+    operator command on the host, and it prints the tail by default.
+    """
+    initialize_database(config)
+    build = get_build_by_token(config, token)
+    if build is None:
+        raise ValueError(f"No build with token {token}")
+
+    print(f"token:    {build['public_token']}")
+    print(f"status:   {build['status']}")
+    print(f"device:   {build['device_id']} ({build['platformio_env']})")
+    print(f"firmware: {build['firmware_tag']} ({build['firmware_sha']})")
+    print(f"options:  {build['code_options'] or 'none'}")
+    print(f"created:  {build['created_at']}   finished: {build['finished_at'] or '-'}")
+    if build["status"] == "failed":
+        print(f"code:     {build.get('error_code') or 'unknown'}")
+        print(f"detail:   {build['error_message'] or '-'}")
+
+    log = str(build["build_log"] or "")
+    if not log.strip():
+        print("\n(no build log stored)")
+        return
+    lines = log.splitlines()
+    if full or len(lines) <= tail_lines:
+        shown = lines
+    else:
+        print(f"\n--- last {tail_lines} of {len(lines)} log lines (use --full for all) ---")
+        shown = lines[-tail_lines:]
+    print("\n".join(shown))
 
 
 def main() -> None:

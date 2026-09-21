@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 
 VERSION_RE = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)")
@@ -36,6 +36,33 @@ def firmware_supports_code_options(options: dict[str, Any], firmware_tag: str) -
 def code_options_need_patch(options: dict[str, Any], firmware_tag: str) -> bool:
     """Firmware >= nativeSinceFirmwareVersion reads the macros itself; the patch does not even apply there."""
     return not firmware_at_least(firmware_tag, str(options["nativeSinceFirmwareVersion"]))
+
+
+def fixed_gps_patch_needed(
+    options: dict[str, Any],
+    firmware_tag: str,
+    pref_keys: Iterable[str],
+) -> bool:
+    """Whether this build needs upstream PR #11825 applied to NodeDB.cpp.
+
+    Firmware 2.8 dropped the `info` local from NodeDB::NodeDB() but left the
+    `#ifdef USERPREFS_FIXED_GPS` block using it, so any build that defines that
+    macro fails to compile. Upstream never notices because their shipped
+    userPrefs.jsonc keeps the fixed-GPS keys commented out. Tags below 2.8.0
+    still declare `info` and compile fine, and once a tag ships the fix,
+    fixedSinceFirmwareVersion switches the patch off again.
+    """
+    spec = options.get("fixedGpsPatch")
+    if not spec:
+        return False
+    if spec["triggerMacro"] not in set(pref_keys):
+        return False
+    if not firmware_at_least(firmware_tag, str(spec["minFirmwareVersion"])):
+        return False
+    fixed_since = spec.get("fixedSinceFirmwareVersion")
+    if fixed_since and firmware_at_least(firmware_tag, str(fixed_since)):
+        return False
+    return True
 
 
 def max_channels(options: dict[str, Any], firmware_tag: str) -> int:

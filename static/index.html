@@ -410,6 +410,14 @@
             <div><dt data-i18n="result.firmware"></dt><dd id="buildFirmware"></dd></div>
             <div><dt data-i18n="result.download"></dt><dd><a id="downloadLink" href="#"></a></dd></div>
           </dl>
+          <!-- Shown only for a failed build. The reason is translated from the
+               server's error code; the detail is one quoted line of evidence. -->
+          <div id="buildFailure" class="build-failure" hidden>
+            <h3 data-i18n="buildError.title"></h3>
+            <p id="buildFailureReason"></p>
+            <p id="buildFailureHint" class="status-line"></p>
+            <pre id="buildFailureDetail" hidden class="build-failure-detail"></pre>
+          </div>
           <p id="resultTtl" class="status-line"></p>
         </section>
       </main>

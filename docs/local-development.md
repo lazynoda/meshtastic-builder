@@ -35,11 +35,15 @@ See [Frontend](frontend.md) for the layout, styling rules, and how the
 Spanish/English dictionary works.
 
 Rebuilding the firmware builder image is only needed when
-`docker/build_firmware.sh` or the Dockerfile change; the userPrefs patch is
-copied in at build time from the repo, so editing
-`docker/patches/userprefs-ext.patch` needs no image rebuild. The entrypoint
-fetches tags before checkout, so an existing image can still build firmware
-tags released after it.
+`docker/build_firmware.sh`, `docker/prewarm.sh` or the Dockerfile change; the
+patches are copied into the job input at build time from the repo, so editing
+anything under `docker/patches/` needs no image rebuild. The entrypoint fetches
+tags before checkout, so an existing image can still build firmware tags
+released after it.
+
+A `docker/build_firmware.sh` rebuild is cheap: it is copied in after the prewarm
+layer, so only the last two layers are redone. A `docker/prewarm.sh` or
+Dockerfile change re-prewarms, which is the hour-long one.
 
 ## Run The Worker
 

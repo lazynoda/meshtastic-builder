@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS build_requests (
   artifact_sha256 TEXT,
   artifact_size_bytes INTEGER,
   error_message TEXT,
+  error_code TEXT,
   build_log TEXT,
   worker_id TEXT,
   created_at TEXT NOT NULL,
@@ -100,6 +101,8 @@ def initialize_database(config: Config | None = None) -> None:
         columns = {row[1] for row in conn.execute("PRAGMA table_info(build_requests)")}
         if "code_options" not in columns:
             conn.execute("ALTER TABLE build_requests ADD COLUMN code_options TEXT")
+        if "error_code" not in columns:
+            conn.execute("ALTER TABLE build_requests ADD COLUMN error_code TEXT")
         if "email" in columns:
             try:
                 conn.execute("ALTER TABLE build_requests DROP COLUMN email")
@@ -280,6 +283,7 @@ def public_build_view(row: dict[str, Any]) -> dict[str, Any]:
         "artifactSha256": row["artifact_sha256"],
         "artifactSizeBytes": row["artifact_size_bytes"],
         "error": row["error_message"] if row["status"] == "failed" else None,
+        "errorCode": row.get("error_code") if row["status"] == "failed" else None,
     }
 
 
@@ -378,18 +382,31 @@ def mark_build_success(
     return updated
 
 
-def mark_build_failure(config: Config, build_id: int, *, error_message: str, build_log: str) -> dict[str, Any]:
+def mark_build_failure(
+    config: Config,
+    build_id: int,
+    *,
+    error_message: str,
+    build_log: str,
+    error_code: str = "unknown",
+) -> dict[str, Any]:
+    """Record a failure as a translatable code plus one line of evidence.
+
+    error_message is the evidence line, not a paragraph of PlatformIO: the page
+    renders the code in the reader's language and shows this underneath.
+    """
     with connection(config) as conn:
         conn.execute(
             """
             UPDATE build_requests
             SET status = 'failed',
                 error_message = ?,
+                error_code = ?,
                 build_log = ?,
                 finished_at = ?
             WHERE id = ?
             """,
-            (error_message[:2000], build_log[-20000:], iso_now(), build_id),
+            (error_message[:2000], error_code, build_log[-20000:], iso_now(), build_id),
         )
         row = conn.execute("SELECT * FROM build_requests WHERE id = ?", (build_id,)).fetchone()
     updated = row_to_dict(row)

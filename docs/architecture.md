@@ -10,7 +10,7 @@ The web process accepts user input, validates it, stores a queued build request 
 
 The worker process claims queued rows one at a time, writes build inputs to a temporary job directory, runs the builder container, stores the resulting ZIP, and updates the database. The user follows progress on the private build URL returned at submit time.
 
-The builder container contains the Meshtastic firmware repository, Git, Python, PlatformIO CLI, and a shell entrypoint that fetches tags, checks out the requested firmware version, optionally applies the repo-controlled `userprefs-ext.patch`, and runs `pio run -e <env>`.
+The builder container contains the Meshtastic firmware repository, Git, Python, PlatformIO CLI, and a shell entrypoint that fetches tags, checks out the requested firmware version, optionally applies the repo-controlled patches the worker staged in `input/patches/`, and runs `pio run -e <env>`.
 
 Most customization is expressed through `userPrefs.jsonc`. Settings that upstream firmware never reads from a `USERPREFS_*` macro are exposed as advanced build options, which add those reads via that patch. See [Advanced Build Options](build-options.md).
 

@@ -29,6 +29,10 @@ python3 -B -m unittest discover -s tests
 - Value hardening for keys that reach the compiler unquoted.
 - Channel cap (3 vs 8) by firmware version.
 - Advanced-option macro naming and patch skipping on native firmware.
+- Fixed-GPS patch gating by firmware version and by the prefs actually asking
+  for a fixed position, and its retirement once a release carries the fix.
+- Build failure classification, including that secrets in the `-D` dump never
+  reach the user-facing detail line.
 - Newest-first firmware version ordering.
 
 ## Test Files
@@ -60,5 +64,6 @@ Fake mode does not replace a real builder smoke test before deployment.
 
 - Browser-level form test.
 - Concurrency test for multiple workers once concurrency increases.
-- Automated `git apply --check` of `docker/patches/userprefs-ext.patch` across
-  every supported tag, so the `minFirmwareVersion` floor cannot silently rot.
+- Automated `git apply --check` of every `docker/patches/*.patch` across each
+  supported tag, so neither the `minFirmwareVersion` floor nor
+  `fixedGpsPatch.fixedSinceFirmwareVersion` can silently rot.

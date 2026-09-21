@@ -3,29 +3,9 @@ set -euo pipefail
 
 BASE_REPO="/opt/firmware"
 
-if [[ "${1:-}" == "--prewarm" ]]; then
-  shift
-  cd "${BASE_REPO}"
-  ref="${1:-latest}"
-  shift
-  if [[ "${ref}" == "latest" ]]; then
-    ref="$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
-  fi
-  echo "Prewarming against ${ref}"
-  git checkout --force "${ref}"
-  git submodule update --init --recursive
-  for env_name in "$@"; do
-    echo "Prewarming PlatformIO dependencies for ${env_name}"
-    pio pkg install -e "${env_name}"
-    # pio run pulls the lazily installed tools (esptool, nrfutil, mklittlefs) that
-    # pkg install skips. The first ESP32 run can fail while pioarduino swaps
-    # tool-scons under a running SCons (platform-espressif32#529); the second
-    # run is stable. A compile failure must not sink the image.
-    pio run -e "${env_name}" || pio run -e "${env_name}" || true
-  done
-  exit 0
-fi
-
+# Prewarming lives in docker/prewarm.sh, which the image runs in an earlier
+# layer. Keeping it out of here is what lets this file be edited without
+# rebuilding an hour of prewarmed PlatformIO packages.
 if [[ "$#" -ne 3 ]]; then
   echo "usage: build-firmware <firmware-tag> <firmware-sha> <platformio-env>" >&2
   exit 2
@@ -44,6 +24,20 @@ case "${PIO_ENV}" in
     exit 2
     ;;
 esac
+
+# Every build log is read by someone hunting for the step that broke. Name the
+# steps so they can be found by eye, and emit one machine-readable line when we
+# already know what went wrong - the worker turns that into a user-facing reason
+# instead of handing over four kilobytes of PlatformIO output.
+phase() {
+  echo "##### phase: $1 #####"
+}
+
+fail() {
+  local code="$1" phase_name="$2" detail="$3"
+  echo "MB_FAILURE code=${code} phase=${phase_name} detail=${detail}" >&2
+  exit "${4:-1}"
+}
 
 # Print the basename of the first file matching any of the patterns, or nothing.
 first_match() {
@@ -128,6 +122,7 @@ PY
 }
 
 cd "${WORK_DIR}"
+phase "checkout ${FIRMWARE_TAG} (${FIRMWARE_SHA})"
 # Only hit the network when the image does not already contain the requested commit.
 if ! git cat-file -e "${FIRMWARE_SHA}^{commit}" 2>/dev/null; then
   git fetch --tags --force origin || true
@@ -135,15 +130,33 @@ fi
 git checkout --force "${FIRMWARE_SHA}" || git checkout --force "${FIRMWARE_TAG}"
 git submodule update --init --recursive
 
-if [[ -f "${INPUT_DIR}/userprefs-ext.patch" ]]; then
-  if ! git apply --verbose "${INPUT_DIR}/userprefs-ext.patch"; then
-    echo "CODE_OPTIONS_PATCH_FAILED: esta version de firmware no admite las opciones de compilacion seleccionadas." >&2
-    exit 3
-  fi
+# Every patch the worker staged, in name order. The worker decides which ones a
+# given firmware tag needs; this only applies what it was handed, and a patch
+# that does not apply stops the build before pio run rather than silently
+# compiling firmware without the change the user asked for.
+phase "patches"
+shopt -s nullglob
+patches=("${INPUT_DIR}/patches"/*.patch)
+shopt -u nullglob
+if [[ ${#patches[@]} -eq 0 ]]; then
+  echo "No firmware patches requested for this build."
 fi
+for patch in "${patches[@]}"; do
+  patch_name="$(basename "${patch}")"
+  echo "Applying ${patch_name}"
+  if ! git apply --verbose "${patch}"; then
+    fail patch_failed patches "${patch_name}" 3
+  fi
+done
 
+phase "inputs"
+if [[ ! -f "${INPUT_DIR}/userPrefs.jsonc" ]]; then
+  fail infrastructure inputs "userPrefs.jsonc never reached the builder container."
+fi
 cp "${INPUT_DIR}/userPrefs.jsonc" ./userPrefs.jsonc
+echo "userPrefs.jsonc in place ($(wc -c <./userPrefs.jsonc) bytes)"
 
+phase "compile ${PIO_ENV}"
 # Retry once: pioarduino may replace tool-scons mid-run on the first build of a
 # platform version (platform-espressif32#529). A genuine compile error fails twice.
 pio run -e "${PIO_ENV}" || pio run -e "${PIO_ENV}"
@@ -153,6 +166,7 @@ pio run -e "${PIO_ENV}" || pio run -e "${PIO_ENV}"
 # matter for decoding a backtrace. Everything else stays, including the
 # littlefs image: device-install.sh writes it to the spiffs partition after
 # erase_flash, and it aborts if the file is missing.
+phase "package"
 mkdir -p "${OUTPUT_DIR}/files"
 find ".pio/build/${PIO_ENV}" -maxdepth 1 -type f \
   \( -name "*.bin" -o -name "*.uf2" -o -name "*.hex" \) \
@@ -194,8 +208,7 @@ write_flashing_notes "${OUTPUT_DIR}/files"
 } >> "${OUTPUT_DIR}/files/BUILD_INFO.txt"
 
 if [[ -z "$(find "${OUTPUT_DIR}/files" -type f ! -name BUILD_INFO.txt ! -name userPrefs.jsonc -print -quit)" ]]; then
-  echo "Build completed but no firmware files were found for ${PIO_ENV}" >&2
-  exit 1
+  fail no_artifacts package "PlatformIO produced no firmware files for ${PIO_ENV}."
 fi
 
 ZIP_NAME="meshtastic-${FIRMWARE_TAG}-${PIO_ENV}.zip"

@@ -209,7 +209,10 @@ Manual LoRa parameters (LoRa panel) and `ok_to_mqtt` (MQTT panel) are code
 options, not userPrefs keys. Their controls carry `.code-option` and hide when
 the selected tag is below `minFirmwareVersion`; a `SOURCE PATCH` badge and
 warning (`.patch-only`) show below `nativeSinceFirmwareVersion`, where the
-builder applies `docker/patches/userprefs-ext.patch`. Value ranges come from
+builder applies `docker/patches/userprefs-ext.patch`. A failed build renders
+`#buildFailure` instead: the server's `errorCode` translated through
+`buildError.*`, with `error` shown verbatim underneath as the technical
+detail. Value ranges come from
 `GET /api/build-options`, so they live in `data/build_options.json` and are
 never duplicated in JavaScript. Enabling manual LoRa configuration disables the
 modem preset selector with an inline explanation.
