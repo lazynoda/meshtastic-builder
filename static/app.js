@@ -53,6 +53,9 @@ const DEFAULT_CHANNEL_NAME = "SFNarrow";
 const state = {
   deviceFamilies: {},
   deviceLabels: {},
+  firmwares: [],
+  firmwareNames: {},
+  versions: [],
   extraPrefs: [],
   presetChannelName: DEFAULT_CHANNEL_NAME,
   templateExamples: {},
@@ -229,7 +232,8 @@ function setComboOpen(root, open) {
 function openCombo(root) {
   for (const item of root.querySelectorAll(".combo-list li")) item.hidden = false;
   setComboOpen(root, true);
-  root.querySelector(".combo-input").select();
+  const input = root.querySelector(".combo-input");
+  if (!input.readOnly) input.select();
 }
 
 function filterCombo(root) {
@@ -256,7 +260,82 @@ function chooseComboItem(root, item) {
   for (const other of root.querySelectorAll(".combo-list li")) other.removeAttribute("aria-selected");
   item.setAttribute("aria-selected", "true");
   closeCombos();
+  // Focus stays on the box (see the mousedown handler); a later click on it
+  // must reopen the list, which focusin alone would not do.
+  root.querySelector(".combo-input").blur();
   value.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+// Every <select> on the page gets the device picker's look. The native select
+// stays in the DOM, hidden, as the .combo-value: code keeps reading .value,
+// replacing its options and toggling .disabled, and the skin follows along.
+// Short lists open as a plain menu; long ones can be filtered by typing.
+const COMBO_FILTER_MIN_OPTIONS = 9;
+
+function skinSelect(select) {
+  if (select.dataset.skinned) return;
+  select.dataset.skinned = "1";
+  const root = document.createElement("div");
+  root.className = "combo";
+  const input = document.createElement("input");
+  input.className = "combo-input";
+  input.type = "text";
+  input.autocomplete = "off";
+  input.setAttribute("role", "combobox");
+  input.setAttribute("aria-expanded", "false");
+  input.setAttribute("aria-autocomplete", "list");
+  const list = document.createElement("ul");
+  list.className = "combo-list";
+  list.setAttribute("role", "listbox");
+  list.hidden = true;
+  select.replaceWith(root);
+  root.append(input, select, list);
+  select.classList.add("combo-value");
+  select.hidden = true;
+
+  const syncLabel = () => {
+    const option = select.selectedOptions[0];
+    input.value = option ? option.textContent.trim() : "";
+    for (const item of list.children) {
+      if (item.dataset.value === select.value) item.setAttribute("aria-selected", "true");
+      else item.removeAttribute("aria-selected");
+    }
+  };
+  const syncOptions = () => {
+    list.innerHTML = Array.from(select.options)
+      .map(
+        (option) =>
+          `<li role="option" data-value="${escapeHtml(option.value)}">${escapeHtml(option.textContent.trim())}</li>`,
+      )
+      .join("");
+    input.readOnly = select.options.length < COMBO_FILTER_MIN_OPTIONS;
+    syncLabel();
+  };
+  const syncDisabled = () => {
+    input.disabled = select.disabled;
+  };
+
+  // Assigning .value fires no event, so wrap the setter for this element.
+  const proto = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+  Object.defineProperty(select, "value", {
+    configurable: true,
+    get: () => proto.get.call(select),
+    set: (value) => {
+      proto.set.call(select, value);
+      syncLabel();
+    },
+  });
+  select.addEventListener("change", syncLabel);
+  new MutationObserver(() => {
+    syncOptions();
+    syncDisabled();
+  }).observe(select, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["disabled"] });
+  syncOptions();
+  syncDisabled();
+}
+
+function skinSelects() {
+  document.querySelectorAll("select").forEach(skinSelect);
 }
 
 function bindCombos() {
@@ -271,9 +350,19 @@ function bindCombos() {
     if (!event.target.matches?.(".combo-input")) return;
     filterCombo(event.target.closest(".combo"));
   });
+  // Keep focus in the text box while an option is pressed, so the box never
+  // blurs and refocuses mid-click.
+  document.addEventListener("mousedown", (event) => {
+    if (event.target.closest?.(".combo-list li")) event.preventDefault();
+  });
   document.addEventListener("click", (event) => {
     const item = event.target.closest?.(".combo-list li");
-    if (item) return chooseComboItem(item.closest(".combo"), item);
+    if (item) {
+      // Every combo sits inside a <label>. Without this the click also
+      // activates the label, which focuses the text box and reopens the list.
+      event.preventDefault();
+      return chooseComboItem(item.closest(".combo"), item);
+    }
     if (!event.target.closest?.(".combo")) closeCombos();
   });
   document.addEventListener("keydown", (event) => {
@@ -284,7 +373,10 @@ function bindCombos() {
       closeCombos();
     } else if (event.key === "Enter") {
       event.preventDefault();
-      const first = root.querySelector(".combo-list li:not([hidden])");
+      // A read-only menu shows every option, so Enter keeps the current one.
+      const first = event.target.readOnly
+        ? root.querySelector('.combo-list li[aria-selected="true"]')
+        : root.querySelector(".combo-list li:not([hidden])");
       if (first) chooseComboItem(root, first);
     }
   });
@@ -451,8 +543,24 @@ function renderExpiry(expiresAt) {
   $("resultTtl").textContent = days ? t("result.ttl", { days }) : "";
 }
 
+function selectedFirmware() {
+  return state.firmwares.find((item) => item.id === $("firmwareId").value) || null;
+}
+
+function selectedVersion() {
+  const firmware = selectedFirmware();
+  if (firmware?.versioning === "branch") return state.versions[0] || null;
+  return state.versions.find((item) => item.tag === $("firmwareTag").value) || null;
+}
+
+// The x.y.z the version gates compare. For a tag it is the tag itself; a branch
+// has no tag, so the server reads it from the branch's version.properties.
+function selectedGateVersion() {
+  return selectedVersion()?.version || $("firmwareTag").value;
+}
+
 function syncAdvancedAvailability() {
-  const tag = $("firmwareTag").value;
+  const tag = selectedGateVersion();
   const options = state.buildOptions;
   state.codeOptionsAvailable = Boolean(options && versionAtLeast(tag, options.minFirmwareVersion));
   state.codeOptionsNative = Boolean(options && versionAtLeast(tag, options.nativeSinceFirmwareVersion));
@@ -525,11 +633,33 @@ async function loadDeviceCatalog() {
   return devices;
 }
 
+// The boards of the selected firmware at the selected version: forks add their
+// own, and older tags lack newer ones. Without a firmware yet (first paint), the
+// static catalogue.
 async function loadDevices() {
-  const devices = await loadDeviceCatalog();
+  const firmware = state.firmwares.length ? selectedFirmware() : null;
+  const tag = $("firmwareTag").value;
+  let devices;
+  if (firmware && (tag || firmware.versioning === "branch")) {
+    const params = new URLSearchParams({ firmware: firmware.id });
+    if (tag) params.set("tag", tag);
+    const requested = params.toString();
+    state.devicesRequest = requested;
+    devices = (await fetchJson(`/api/devices?${params}`)).devices;
+    // A newer firmware/version switch has already asked for its own list.
+    if (state.devicesRequest !== requested) return;
+    for (const device of devices) {
+      state.deviceFamilies[device.id] = device.family;
+      state.deviceLabels[device.id] = device.label;
+    }
+  } else {
+    devices = await loadDeviceCatalog();
+  }
+  const previous = $("deviceId")?.value;
+  const keep = previous && devices.some((device) => device.id === previous);
   $("deviceCombo").innerHTML = comboHtml(
     devices.map((device) => ({ value: device.id, label: device.label })),
-    devices.length ? devices[0].id : "",
+    keep ? previous : devices.length ? devices[0].id : "",
     { valueAttrs: 'id="deviceId" name="deviceId"', placeholder: t("step1.devicePlaceholder") },
   );
   $("deviceId").addEventListener("change", syncWifiAvailability);
@@ -539,29 +669,104 @@ async function loadDevices() {
   updatePrefsPreview();
 }
 
+// The catalogue of firmware sources (data/firmwares.json). The build page needs the
+// names too, so this is split from the form wiring like loadDeviceCatalog().
+async function loadFirmwareCatalog() {
+  const { default: defaultId, firmwares } = await fetchJson("/api/firmwares");
+  state.firmwares = firmwares;
+  state.firmwareNames = Object.fromEntries(firmwares.map((item) => [item.id, item.name]));
+  return defaultId;
+}
+
+async function loadFirmwares() {
+  const defaultId = await loadFirmwareCatalog();
+  $("firmwareId").innerHTML = state.firmwares
+    .map(
+      (item) =>
+        `<option value="${escapeHtml(item.id)}" ${item.id === defaultId ? "selected" : ""}>${escapeHtml(item.name)}</option>`,
+    )
+    .join("");
+  syncFirmwareRepoLink();
+}
+
+function syncFirmwareRepoLink() {
+  const firmware = selectedFirmware();
+  const link = $("firmwareRepo");
+  link.textContent = firmware ? firmware.url.replace(/^https:\/\//, "") : "";
+  link.href = firmware ? firmware.url : "#";
+}
+
+// Called on every firmware switch too: each firmware has its own tag list.
 async function loadVersions(forceRefresh = false) {
+  const firmware = selectedFirmware();
+  if (!firmware) return;
+  const select = $("firmwareTag");
+  const requestedFirmware = firmware.id;
   setStatusKey(forceRefresh ? "status.refreshingTags" : "status.loadingTags");
-  const { versions } = await fetchJson(`/api/firmware-versions${forceRefresh ? "?refresh=1" : ""}`);
+  select.disabled = true;
+  const params = new URLSearchParams({ firmware: firmware.id });
+  if (forceRefresh) params.set("refresh", "1");
+  const { versions } = await fetchJson(`/api/firmware-versions?${params}`);
+  // The user may have switched firmware again while this was in flight.
+  if ($("firmwareId").value !== requestedFirmware) return;
   if (!versions.length) {
     throw new Error(t("error.noVersions"));
   }
-  $("firmwareTag").innerHTML = versions
-    .map((version) => `<option value="${escapeHtml(version.tag)}">${escapeHtml(version.tag)}</option>`)
-    .join("");
+  state.versions = versions;
+  renderVersionSelect();
   await onFirmwareTagChange();
   setStatusKey("status.ready");
 }
 
+function renderVersionSelect() {
+  const firmware = selectedFirmware();
+  const select = $("firmwareTag");
+  const hint = $("firmwareBranchHint");
+  if (firmware?.versioning === "branch") {
+    // No releases to choose from: one disabled N/A entry, and the hint names
+    // the commit the build will actually compile.
+    const head = state.versions[0];
+    select.innerHTML = `<option value="">${escapeHtml(t("step1.noVersion"))}</option>`;
+    select.disabled = true;
+    hint.textContent = t("step1.branchHint", {
+      branch: firmware.branch,
+      version: head?.version || "?",
+      sha: (head?.sha || "").slice(0, 7),
+    });
+    hint.hidden = false;
+    return;
+  }
+  const previous = select.value;
+  select.innerHTML = state.versions
+    .map((version) => `<option value="${escapeHtml(version.tag)}">${escapeHtml(version.tag)}</option>`)
+    .join("");
+  if (previous && state.versions.some((version) => version.tag === previous)) {
+    select.value = previous;
+  }
+  select.disabled = false;
+  hint.hidden = true;
+}
+
+async function onFirmwareChange() {
+  syncFirmwareRepoLink();
+  state.versions = [];
+  $("firmwareTag").innerHTML = "";
+  await loadVersions(false);
+}
+
 async function onFirmwareTagChange() {
-  populateStaticSelects($("firmwareTag").value);
+  populateStaticSelects(selectedGateVersion());
   syncAdvancedAvailability();
-  await loadTemplate();
+  await Promise.all([loadTemplate(), loadDevices()]);
 }
 
 async function loadTemplate() {
+  const firmware = selectedFirmware();
   const tag = $("firmwareTag").value;
-  if (!tag) return;
-  const response = await fetch(`/api/prefs-template?tag=${encodeURIComponent(tag)}`);
+  if (!firmware || (!tag && firmware.versioning !== "branch")) return;
+  const params = new URLSearchParams({ firmware: firmware.id });
+  if (tag) params.set("tag", tag);
+  const response = await fetch(`/api/prefs-template?${params}`);
   if (!response.ok) {
     const payload = await response.json();
     throw new Error(payload.error || t("error.template"));
@@ -1266,9 +1471,12 @@ async function submitBuild(event) {
     setStatusKey("status.creating");
     const payload = {
       deviceId: $("deviceId").value,
-      firmwareTag: $("firmwareTag").value,
+      firmwareId: $("firmwareId").value,
       prefsJsonc: $("prefsJsonc").value,
     };
+    if (selectedFirmware()?.versioning !== "branch") {
+      payload.firmwareTag = $("firmwareTag").value;
+    }
     const codeOptions = buildCodeOptions();
     if (codeOptions) {
       payload.codeOptions = codeOptions;
@@ -1289,6 +1497,17 @@ async function submitBuild(event) {
   }
 }
 
+// "Jentastic v2.8.104", or for a branch "Nodastic nodastic @ daf3a61".
+function describeBuildFirmware(build) {
+  const name = state.firmwareNames?.[build.firmwareId] || build.firmwareId || "";
+  const firmware = state.firmwares.find((item) => item.id === build.firmwareId);
+  const ref =
+    firmware?.versioning === "branch"
+      ? `${build.firmwareTag} @ ${String(build.firmwareSha || "").slice(0, 7)}`
+      : build.firmwareTag;
+  return name ? `${name} ${ref}` : ref;
+}
+
 function showBuild(build, downloadUrl = null, buildUrl = null) {
   state.lastBuild = build;
   if (downloadUrl) state.lastDownloadUrl = downloadUrl;
@@ -1297,8 +1516,8 @@ function showBuild(build, downloadUrl = null, buildUrl = null) {
   renderBuildStatus(build.status);
   $("buildNode").textContent = build.ownerLongName || "-";
   $("buildShortName").textContent = build.ownerShortName || "-";
-  $("buildDevice").textContent = state.deviceLabels?.[build.deviceId] || build.deviceId;
-  $("buildFirmware").textContent = build.firmwareTag;
+  $("buildDevice").textContent = build.deviceLabel || state.deviceLabels?.[build.deviceId] || build.deviceId;
+  $("buildFirmware").textContent = describeBuildFirmware(build);
 
   renderExpiry(build.expiresAt);
 
@@ -1381,10 +1600,12 @@ async function loadExistingBuild(token) {
 
 function bindEvents() {
   $("buildForm").addEventListener("submit", submitBuild);
+  $("firmwareId").addEventListener("change", () => {
+    onFirmwareChange().catch((error) => setStatus(error.message, true));
+  });
   $("firmwareTag").addEventListener("change", () => {
     onFirmwareTagChange().catch((error) => setStatus(error.message, true));
   });
-  $("refreshVersions").addEventListener("click", () => loadVersions(true).catch((error) => setStatus(error.message, true)));
   $("customLoraEnabled").addEventListener("change", syncCustomLora);
   $("modemPreset").addEventListener("change", syncPresetChannelName);
   $("copyBuildUrl").addEventListener("click", async () => {
@@ -1459,6 +1680,7 @@ function bindEvents() {
     button.addEventListener("click", () => setLang(button.dataset.lang));
   });
   document.addEventListener("languagechange", () => {
+    if (!state.buildViewOnly && state.versions.length) renderVersionSelect();
     renderTtlNotice();
     renderExtraPrefs();
     renderChannels();
@@ -1468,6 +1690,7 @@ function bindEvents() {
 }
 
 applyI18n();
+skinSelects();
 populateStaticSelects();
 bindEvents();
 bindCombos();
@@ -1484,17 +1707,16 @@ if (buildViewToken) {
   state.buildViewOnly = true;
   document.querySelector(".app-main").prepend($("statusText"));
   $("buildForm").hidden = true;
-  $("refreshVersions").hidden = true;
   // Swap the keys rather than the text: applyI18n() re-reads them on every
   // language switch, so "Request created" would come back otherwise.
   $("resultTitle").dataset.i18n = "result.titleView";
   $("resultKeep").dataset.i18n = "result.keepView";
   applyI18n();
-  Promise.all([loadBuildOptions(), loadDeviceCatalog()])
+  Promise.all([loadBuildOptions(), loadDeviceCatalog(), loadFirmwareCatalog()])
     .then(() => loadExistingBuild(buildViewToken))
     .catch((error) => setStatus(error.message, true));
 } else {
-  Promise.all([loadDevices(), loadBuildOptions()])
+  Promise.all([loadDevices(), loadBuildOptions(), loadFirmwares()])
     .then(() => loadVersions(false))
     .catch((error) => setStatus(error.message, true));
 }

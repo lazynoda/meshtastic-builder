@@ -9,11 +9,14 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+from . import __version__
 from .code_options import load_build_options
 from .config import Config, ensure_directories, load_config
 from .cleanup import build_is_expired, expire_build_artifact
 from .db import build_stats, get_build_by_token, initialize_database, public_build_view
 from .devices import enabled_devices
+from .board_catalog import devices_for
+from .firmwares import DEFAULT_FIRMWARE_ID, get_firmware, load_firmware_catalog
 from .firmware import (
     FirmwareLookupError,
     get_userprefs_template,
@@ -27,6 +30,8 @@ from .submissions import create_build_submission
 
 RATE_LIMIT: dict[str, list[float]] = {}
 
+VERSION_PLACEHOLDER = b"__MB_VERSION__"
+
 
 def _json_default(value: Any) -> Any:
     if isinstance(value, Path):
@@ -39,7 +44,7 @@ def _public_error(message: str) -> dict[str, str]:
 
 
 class MeshtasticBuilderHandler(BaseHTTPRequestHandler):
-    server_version = "MeshtasticBuilder/0.1"
+    server_version = f"MeshtasticBuilder/{__version__}"
     config: Config
 
     def log_message(self, fmt: str, *args: Any) -> None:
@@ -76,8 +81,21 @@ class MeshtasticBuilderHandler(BaseHTTPRequestHandler):
             if path == "/api/devices":
                 if not send_body:
                     return self.head_not_allowed()
+                firmware_id = query.get("firmware", [""])[0]
+                if firmware_id:
+                    # The boards of the selected firmware at the selected version.
+                    version = resolve_supported_version(
+                        self.config, query.get("tag", [""])[0] or None, firmware_id=firmware_id
+                    )
+                    devices, from_firmware = devices_for(
+                        self.config, get_firmware(self.config.root_dir, firmware_id), version["sha"]
+                    )
+                else:
+                    # No firmware named: the static list, which also labels old builds.
+                    devices, from_firmware = enabled_devices(self.config.root_dir), False
                 return self.json_response(
                     {
+                        "fromFirmware": from_firmware,
                         "devices": [
                             {
                                 "id": device.id,
@@ -85,8 +103,8 @@ class MeshtasticBuilderHandler(BaseHTTPRequestHandler):
                                 "platformioEnv": device.platformio_env,
                                 "family": device.family,
                             }
-                            for device in enabled_devices(self.config.root_dir)
-                        ]
+                            for device in devices
+                        ],
                     }
                 )
             if path in {"/api/health", "/health"}:
@@ -98,20 +116,33 @@ class MeshtasticBuilderHandler(BaseHTTPRequestHandler):
                 # The page states the retention window next to the submit button.
                 options["artifactTtlDays"] = self.config.artifact_ttl_days
                 return self.json_response(options)
+            if path == "/api/firmwares":
+                if not send_body:
+                    return self.head_not_allowed()
+                default, firmwares = load_firmware_catalog(self.config.root_dir)
+                return self.json_response(
+                    {"default": default, "firmwares": [item.public() for item in firmwares]}
+                )
             if path == "/api/firmware-versions":
                 if not send_body:
                     return self.head_not_allowed()
                 force_refresh = query.get("refresh", ["0"])[0] in {"1", "true", "yes"}
-                versions = list_versions_with_refresh(self.config, force_refresh=force_refresh)
-                return self.json_response({"versions": versions})
+                firmware_id = query.get("firmware", [DEFAULT_FIRMWARE_ID])[0]
+                versions = list_versions_with_refresh(
+                    self.config, force_refresh=force_refresh, firmware_id=firmware_id
+                )
+                return self.json_response({"firmwareId": firmware_id, "versions": versions})
             if path == "/api/prefs-template":
                 if not send_body:
                     return self.head_not_allowed()
+                firmware_id = query.get("firmware", [DEFAULT_FIRMWARE_ID])[0]
                 tag = query.get("tag", [""])[0]
-                if not tag:
-                    return self.error_response(HTTPStatus.BAD_REQUEST, "Falta el tag de firmware.")
-                resolve_supported_version(self.config, tag)
-                return self.text_response(get_userprefs_template(self.config, tag), "text/plain")
+                version = resolve_supported_version(self.config, tag, firmware_id=firmware_id)
+                ref = version["sha"] if version["branch"] else version["tag"]
+                return self.text_response(
+                    get_userprefs_template(self.config, version["tag"], firmware_id=firmware_id, ref=ref),
+                    "text/plain",
+                )
             if path.startswith("/api/builds/"):
                 if not send_body:
                     return self.head_not_allowed()
@@ -208,16 +239,20 @@ class MeshtasticBuilderHandler(BaseHTTPRequestHandler):
         if not str(target).startswith(str(static_root.resolve())) or not target.exists() or not target.is_file():
             return self.error_response(HTTPStatus.NOT_FOUND, "Fichero no encontrado.")
         content_type = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+        body = target.read_bytes()
+        if target.suffix == ".html":
+            # The footer names the running version; filled in here so the pages
+            # need no script or extra request for it.
+            body = body.replace(VERSION_PLACEHOLDER, __version__.encode("ascii"))
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(target.stat().st_size))
+        self.send_header("Content-Length", str(len(body)))
         # Without this browsers keep serving a redeployed page from cache, and phones
         # are the worst offenders. These files are a few KB, so always revalidate.
         self.send_header("Cache-Control", "no-cache")
         self.end_headers()
         if send_body:
-            with target.open("rb") as fh:
-                self.wfile.write(fh.read())
+            self.wfile.write(body)
 
     def serve_download(self, token: str, *, send_body: bool = True) -> None:
         row = get_build_by_token(self.config, token)
@@ -235,7 +270,12 @@ class MeshtasticBuilderHandler(BaseHTTPRequestHandler):
         if not path.exists() or not path.is_file():
             return self.error_response(HTTPStatus.GONE, "Artefacto no encontrado en disco.")
 
-        filename = f"meshtastic-{row['firmware_tag']}-{row['platformio_env']}-{token[:8]}.zip"
+        firmware_id = row.get("firmware_id") or DEFAULT_FIRMWARE_ID
+        # A branch build names its commit: the branch name says nothing about what was compiled.
+        label = row["firmware_tag"]
+        if firmware_id != DEFAULT_FIRMWARE_ID and row.get("firmware_version") and label == firmware_id:
+            label = f"{row['firmware_version']}-{str(row['firmware_sha'])[:7]}"
+        filename = f"{firmware_id}-{label}-{row['platformio_env']}-{token[:8]}.zip"
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "application/zip")
         self.send_header("Content-Length", str(path.stat().st_size))

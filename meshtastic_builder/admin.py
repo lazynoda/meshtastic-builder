@@ -18,16 +18,21 @@ from .devices import enabled_devices
 from .firmware import refresh_firmware_versions
 
 
-def set_firmware_supported(config: Config, tag: str, supported: bool) -> dict[str, object]:
+def set_firmware_supported(
+    config: Config,
+    tag: str,
+    supported: bool,
+    firmware_id: str = "meshtastic",
+) -> dict[str, object]:
     initialize_database(config)
-    if get_firmware_version(config, tag) is None:
-        raise ValueError(f"Firmware tag not found in local cache: {tag}")
+    if get_firmware_version(config, tag, firmware_id=firmware_id) is None:
+        raise ValueError(f"Firmware tag not found in local cache: {firmware_id} {tag}")
     with connection(config) as conn:
         conn.execute(
-            "UPDATE firmware_versions SET supported = ? WHERE tag = ?",
-            (1 if supported else 0, tag),
+            "UPDATE firmware_versions SET supported = ? WHERE firmware_id = ? AND tag = ?",
+            (1 if supported else 0, firmware_id, tag),
         )
-    updated = get_firmware_version(config, tag)
+    updated = get_firmware_version(config, tag, firmware_id=firmware_id)
     if updated is None:
         raise RuntimeError(f"Firmware tag disappeared after update: {tag}")
     return updated
@@ -96,8 +101,8 @@ def docker_status(config: Config, *, timeout_seconds: int = 10) -> dict[str, obj
     }
 
 
-def print_versions(config: Config, *, include_unsupported: bool) -> None:
-    versions = list_firmware_versions(config, supported_only=not include_unsupported)
+def print_versions(config: Config, *, include_unsupported: bool, firmware_id: str = "meshtastic") -> None:
+    versions = list_firmware_versions(config, supported_only=not include_unsupported, firmware_id=firmware_id)
     for item in versions:
         state = "supported" if item["supported"] else "unsupported"
         print(f"{item['tag']}\t{item['sha']}\t{state}\t{item['smoke_test_status']}")
@@ -118,7 +123,10 @@ def print_build_log(config: Config, token: str, *, tail_lines: int = 40, full: b
     print(f"token:    {build['public_token']}")
     print(f"status:   {build['status']}")
     print(f"device:   {build['device_id']} ({build['platformio_env']})")
-    print(f"firmware: {build['firmware_tag']} ({build['firmware_sha']})")
+    print(
+        f"firmware: {build.get('firmware_id') or 'meshtastic'} {build['firmware_tag']} "
+        f"({build['firmware_sha']}, version {build.get('firmware_version') or build['firmware_tag']})"
+    )
     print(f"options:  {build['code_options'] or 'none'}")
     print(f"created:  {build['created_at']}   finished: {build['finished_at'] or '-'}")
     if build["status"] == "failed":

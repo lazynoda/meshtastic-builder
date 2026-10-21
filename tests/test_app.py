@@ -91,5 +91,39 @@ class BuildPermalinkTests(unittest.TestCase):
                 self.assertEqual(handler.status, HTTPStatus.BAD_REQUEST)
 
 
+class VersionFooterTests(unittest.TestCase):
+    def serve(self, name):
+        import io
+
+        from meshtastic_builder import __version__
+
+        handler = MeshtasticBuilderHandler.__new__(MeshtasticBuilderHandler)
+        handler.config = load_config()
+        handler.wfile = io.BytesIO()
+        sent = {}
+        handler.send_response = lambda code, message=None: sent.setdefault("status", code)
+        handler.send_header = lambda key, value: sent.__setitem__(key, value)
+        handler.end_headers = lambda: None
+        handler.serve_static(name)
+        body = handler.wfile.getvalue()
+        return body, sent, __version__
+
+    def test_pages_show_the_running_version(self):
+        for name in ("index.html", "about.html"):
+            with self.subTest(page=name):
+                body, sent, version = self.serve(name)
+                self.assertIn(f">v{version}</a>".encode(), body)
+                self.assertIn(f"/releases/tag/v{version}".encode(), body)
+                self.assertNotIn(b"__MB_VERSION__", body)
+                # Content-Length must match the substituted body, not the file.
+                self.assertEqual(int(sent["Content-Length"]), len(body))
+
+    def test_non_html_is_served_untouched(self):
+        from pathlib import Path
+
+        body, _sent, _version = self.serve("app.js")
+        self.assertEqual(body, (Path(load_config().root_dir) / "static" / "app.js").read_bytes())
+
+
 if __name__ == "__main__":
     unittest.main()

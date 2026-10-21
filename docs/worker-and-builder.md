@@ -58,7 +58,8 @@ docker run --rm \
   <MB_BUILDER_IMAGE> \
   <firmware-tag> \
   <firmware-sha> \
-  <platformio-env>
+  <platformio-env> \
+  <firmware-repo-url>
 ```
 
 `copy` is for remote Docker daemons. It creates a container, copies local inputs into
@@ -178,11 +179,33 @@ Even on 6.1.19 the first run after a platform change can fail during that swap,
 so both prewarm and the runtime entrypoint retry `pio run` once. Bump the pin
 only after a real `heltec-v4` build passes.
 
+On arm64 hosts PlatformIO's `tool-sreccat` package carries a 32-bit ARM
+`srec_cat`, which a 64-bit-only image cannot run (`sh: 1: …/srec_cat: not
+found`, `Error 127`). nRF54 boards call it to write their `.hex`, so their builds
+died on the last step. The image installs Debian's `srecord`, and the
+entrypoint replaces the bundled binary with a link to the native one whenever
+the bundled one does not run, before `pio run` and again before its retry (a
+platform installed by the first run can bring the package along). On x86 the
+bundled binary runs and is left alone. A tool that cannot be started is
+reported as an `infrastructure` failure, not `unknown`.
+
 Entrypoint contract:
 
 ```bash
-build-firmware <firmware-tag> <firmware-sha> <platformio-env>
+build-firmware <firmware-tag> <firmware-sha> <platformio-env> [<firmware-repo-url>]
 ```
+
+`<firmware-repo-url>` is the `.git` clone URL of the firmware chosen in
+[`data/firmwares.json`](firmwares.md); without it the build uses upstream
+Meshtastic. The image only ever clones upstream. For another repository the
+entrypoint fetches exactly `<firmware-sha>` from that URL into the same
+`/opt/firmware` clone, without its tags, checks out that commit and resyncs the
+submodule URLs from the commit's own `.gitmodules`. There is no fallback to the
+tag name for other repositories, because it could resolve to an upstream tag
+and compile the wrong firmware. The first build of each firmware downloads the
+history it does not share with upstream, so it needs network access
+(`MB_DOCKER_NETWORK=bridge`). Adding a firmware never requires rebuilding the
+image.
 
 Inputs:
 

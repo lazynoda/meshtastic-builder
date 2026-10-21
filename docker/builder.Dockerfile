@@ -54,6 +54,14 @@ RUN chmod +x /usr/local/bin/prewarm-firmware \
       /root/.cache/pip \
       /tmp/*
 
+# Native srec_cat for build-firmware's use_native_sreccat: PlatformIO's
+# tool-sreccat is a 32-bit ARM binary on arm64 hosts, which this image cannot
+# run, and nRF54 builds need it. After the prewarm so adding it costs seconds.
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y srecord \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
 # After the prewarm on purpose. This script changes whenever a patch, a phase
 # banner or a failure marker changes; copied in earlier, every such edit would
 # discard about an hour of prewarming for a shell diff.

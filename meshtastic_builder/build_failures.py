@@ -67,6 +67,15 @@ LINKER_ERROR_RE = re.compile(
 )
 
 
+# A tool the build calls could not be started: `sh: 1: <path>: not found` with
+# PlatformIO's `Error 127`. The builder environment is at fault, not the user's
+# settings; seen with a 32-bit ARM srec_cat on an arm64 image.
+MISSING_TOOL_RE = re.compile(
+    r"^\s*(?P<line>sh: \d+: \S+: (?:not found|Permission denied|cannot execute.*))$",
+    re.MULTILINE,
+)
+
+
 class BuildFailure(Exception):
     """A build that failed for a reason we can name.
 
@@ -117,6 +126,10 @@ def classify_build_log(log: str) -> tuple[str, str, str]:
     linker_error = LINKER_ERROR_RE.search(log or "")
     if linker_error:
         return CODE_COMPILE_ERROR, "compile", _clip(linker_error.group("line"))
+
+    missing_tool = MISSING_TOOL_RE.search(log or "")
+    if missing_tool and "Error 127" in (log or ""):
+        return CODE_INFRASTRUCTURE, "compile", _clip(missing_tool.group("line"))
 
     return CODE_UNKNOWN, "", ""
 

@@ -36,7 +36,6 @@
             <button type="button" class="lang-button" data-lang="es">ES</button>
             <button type="button" class="lang-button" data-lang="en">EN</button>
           </div>
-          <button id="refreshVersions" class="btn" type="button" data-i18n="header.refresh"></button>
         </div>
       </header>
 
@@ -44,14 +43,20 @@
         <form id="buildForm">
           <section class="panel">
             <h2><span data-i18n="step1.title"></span></h2>
-            <div class="grid grid-two">
+            <div class="grid grid-three">
               <label>
-                <span data-i18n="step1.device"></span>
-                <div id="deviceCombo"></div>
+                <span data-i18n="step1.firmware"></span>
+                <select id="firmwareId" name="firmwareId" required></select>
+                <small class="field-hint firmware-repo"><a id="firmwareRepo" href="#" target="_blank" rel="noreferrer"></a></small>
               </label>
               <label>
                 <span data-i18n="step1.version"></span>
                 <select id="firmwareTag" name="firmwareTag" required></select>
+                <small id="firmwareBranchHint" class="field-hint" hidden></small>
+              </label>
+              <label>
+                <span data-i18n="step1.device"></span>
+                <div id="deviceCombo"></div>
               </label>
             </div>
           </section>
@@ -425,6 +430,9 @@
       <footer class="app-footer">
         <p data-i18n="footer.trademark"></p>
         <p data-i18n-html="footer.source"></p>
+        <p class="footer-version">
+          <a href="https://github.com/lazynoda/meshtastic-builder/releases/tag/v__MB_VERSION__" target="_blank" rel="noreferrer">v__MB_VERSION__</a>
+        </p>
       </footer>
     </div>
     <script src="/static/i18n.js"></script>

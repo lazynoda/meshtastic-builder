@@ -2,16 +2,18 @@ const DICT = {
   es: {
     "page.title": "Meshtastic Builder",
     "header.tagline": "Firmware Meshtastic a medida, sin editar JSON a mano",
-    "header.refresh": "Actualizar tags",
     "footer.trademark":
       "Meshtastic es una marca registrada de Meshtastic LLC. Este proyecto no esta afiliado ni respaldado por Meshtastic LLC, ni por ninguna de las marcas de los dispositivos listados. Es un proyecto hecho por aficion.",
     "footer.source":
       "<a href=\"https://github.com/lazynoda/meshtastic-builder\" target=\"_blank\" rel=\"noreferrer\">Codigo fuente</a> bajo licencia AGPL-3.0.",
 
-    "step1.title": "Dispositivo y firmware",
+    "step1.title": "Firmware y dispositivo",
     "step1.device": "Dispositivo",
     "step1.devicePlaceholder": "Busca un dispositivo",
+    "step1.firmware": "Firmware",
     "step1.version": "Version de firmware",
+    "step1.noVersion": "N/A",
+    "step1.branchHint": "Sin versiones: se compila la rama {branch} ({version}, {sha}).",
 
     "step2.title": "Nodo",
     "step2.longName": "Nombre largo",
@@ -247,16 +249,18 @@ const DICT = {
   en: {
     "page.title": "Meshtastic Builder",
     "header.tagline": "Custom Meshtastic firmware without hand-editing JSON",
-    "header.refresh": "Refresh tags",
     "footer.trademark":
       "Meshtastic is a registered trademark of Meshtastic LLC. This project is not affiliated with or endorsed by Meshtastic LLC, nor by any of the device brands listed. It is a hobby project.",
     "footer.source":
       "<a href=\"https://github.com/lazynoda/meshtastic-builder\" target=\"_blank\" rel=\"noreferrer\">Source code</a> under the AGPL-3.0 license.",
 
-    "step1.title": "Device and firmware",
+    "step1.title": "Firmware and device",
     "step1.device": "Device",
     "step1.devicePlaceholder": "Search for a device",
+    "step1.firmware": "Firmware",
     "step1.version": "Firmware version",
+    "step1.noVersion": "N/A",
+    "step1.branchHint": "No releases: builds the {branch} branch ({version}, {sha}).",
 
     "step2.title": "Node",
     "step2.longName": "Long name",

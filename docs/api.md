@@ -39,7 +39,12 @@ yet, since expiry is also applied lazily when a download is attempted.
 
 ## `GET /api/devices`
 
-Returns enabled devices from `data/devices.json`.
+Without parameters, returns enabled devices from `data/devices.json`.
+
+With `firmware=<id>` (and `tag=<tag>` for tag firmwares), returns the boards of
+that firmware at that version, read from its own repository (see
+[Firmware Sources](firmwares.md#boards)). `fromFirmware` is `false` when GitHub
+could not be reached and the static list was returned instead.
 
 Response:
 
@@ -73,20 +78,44 @@ frontend uses it to render controls and to gate behaviour by firmware version:
 
 See [Advanced Build Options](build-options.md).
 
+## `GET /api/firmwares`
+
+Lists the firmware sources from [`data/firmwares.json`](firmwares.md) and the
+default one.
+
+```json
+{
+  "default": "meshtastic",
+  "firmwares": [
+    {"id": "meshtastic", "name": "Meshtastic Oficial", "url": "https://github.com/meshtastic/firmware", "versioning": "tags", "branch": null},
+    {"id": "nodastic", "name": "Nodastic", "url": "https://github.com/lazynoda/meshtastic-firmware", "versioning": "branch", "branch": "nodastic"}
+  ]
+}
+```
+
 ## `GET /api/firmware-versions`
 
-Returns supported cached firmware versions, newest first. If the cache is empty, the server attempts to fetch tags from GitHub.
+Returns supported cached firmware versions of one firmware, newest first. If
+the cache is empty, the server attempts to fetch tags from GitHub. For a branch
+firmware it returns a single entry: the branch head, resolved at most every
+five minutes, with `version` read from that commit's `version.properties`.
 
 Optional query:
 
+- `firmware=<id>`: firmware source, default `meshtastic`.
 - `refresh=1`: force tag refresh.
 
 Response:
 
 ```json
 {
+  "firmwareId": "meshtastic",
   "versions": [
     {
+      "firmware_id": "meshtastic",
+      "firmwareId": "meshtastic",
+      "version": "v2.x.y",
+      "branch": false,
       "tag": "v2.x.y",
       "sha": "commit-sha",
       "release_name": "v2.x.y",
@@ -99,11 +128,15 @@ Response:
 }
 ```
 
-## `GET /api/prefs-template?tag=<tag>`
+## `GET /api/prefs-template?firmware=<id>&tag=<tag>`
 
-Returns the `userPrefs.jsonc` template for a supported tag as plain text.
+Returns the `userPrefs.jsonc` template for a supported tag as plain text,
+read from the selected firmware's own repository. `firmware` defaults to
+`meshtastic`; a branch firmware needs no `tag` and returns the template at the
+branch head.
 
-The server uses a local cache under `var/cache/userprefs/`. If fetching from GitHub fails, it falls back to `data/userPrefs.fallback.jsonc`.
+The server uses a local cache under `var/cache/userprefs/` (one subdirectory
+per firmware other than `meshtastic`; branch templates are cached per commit). If fetching from GitHub fails, it falls back to `data/userPrefs.fallback.jsonc`.
 
 ## `POST /api/builds`
 
@@ -114,6 +147,7 @@ Request:
 ```json
 {
   "deviceId": "tbeam",
+  "firmwareId": "meshtastic",
   "firmwareTag": "v2.x.y",
   "prefsJsonc": "{\"USERPREFS_CONFIG_OWNER_SHORT_NAME\":\"ABC\"}",
   "codeOptions": {
@@ -136,7 +170,9 @@ is rejected for firmware older than `minFirmwareVersion`. See
 Validation:
 
 - `deviceId` must be enabled in `data/devices.json`.
-- `firmwareTag` must exist in `firmware_versions` and be supported.
+- `firmwareId` must be listed in `data/firmwares.json`; when absent it means `meshtastic`.
+- `firmwareTag` must exist in `firmware_versions` for that firmware and be
+  supported. A branch firmware ignores it and builds the branch head.
 - `prefsJsonc` must parse as JSONC.
 - Preference keys must start with `USERPREFS_`.
 - Preference keys must exist in the selected tag's `userPrefs.jsonc` template when keys can be extracted.

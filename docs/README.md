@@ -11,6 +11,8 @@ New here? Start with the [project README](../README.md).
 - [Operations](operations.md): deployment behind a reverse proxy, backups, logs,
   firmware version admin.
 - [Configuration](configuration.md): every `MB_*` environment variable.
+- [Firmware Sources](firmwares.md): the firmwares users can pick, in
+  `data/firmwares.json`.
 
 ## How It Works
 

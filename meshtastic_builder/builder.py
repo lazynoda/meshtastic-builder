@@ -18,6 +18,7 @@ from .build_failures import (
 from .code_options import code_options_need_patch, fixed_gps_patch_needed, load_build_options
 from .config import Config
 from .db import iso_now
+from .firmwares import DEFAULT_FIRMWARE_ID, FirmwareSource, get_firmware
 from .jsonc import extract_userpref_keys
 
 
@@ -49,7 +50,17 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def build_info(build: dict[str, object]) -> str:
+def build_firmware_source(config: Config, build: dict[str, object]) -> FirmwareSource:
+    """The repository this build compiles. Rows from before the selector are upstream's."""
+    return get_firmware(config.root_dir, str(build.get("firmware_id") or DEFAULT_FIRMWARE_ID))
+
+
+def gate_version(build: dict[str, object]) -> str:
+    """x.y.z for the version gates: stored at submit time, the tag on older rows."""
+    return str(build.get("firmware_version") or build["firmware_tag"])
+
+
+def build_info(build: dict[str, object], source: FirmwareSource) -> str:
     return "\n".join(
         [
             "Meshtastic Builder Artifact",
@@ -57,11 +68,13 @@ def build_info(build: dict[str, object]) -> str:
             f"build_token={build['public_token']}",
             f"device_id={build['device_id']}",
             f"platformio_env={build['platformio_env']}",
+            f"firmware={source.name}",
             f"firmware_tag={build['firmware_tag']}",
             f"firmware_sha={build['firmware_sha']}",
+            f"firmware_version={gate_version(build)}",
             f"code_options={build.get('code_options') or 'none'}",
-            "source=https://github.com/meshtastic/firmware",
-            "license=GPL-3.0-or-later",
+            f"source={source.url}",
+            f"license={source.license}",
             "",
         ]
     )
@@ -80,14 +93,15 @@ def run_build(config: Config, build: dict[str, object]) -> BuildArtifact:
     input_dir.mkdir(parents=True, exist_ok=True)
     output_dir.mkdir(parents=True, exist_ok=True)
     (input_dir / "userPrefs.jsonc").write_text(str(build["prefs_jsonc"]), encoding="utf-8")
-    (input_dir / "BUILD_INFO.txt").write_text(build_info(build), encoding="utf-8")
+    source = build_firmware_source(config, build)
+    (input_dir / "BUILD_INFO.txt").write_text(build_info(build, source), encoding="utf-8")
     stage_patches(config, build, input_dir)
 
     try:
         if config.builder_mode == "fake":
             log = run_fake_build(build, input_dir, final_zip)
         else:
-            log = run_docker_build(config, build, input_dir, output_dir, final_zip)
+            log = run_docker_build(config, build, input_dir, output_dir, final_zip, source)
         return BuildArtifact(
             path=final_zip,
             sha256=sha256_file(final_zip),
@@ -114,7 +128,7 @@ def stage_patches(config: Config, build: dict[str, object], input_dir: Path) -> 
     staged. Returns the staged file names, for the build log.
     """
     options = load_build_options(config.root_dir)
-    firmware_tag = str(build["firmware_tag"])
+    firmware_tag = gate_version(build)
     wanted: list[Path] = []
 
     if build.get("code_options") and code_options_need_patch(options, firmware_tag):
@@ -159,17 +173,29 @@ def run_docker_build(
     input_dir: Path,
     output_dir: Path,
     final_zip: Path,
+    source: FirmwareSource | None = None,
 ) -> str:
+    source = source or build_firmware_source(config, build)
     transport = docker_transport(config)
     if transport == "copy":
-        return run_docker_build_copy(config, build, input_dir, output_dir, final_zip)
+        return run_docker_build_copy(config, build, input_dir, output_dir, final_zip, source)
     if transport != "bind":
         raise BuildFailure(
             CODE_INFRASTRUCTURE,
             phase="setup",
             detail=f"Unsupported Docker transport: {config.docker_transport}",
         )
-    return run_docker_build_bind(config, build, input_dir, output_dir, final_zip)
+    return run_docker_build_bind(config, build, input_dir, output_dir, final_zip, source)
+
+
+def builder_args(build: dict[str, object], source: FirmwareSource) -> list[str]:
+    """Positional arguments of build-firmware: tag, commit, env and the repository to fetch from."""
+    return [
+        str(build["firmware_tag"]),
+        str(build["firmware_sha"]),
+        str(build["platformio_env"]),
+        source.clone_url,
+    ]
 
 
 def section(title: str, body: str) -> str:
@@ -284,6 +310,7 @@ def run_docker_build_bind(
     input_dir: Path,
     output_dir: Path,
     final_zip: Path,
+    source: FirmwareSource,
 ) -> str:
     command = [
         config.docker_binary,
@@ -302,9 +329,7 @@ def run_docker_build_bind(
         "-v",
         f"{output_dir.resolve()}:/work/output",
         config.builder_image,
-        str(build["firmware_tag"]),
-        str(build["firmware_sha"]),
-        str(build["platformio_env"]),
+        *builder_args(build, source),
     ]
     proc, log = run_step(command, config=config, phase="build", timeout=config.build_timeout_seconds)
     if proc.returncode != 0:
@@ -318,6 +343,7 @@ def run_docker_build_copy(
     input_dir: Path,
     output_dir: Path,
     final_zip: Path,
+    source: FirmwareSource,
 ) -> str:
     create_command = [
         config.docker_binary,
@@ -331,9 +357,7 @@ def run_docker_build_copy(
         "--pids-limit",
         str(config.docker_pids_limit),
         config.builder_image,
-        str(build["firmware_tag"]),
-        str(build["firmware_sha"]),
-        str(build["platformio_env"]),
+        *builder_args(build, source),
     ]
     create_proc, create_log = run_step(create_command, config=config, phase="create", timeout=120)
     if create_proc.returncode != 0:

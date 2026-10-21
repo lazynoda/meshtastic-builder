@@ -17,20 +17,24 @@ STATUS_ORDER = ("queued", "running", "succeeded", "failed", "expired")
 STATUSES = set(STATUS_ORDER)
 
 
-SCHEMA = """
-PRAGMA journal_mode = WAL;
-PRAGMA foreign_keys = ON;
-
+FIRMWARE_VERSIONS_TABLE = """
 CREATE TABLE IF NOT EXISTS firmware_versions (
-  tag TEXT PRIMARY KEY,
+  firmware_id TEXT NOT NULL DEFAULT 'meshtastic',
+  tag TEXT NOT NULL,
   sha TEXT NOT NULL,
   release_name TEXT,
   published_at TEXT,
   supported INTEGER NOT NULL DEFAULT 1,
   smoke_test_status TEXT NOT NULL DEFAULT 'untested',
-  last_checked_at TEXT NOT NULL
+  last_checked_at TEXT NOT NULL,
+  PRIMARY KEY (firmware_id, tag)
 );
+"""
 
+SCHEMA = """
+PRAGMA journal_mode = WAL;
+PRAGMA foreign_keys = ON;
+""" + FIRMWARE_VERSIONS_TABLE + """
 CREATE TABLE IF NOT EXISTS build_requests (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   public_token TEXT NOT NULL UNIQUE,
@@ -41,6 +45,9 @@ CREATE TABLE IF NOT EXISTS build_requests (
   prefs_jsonc TEXT NOT NULL,
   prefs_hash TEXT NOT NULL,
   code_options TEXT,
+  firmware_id TEXT NOT NULL DEFAULT 'meshtastic',
+  firmware_version TEXT,
+  device_label TEXT,
   status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'succeeded', 'failed', 'expired')),
   attempts INTEGER NOT NULL DEFAULT 0,
   artifact_path TEXT,
@@ -54,6 +61,16 @@ CREATE TABLE IF NOT EXISTS build_requests (
   started_at TEXT,
   finished_at TEXT,
   expires_at TEXT
+);
+
+-- The boards one commit of one firmware offers. Written once per commit: a
+-- commit never changes, so there is nothing to refresh.
+CREATE TABLE IF NOT EXISTS board_catalogs (
+  firmware_id TEXT NOT NULL,
+  sha TEXT NOT NULL,
+  devices_json TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (firmware_id, sha)
 );
 
 CREATE INDEX IF NOT EXISTS idx_build_requests_status_created
@@ -93,16 +110,52 @@ def connection(config: Config | None = None) -> Iterator[sqlite3.Connection]:
             yield conn
 
 
+def _migrate_firmware_versions(conn: sqlite3.Connection) -> None:
+    """Key the tag cache by firmware as well as tag.
+
+    The table used to hold upstream Meshtastic tags only, keyed by tag. Other
+    firmwares have their own tags (and may reuse a name), so the key is now
+    (firmware_id, tag). SQLite cannot change a primary key in place: rebuild
+    the table and carry the existing rows over as upstream's.
+    """
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(firmware_versions)")}
+    if not columns or "firmware_id" in columns:
+        return
+    # One transaction, so a crash halfway leaves the old table in place.
+    conn.execute("BEGIN")
+    conn.execute("ALTER TABLE firmware_versions RENAME TO firmware_versions_legacy")
+    conn.execute(FIRMWARE_VERSIONS_TABLE)
+    conn.execute(
+        """
+        INSERT INTO firmware_versions
+          (firmware_id, tag, sha, release_name, published_at, supported, smoke_test_status, last_checked_at)
+        SELECT 'meshtastic', tag, sha, release_name, published_at, supported, smoke_test_status, last_checked_at
+        FROM firmware_versions_legacy
+        ORDER BY rowid ASC
+        """
+    )
+    conn.execute("DROP TABLE firmware_versions_legacy")
+
+
 def initialize_database(config: Config | None = None) -> None:
     config = config or load_config()
     ensure_directories(config)
     with connection(config) as conn:
+        _migrate_firmware_versions(conn)
         conn.executescript(SCHEMA)
         columns = {row[1] for row in conn.execute("PRAGMA table_info(build_requests)")}
         if "code_options" not in columns:
             conn.execute("ALTER TABLE build_requests ADD COLUMN code_options TEXT")
         if "error_code" not in columns:
             conn.execute("ALTER TABLE build_requests ADD COLUMN error_code TEXT")
+        if "firmware_id" not in columns:
+            conn.execute(
+                "ALTER TABLE build_requests ADD COLUMN firmware_id TEXT NOT NULL DEFAULT 'meshtastic'"
+            )
+        if "firmware_version" not in columns:
+            conn.execute("ALTER TABLE build_requests ADD COLUMN firmware_version TEXT")
+        if "device_label" not in columns:
+            conn.execute("ALTER TABLE build_requests ADD COLUMN device_label TEXT")
         if "email" in columns:
             try:
                 conn.execute("ALTER TABLE build_requests DROP COLUMN email")
@@ -122,17 +175,22 @@ def hash_prefs(prefs_jsonc: str) -> str:
     return hashlib.sha256(prefs_jsonc.encode("utf-8")).hexdigest()
 
 
-def upsert_firmware_versions(config: Config, versions: list[dict[str, Any]]) -> None:
+def upsert_firmware_versions(
+    config: Config,
+    versions: list[dict[str, Any]],
+    firmware_id: str = "meshtastic",
+) -> None:
     initialize_database(config)
     checked_at = iso_now()
     with connection(config) as conn:
         conn.executemany(
             """
             INSERT INTO firmware_versions
-              (tag, sha, release_name, published_at, supported, smoke_test_status, last_checked_at)
+              (firmware_id, tag, sha, release_name, published_at, supported, smoke_test_status, last_checked_at)
             VALUES
-              (:tag, :sha, :release_name, :published_at, :supported, :smoke_test_status, :last_checked_at)
-            ON CONFLICT(tag) DO UPDATE SET
+              (:firmware_id, :tag, :sha, :release_name, :published_at, :supported, :smoke_test_status,
+               :last_checked_at)
+            ON CONFLICT(firmware_id, tag) DO UPDATE SET
               sha = excluded.sha,
               release_name = excluded.release_name,
               published_at = excluded.published_at,
@@ -140,6 +198,7 @@ def upsert_firmware_versions(config: Config, versions: list[dict[str, Any]]) -> 
             """,
             [
                 {
+                    "firmware_id": firmware_id,
                     "tag": item["tag"],
                     "sha": item["sha"],
                     "release_name": item.get("release_name") or item["tag"],
@@ -153,31 +212,57 @@ def upsert_firmware_versions(config: Config, versions: list[dict[str, Any]]) -> 
         )
 
 
-def list_firmware_versions(config: Config, supported_only: bool = True) -> list[dict[str, Any]]:
+def retire_missing_tags(config: Config, firmware_id: str, present: set[str]) -> int:
+    """Mark this firmware's cached tags that are not in `present` unsupported."""
+    with connection(config) as conn:
+        rows = conn.execute(
+            "SELECT tag FROM firmware_versions WHERE firmware_id = ? AND supported = 1",
+            (firmware_id,),
+        ).fetchall()
+        gone = [row["tag"] for row in rows if row["tag"] not in present]
+        conn.executemany(
+            "UPDATE firmware_versions SET supported = 0 WHERE firmware_id = ? AND tag = ?",
+            [(firmware_id, tag) for tag in gone],
+        )
+    return len(gone)
+
+
+def list_firmware_versions(
+    config: Config,
+    supported_only: bool = True,
+    firmware_id: str = "meshtastic",
+) -> list[dict[str, Any]]:
     initialize_database(config)
-    where = "WHERE supported = 1" if supported_only else ""
+    where = "AND supported = 1" if supported_only else ""
     with connection(config) as conn:
         rows = conn.execute(
             f"""
-            SELECT tag, sha, release_name, published_at, supported, smoke_test_status, last_checked_at
+            SELECT firmware_id, tag, sha, release_name, published_at, supported, smoke_test_status,
+                   last_checked_at
             FROM firmware_versions
-            {where}
+            WHERE firmware_id = ? {where}
             ORDER BY rowid ASC
-            """
+            """,
+            (firmware_id,),
         ).fetchall()
     return [row_to_dict(row) for row in rows if row is not None]
 
 
-def get_firmware_version(config: Config, tag: str) -> dict[str, Any] | None:
+def get_firmware_version(
+    config: Config,
+    tag: str,
+    firmware_id: str = "meshtastic",
+) -> dict[str, Any] | None:
     initialize_database(config)
     with connection(config) as conn:
         row = conn.execute(
             """
-            SELECT tag, sha, release_name, published_at, supported, smoke_test_status, last_checked_at
+            SELECT firmware_id, tag, sha, release_name, published_at, supported, smoke_test_status,
+                   last_checked_at
             FROM firmware_versions
-            WHERE tag = ?
+            WHERE firmware_id = ? AND tag = ?
             """,
-            (tag,),
+            (firmware_id, tag),
         ).fetchone()
     return row_to_dict(row)
 
@@ -191,6 +276,9 @@ def create_build_request(
     firmware_sha: str,
     prefs_jsonc: str,
     code_options: str | None = None,
+    firmware_id: str = "meshtastic",
+    firmware_version: str | None = None,
+    device_label: str | None = None,
 ) -> dict[str, Any]:
     initialize_database(config)
     created_at = iso_now()
@@ -200,17 +288,20 @@ def create_build_request(
         conn.execute(
             """
             INSERT INTO build_requests
-              (public_token, device_id, platformio_env, firmware_tag, firmware_sha,
-               prefs_jsonc, prefs_hash, code_options, status, created_at)
+              (public_token, device_id, device_label, platformio_env, firmware_id, firmware_tag,
+               firmware_sha, firmware_version, prefs_jsonc, prefs_hash, code_options, status, created_at)
             VALUES
-              (?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?)
+              (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?)
             """,
             (
                 token,
                 device_id,
+                device_label,
                 platformio_env,
+                firmware_id,
                 firmware_tag,
                 firmware_sha,
+                firmware_version,
                 prefs_jsonc,
                 prefs_hash,
                 code_options,
@@ -271,7 +362,11 @@ def public_build_view(row: dict[str, Any]) -> dict[str, Any]:
         "ownerLongName": long_name,
         "ownerShortName": short_name,
         "deviceId": row["device_id"],
+        # Boards can come from a fork's own list, which the static catalogue the
+        # build page loads does not have; the label is stored with the build.
+        "deviceLabel": row.get("device_label"),
         "platformioEnv": row["platformio_env"],
+        "firmwareId": row.get("firmware_id") or "meshtastic",
         "firmwareTag": row["firmware_tag"],
         "firmwareSha": row["firmware_sha"],
         "codeOptions": decode_code_options(row.get("code_options")),

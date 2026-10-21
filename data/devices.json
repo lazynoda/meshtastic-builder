@@ -280,6 +280,13 @@
     "enabled": true
   },
   {
+    "id": "t-connect-pro",
+    "label": "LILYGO T-Connect Pro",
+    "platformio_env": "t-connect-pro",
+    "family": "esp32-s3",
+    "enabled": true
+  },
+  {
     "id": "t-deck",
     "label": "LILYGO T-Deck",
     "platformio_env": "t-deck",

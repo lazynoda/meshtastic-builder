@@ -93,7 +93,10 @@ class BuilderTests(unittest.TestCase):
             self.assertIn("--pids-limit", command)
             self.assertIn("256", command)
             self.assertIn("builder:test", command)
-            self.assertEqual(command[-3:], ["v-test", "abc123", "tbeam"])
+            self.assertEqual(
+                command[-4:],
+                ["v-test", "abc123", "tbeam", "https://github.com/meshtastic/firmware.git"],
+            )
 
     def test_no_platformio_build_cache_is_mounted(self):
         """SCons skips a target's post-actions on a cache hit.

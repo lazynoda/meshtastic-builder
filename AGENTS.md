@@ -71,7 +71,8 @@ Details: [docs/build-options.md](docs/build-options.md).
 ## Devices
 
 `data/devices.json` is generated from the firmware's own metadata, never edited
-by hand. Inclusion rule: every env under `variants/**/platformio.ini` that
+by hand: `python3 -m meshtastic_builder sync-devices <firmware-checkout> --write`
+(`meshtastic_builder/device_sync.py`). Inclusion rule: every env under `variants/**/platformio.ini` that
 declares `custom_meshtastic_display_name`, sets
 `custom_meshtastic_actively_supported = true` and is not `board_level = extra`.
 That is the same set the [Meshtastic Web Flasher](https://flasher.meshtastic.org)

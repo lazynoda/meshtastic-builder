@@ -21,6 +21,21 @@ src/mesh/NodeDB.cpp:705:27: error: 'info' was not declared in this scope
 
 
 class ClassifyTests(unittest.TestCase):
+    def test_a_tool_that_cannot_run_is_infrastructure_not_unknown(self):
+        # Real tail of an nRF54 build on an arm64 image with a 32-bit srec_cat.
+        log = (
+            "(.text._read_r+0x10): warning: _read is not implemented and will always fail\n"
+            "sh: 1: /opt/platformio/packages/tool-sreccat/srec_cat: not found\n"
+            "*** [.pio/build/xiao_nrf54l15_lr2021/firmware.hex] Error 127\n"
+        )
+        code, phase, detail = classify_build_log(log)
+        self.assertEqual(code, "infrastructure")
+        self.assertEqual(phase, "compile")
+        self.assertIn("srec_cat: not found", detail)
+
+    def test_not_found_without_error_127_is_not_classified(self):
+        self.assertEqual(classify_build_log("sh: 1: foo: not found\n")[0], CODE_UNKNOWN)
+
     def test_builder_marker_wins(self):
         log = "applying\nMB_FAILURE code=patch_failed phase=patches detail=fixed-gps-nodedb.patch\n"
         self.assertEqual(

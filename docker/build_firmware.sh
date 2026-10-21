@@ -6,14 +6,19 @@ BASE_REPO="/opt/firmware"
 # Prewarming lives in docker/prewarm.sh, which the image runs in an earlier
 # layer. Keeping it out of here is what lets this file be edited without
 # rebuilding an hour of prewarmed PlatformIO packages.
-if [[ "$#" -ne 3 ]]; then
-  echo "usage: build-firmware <firmware-tag> <firmware-sha> <platformio-env>" >&2
+if [[ "$#" -ne 3 && "$#" -ne 4 ]]; then
+  echo "usage: build-firmware <firmware-tag> <firmware-sha> <platformio-env> [<repo-url>]" >&2
   exit 2
 fi
 
+# The image is a clone of upstream Meshtastic. Other firmwares (forks or not)
+# are fetched into that same clone at build time from <repo-url>, so the image
+# and its prewarmed PlatformIO packages serve every firmware.
+UPSTREAM_REPO="https://github.com/meshtastic/firmware.git"
 FIRMWARE_TAG="$1"
 FIRMWARE_SHA="$2"
 PIO_ENV="$3"
+FIRMWARE_REPO="${4:-${UPSTREAM_REPO}}"
 WORK_DIR="${BASE_REPO}"
 OUTPUT_DIR="/work/output"
 INPUT_DIR="/work/input"
@@ -24,6 +29,15 @@ case "${PIO_ENV}" in
     exit 2
     ;;
 esac
+
+if [[ ! "${FIRMWARE_REPO}" =~ ^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\.git$ ]]; then
+  echo "Invalid firmware repository: ${FIRMWARE_REPO}" >&2
+  exit 2
+fi
+if [[ ! "${FIRMWARE_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "Invalid firmware commit: ${FIRMWARE_SHA}" >&2
+  exit 2
+fi
 
 # Every build log is read by someone hunting for the step that broke. Name the
 # steps so they can be found by eye, and emit one machine-readable line when we
@@ -121,14 +135,50 @@ PY
   } >"${dir}/FLASHING.txt"
 }
 
+# PlatformIO's tool-sreccat ships a 32-bit ARM srec_cat for every ARM host, and
+# a 64-bit-only image cannot run it ("not found", exit 127). The nRF54 platform
+# calls it to write the .hex, so those builds died at the very end. When the
+# bundled binary does not run, point it at Debian's native one (package
+# srecord in the image). On x86 the bundled binary runs and is left alone.
+use_native_sreccat() {
+  local bundled="${PLATFORMIO_CORE_DIR:-${HOME}/.platformio}/packages/tool-sreccat/srec_cat"
+  local native
+  [[ -f "${bundled}" && ! -L "${bundled}" ]] || return 0
+  native="$(command -v srec_cat || true)"
+  [[ -n "${native}" ]] || return 0
+  if "${bundled}" --version >/dev/null 2>&1; then
+    return 0
+  fi
+  ln -sf "${native}" "${bundled}"
+  echo "PlatformIO's srec_cat cannot run on this host; using ${native}."
+}
+
 cd "${WORK_DIR}"
-phase "checkout ${FIRMWARE_TAG} (${FIRMWARE_SHA})"
-# Only hit the network when the image does not already contain the requested commit.
-if ! git cat-file -e "${FIRMWARE_SHA}^{commit}" 2>/dev/null; then
-  git fetch --tags --force origin || true
+phase "checkout ${FIRMWARE_TAG} (${FIRMWARE_SHA}) from ${FIRMWARE_REPO}"
+if [[ "${FIRMWARE_REPO}" == "${UPSTREAM_REPO}" ]]; then
+  # Only hit the network when the image does not already contain the requested commit.
+  if ! git cat-file -e "${FIRMWARE_SHA}^{commit}" 2>/dev/null; then
+    git fetch --tags --force origin || true
+  fi
+  git checkout --force "${FIRMWARE_SHA}" || git checkout --force "${FIRMWARE_TAG}"
+else
+  # Another repository: fetch exactly the commit the worker resolved, without its
+  # tags (they could shadow upstream's in this clone). The first build of a
+  # firmware downloads whatever history it does not share with upstream.
+  if ! git cat-file -e "${FIRMWARE_SHA}^{commit}" 2>/dev/null; then
+    git fetch --no-tags --force "${FIRMWARE_REPO}" "${FIRMWARE_SHA}" \
+      || git fetch --no-tags --force "${FIRMWARE_REPO}" "${FIRMWARE_TAG}" \
+      || fail infrastructure checkout "Could not fetch ${FIRMWARE_SHA} from ${FIRMWARE_REPO}."
+  fi
+  # No fallback to the tag name: here it could resolve to an upstream tag and
+  # compile the wrong firmware.
+  git checkout --force "${FIRMWARE_SHA}" \
+    || fail infrastructure checkout "Commit ${FIRMWARE_SHA} is not in ${FIRMWARE_REPO}."
+  # Submodule URLs come from this commit's .gitmodules, not from the image's.
+  git submodule sync --recursive
 fi
-git checkout --force "${FIRMWARE_SHA}" || git checkout --force "${FIRMWARE_TAG}"
 git submodule update --init --recursive
+echo "Checked out $(git rev-parse HEAD)"
 
 # Every patch the worker staged, in name order. The worker decides which ones a
 # given firmware tag needs; this only applies what it was handed, and a patch
@@ -159,7 +209,10 @@ echo "userPrefs.jsonc in place ($(wc -c <./userPrefs.jsonc) bytes)"
 phase "compile ${PIO_ENV}"
 # Retry once: pioarduino may replace tool-scons mid-run on the first build of a
 # platform version (platform-espressif32#529). A genuine compile error fails twice.
-pio run -e "${PIO_ENV}" || pio run -e "${PIO_ENV}"
+# Also between the two attempts: a platform installed during the first run can
+# bring its own tool-sreccat, which only the retry can then use.
+use_native_sreccat
+pio run -e "${PIO_ENV}" || { use_native_sreccat; pio run -e "${PIO_ENV}"; }
 
 # Only what a flasher consumes. .elf and .map are dropped on purpose: they were
 # 81% of the ZIP and nothing in bin/device-install.sh reads them, so they only

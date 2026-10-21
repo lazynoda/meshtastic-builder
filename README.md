@@ -13,9 +13,11 @@ firmware version, fill in a form, and download a ZIP ready to flash.
 - No account and no email. Each build gets a private link, and its ZIP stays
   downloadable for 7 days.
 - Official firmware from [meshtastic/firmware](https://github.com/meshtastic/firmware),
-  compiled with PlatformIO. Only two small, documented patches are ever applied;
+  or one of the community firmwares listed in
+  [`data/firmwares.json`](docs/firmwares.md), compiled with PlatformIO. Only two
+  small, documented patches are ever applied;
   see [Advanced Build Options](docs/build-options.md#the-two-patches).
-- 95 supported devices, the same set the
+- 96 supported devices, the same set the
   [Meshtastic Web Flasher](https://flasher.meshtastic.org) offers.
 - Interface in Spanish and English.
 

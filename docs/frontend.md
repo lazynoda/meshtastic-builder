@@ -89,7 +89,7 @@ The channel cap (3, or 8 from `eightChannelsSinceFirmwareVersion`) comes from
 
 The form is split into the settings most users touch and everything else:
 
-1. Device and firmware.
+1. Firmware and device.
 2. Node: long/short name and timezone.
 3. LoRa radio: region, modem preset, TX power, manual LoRa parameters.
 4. Device: role, rebroadcast mode, node info and device telemetry intervals.

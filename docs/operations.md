@@ -54,11 +54,24 @@ The worker also runs cleanup periodically.
 
 ## Firmware Version Admin
 
-Refresh the local firmware tag cache from GitHub:
+The page has no refresh button: it only reads what is cached, and fetches from
+GitHub on its own only when a firmware has no cached tags yet. New releases
+appear after an operator refresh. Run it by hand or from a daily cron on the
+host:
 
 ```bash
-python3 -m meshtastic_builder refresh-versions
+python3 -m meshtastic_builder refresh-versions                       # every firmware
+python3 -m meshtastic_builder refresh-versions --firmware jentastic  # just one
+# from the host, against the running container:
+docker compose exec -T web python -m meshtastic_builder refresh-versions
 ```
+
+It refreshes the tags of every firmware in `data/firmwares.json` (and the head
+of branch firmwares), and exits 1 if any firmware failed. The board list of a
+new tag is read from GitHub the first time someone selects that tag, so it
+needs no separate step. Branch heads also refresh on their own every five
+minutes. `GET /api/firmware-versions?firmware=<id>&refresh=1` does the same for
+one firmware over HTTP.
 
 List supported versions:
 

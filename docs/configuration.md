@@ -20,10 +20,10 @@ Configuration is read from environment variables.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `MB_GITHUB_TAGS_URL` | GitHub tags API for [meshtastic/firmware](https://github.com/meshtastic/firmware) | Tag source URL. |
+| `MB_GITHUB_TAGS_URL` | GitHub tags API for [meshtastic/firmware](https://github.com/meshtastic/firmware) | Tag source URL for the `meshtastic` firmware only. Other firmwares use their own repository from [`data/firmwares.json`](firmwares.md). |
 | `MB_GITHUB_MAX_TAG_PAGES` | `20` | Maximum GitHub tag pages to follow. |
 | `MB_AUTO_SUPPORT_LATEST_TAGS` | `20` | Number of newest tags to mark supported on first cache insert. Set `0` to auto-support all new tags. |
-| `MB_RAW_USERPREFS_URL` | Raw GitHub URL template | Source for tag-specific `userPrefs.jsonc`. |
+| `MB_RAW_USERPREFS_URL` | Raw GitHub URL template | Source for tag-specific `userPrefs.jsonc` of the `meshtastic` firmware. |
 
 ## Builder
 
@@ -58,16 +58,43 @@ Options that `userPrefs.jsonc` cannot express are allowlisted in
 
 Supported devices are allowlisted in `data/devices.json`.
 
-`data/devices.json` lists 95 devices, derived from the firmware's own variant
+`data/devices.json` lists 96 devices, derived from the firmware's own variant
 metadata (see [AGENTS.md](../AGENTS.md#devices) for the selection rule). Each entry maps a stable `id` to
 the `platformio_env` the worker builds and a `family` used to hide settings a
 board cannot have, such as WiFi on nRF52.
+
+The list does not follow new firmware releases by itself. After each release,
+regenerate it from a checkout of the newest supported tag:
+
+```bash
+git -C /path/to/meshtastic/firmware checkout <newest-tag>
+python3 -m meshtastic_builder sync-devices /path/to/meshtastic/firmware          # dry run
+python3 -m meshtastic_builder sync-devices /path/to/meshtastic/firmware --write
+```
+
+It prints one line per added (`ADD`), dropped (`REMOVE`) or re-familied
+(`FAMILY`) board. Existing entries keep their `id` and label, new boards are
+appended in alphabetical order, and a board the firmware no longer offers is
+removed. The builder image already holds a full firmware clone, so the check
+needs no extra download:
+
+```bash
+docker run --rm --network none --entrypoint sh -v "$PWD:/app" meshtastic-firmware-builder:local \
+  -c 'cd /opt/firmware && git checkout -q --force <newest-tag> && cd /app && python3 -m meshtastic_builder sync-devices /opt/firmware'
+```
 
 Validate the allowlist against a Meshtastic firmware checkout after changing it:
 
 ```bash
 python3 -m meshtastic_builder validate-devices /path/to/meshtastic/firmware
 ```
+
+The page does not show this file as is. For each firmware and version it
+reads the boards from that commit's own `variants/**/platformio.ini` (see
+[Firmware Sources](firmwares.md#boards)), so forks show their own boards and
+older tags only offer the boards they had. This file supplies the ids and
+labels of known boards, and is the fallback list when GitHub cannot be
+reached.
 
 ## Notifications
 

@@ -1,0 +1,24 @@
+{
+  "default": "meshtastic",
+  "firmwares": [
+    {
+      "id": "meshtastic",
+      "name": "Meshtastic Oficial",
+      "url": "https://github.com/meshtastic/firmware",
+      "versioning": "tags"
+    },
+    {
+      "id": "jentastic",
+      "name": "Jentastic",
+      "url": "https://github.com/derpyspike/jentastic",
+      "versioning": "tags"
+    },
+    {
+      "id": "nodastic",
+      "name": "Nodastic",
+      "url": "https://github.com/lazynoda/meshtastic-firmware",
+      "versioning": "branch",
+      "branch": "nodastic"
+    }
+  ]
+}

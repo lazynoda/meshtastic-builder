@@ -433,6 +433,11 @@ input[type="checkbox"] {
   margin-left: 26px;
 }
 
+/* Repository link under the firmware selector. */
+.firmware-repo {
+  text-align: center;
+}
+
 .field-hint {
   font-family: var(--sans);
   font-size: 0.7rem;
@@ -714,6 +719,15 @@ input[type="checkbox"] {
   text-align: center;
 }
 
+.app-footer .footer-version {
+  margin-top: 4px;
+  font-family: var(--mono);
+}
+
+.footer-version a {
+  color: inherit;
+}
+
 @media (max-width: 640px) {
   .app-footer {
     padding: 0 16px 24px;
@@ -723,6 +737,11 @@ input[type="checkbox"] {
 /* Combobox: filters its options by substring as you type. */
 .combo {
   position: relative;
+}
+
+/* A short list skinned from a <select>: a menu, not a search box. */
+.combo-input[readonly] {
+  cursor: pointer;
 }
 
 .combo-list {
