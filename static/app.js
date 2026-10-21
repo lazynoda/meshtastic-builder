@@ -1085,6 +1085,22 @@ function setOptionalPref(prefs, key, rawValue) {
   if (value !== "") setPref(prefs, key, value);
 }
 
+// Only on submit: the preview runs on every keystroke and from page load, when
+// both fields are still empty.
+function validateOwnerNames() {
+  let first = null;
+  for (const id of ["longName", "shortName"]) {
+    const input = $(id);
+    const empty = input.value.trim() === "";
+    input.classList.toggle("fieldError", empty);
+    if (empty && !first) first = input;
+  }
+  if (first) {
+    first.focus();
+    throw new Error(t("error.ownerNames"));
+  }
+}
+
 function validateShortName() {
   const input = $("shortName");
   const byteLength = encoder.encode(input.value).length;
@@ -1140,8 +1156,11 @@ function buildPrefs() {
     prefs[key] = String(value);
   }
 
-  setPref(prefs, "USERPREFS_CONFIG_OWNER_LONG_NAME", $("longName").value.trim());
-  setPref(prefs, "USERPREFS_CONFIG_OWNER_SHORT_NAME", $("shortName").value.trim());
+  // No default names: the form used to prefill them and many nodes went out
+  // as "Mi nodo Meshtastic". Empty stays out of the preview; submitting
+  // requires both (validateOwnerNames).
+  setOptionalPref(prefs, "USERPREFS_CONFIG_OWNER_LONG_NAME", $("longName").value);
+  setOptionalPref(prefs, "USERPREFS_CONFIG_OWNER_SHORT_NAME", $("shortName").value);
   setPref(prefs, "USERPREFS_CONFIG_LORA_REGION", $("loraRegion").value);
   setPref(prefs, "USERPREFS_CONFIG_DEVICE_ROLE", $("deviceRole").value);
   setPref(prefs, "USERPREFS_LORACONFIG_MODEM_PRESET", $("modemPreset").value);
@@ -1466,6 +1485,12 @@ function updatePrefsPreview() {
 async function submitBuild(event) {
   event.preventDefault();
   if (!updatePrefsPreview()) return;
+  try {
+    validateOwnerNames();
+  } catch (error) {
+    setStatus(error.message, true);
+    return;
+  }
   $("submitBuild").disabled = true;
   try {
     setStatusKey("status.creating");
@@ -1605,6 +1630,10 @@ function bindEvents() {
   });
   $("firmwareTag").addEventListener("change", () => {
     onFirmwareTagChange().catch((error) => setStatus(error.message, true));
+  });
+  // Clear the "required" mark from a failed submit as soon as there is a name.
+  $("longName").addEventListener("input", () => {
+    if ($("longName").value.trim()) $("longName").classList.remove("fieldError");
   });
   $("customLoraEnabled").addEventListener("change", syncCustomLora);
   $("modemPreset").addEventListener("change", syncPresetChannelName);

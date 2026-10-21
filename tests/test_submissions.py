@@ -30,7 +30,7 @@ class SubmissionTests(unittest.TestCase):
             template_path = userprefs_cache_path(config, "v-test")
             template_path.parent.mkdir(parents=True, exist_ok=True)
             template_path.write_text(
-                '{"USERPREFS_CONFIG_OWNER_SHORT_NAME": "DEF", "USERPREFS_TZ_STRING": "CET-1CEST,M3.5.0,M10.5.0/3"}',
+                '{"USERPREFS_CONFIG_OWNER_LONG_NAME": "", "USERPREFS_CONFIG_OWNER_SHORT_NAME": "DEF", "USERPREFS_TZ_STRING": "CET-1CEST,M3.5.0,M10.5.0/3"}',
                 encoding="utf-8",
             )
 
@@ -39,7 +39,7 @@ class SubmissionTests(unittest.TestCase):
                 {
                     "deviceId": "tbeam",
                     "firmwareTag": "v-test",
-                    "prefsJsonc": '{"USERPREFS_CONFIG_OWNER_SHORT_NAME": "TST",}',
+                    "prefsJsonc": '{"USERPREFS_CONFIG_OWNER_LONG_NAME": "Test Node", "USERPREFS_CONFIG_OWNER_SHORT_NAME": "TST",}',
                 },
             )
 
@@ -49,6 +49,49 @@ class SubmissionTests(unittest.TestCase):
             self.assertIn('"USERPREFS_CONFIG_OWNER_SHORT_NAME": "TST"', result["row"]["prefs_jsonc"])
             self.assertIn('"USERPREFS_TZ_STRING": "CET-1CEST,M3.5.0,M10.5.0/3"', result["row"]["prefs_jsonc"])
             self.assertEqual(result["public"]["ownerShortName"], "TST")
+
+    def test_owner_names_are_required(self):
+        # The form used to prefill them and many nodes went out unnamed; the API
+        # must refuse a build without both, including whitespace-only names.
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            config = replace(
+                load_config(),
+                data_dir=tmp_path,
+                db_path=tmp_path / "test.sqlite",
+                artifact_dir=tmp_path / "artifacts",
+                job_dir=tmp_path / "jobs",
+                cache_dir=tmp_path / "cache",
+            )
+            initialize_database(config)
+            upsert_firmware_versions(config, [{"tag": "v-test", "sha": "abc123", "supported": 1}])
+            template_path = userprefs_cache_path(config, "v-test")
+            template_path.parent.mkdir(parents=True, exist_ok=True)
+            template_path.write_text(
+                '{"USERPREFS_CONFIG_OWNER_LONG_NAME": "", "USERPREFS_CONFIG_OWNER_SHORT_NAME": ""}',
+                encoding="utf-8",
+            )
+            cases = [
+                "{}",
+                '{"USERPREFS_CONFIG_OWNER_LONG_NAME": "Nodo Azotea"}',
+                '{"USERPREFS_CONFIG_OWNER_SHORT_NAME": "AZO"}',
+                '{"USERPREFS_CONFIG_OWNER_LONG_NAME": "   ", "USERPREFS_CONFIG_OWNER_SHORT_NAME": "AZO"}',
+            ]
+            for prefs in cases:
+                with self.subTest(prefs=prefs):
+                    with self.assertRaises(ValueError):
+                        create_build_submission(
+                            config, {"deviceId": "tbeam", "firmwareTag": "v-test", "prefsJsonc": prefs}
+                        )
+            ok = create_build_submission(
+                config,
+                {
+                    "deviceId": "tbeam",
+                    "firmwareTag": "v-test",
+                    "prefsJsonc": '{"USERPREFS_CONFIG_OWNER_LONG_NAME": "Nodo Azotea", "USERPREFS_CONFIG_OWNER_SHORT_NAME": "AZO"}',
+                },
+            )
+            self.assertEqual(ok["public"]["ownerLongName"], "Nodo Azotea")
 
     def test_public_view_exposes_only_the_node_names_from_prefs(self):
         row = {

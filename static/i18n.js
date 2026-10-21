@@ -17,7 +17,9 @@ const DICT = {
 
     "step2.title": "Nodo",
     "step2.longName": "Nombre largo",
+    "step2.longNamePlaceholder": "Obligatorio, p. ej. Nodo Azotea Centro",
     "step2.shortName": "Nombre corto",
+    "step2.shortNamePlaceholder": "Obligatorio, 4 bytes",
 
     "behaviour.title": "Dispositivo",
     "behaviour.hint": "Valores de fabrica aplicados en el primer arranque o tras un reset de fabrica.",
@@ -176,6 +178,7 @@ const DICT = {
     "error.noVersions": "No hay versiones soportadas en cache.",
     "error.template": "No se pudo cargar userPrefs.jsonc.",
     "error.shortName": "El nombre corto no puede superar 4 bytes.",
+    "error.ownerNames": "Escribe el nombre largo y el nombre corto del nodo.",
     "error.channelName": "El canal {n} necesita nombre.",
     "error.channelPrecision": "La precision del canal {n} debe estar entre 0 y 32.",
     "error.base64": "{label} debe estar en base64 valido.",
@@ -264,7 +267,9 @@ const DICT = {
 
     "step2.title": "Node",
     "step2.longName": "Long name",
+    "step2.longNamePlaceholder": "Required, e.g. Downtown Rooftop Node",
     "step2.shortName": "Short name",
+    "step2.shortNamePlaceholder": "Required, 4 bytes",
 
     "behaviour.title": "Device",
     "behaviour.hint": "Factory defaults applied on first boot or after a factory reset.",
@@ -422,6 +427,7 @@ const DICT = {
     "error.noVersions": "No supported versions in cache.",
     "error.template": "Could not load userPrefs.jsonc.",
     "error.shortName": "The short name cannot exceed 4 bytes.",
+    "error.ownerNames": "Enter the node's long name and short name.",
     "error.channelName": "Channel {n} needs a name.",
     "error.channelPrecision": "Channel {n} precision must be between 0 and 32.",
     "error.base64": "{label} must be valid base64.",

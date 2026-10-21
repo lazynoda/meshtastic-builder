@@ -54,7 +54,7 @@ def seed_template(config, tag: str) -> None:
     path = userprefs_cache_path(config, tag)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        '{"USERPREFS_CONFIG_OWNER_SHORT_NAME": "DEF"}',
+        '{"USERPREFS_CONFIG_OWNER_LONG_NAME": "", "USERPREFS_CONFIG_OWNER_SHORT_NAME": "DEF"}',
         encoding="utf-8",
     )
 
@@ -154,7 +154,7 @@ class CodeOptionSubmissionTests(unittest.TestCase):
                 {
                     "deviceId": "tbeam",
                     "firmwareTag": SUPPORTED_TAG,
-                    "prefsJsonc": '{"USERPREFS_CONFIG_OWNER_SHORT_NAME": "TST"}',
+                    "prefsJsonc": '{"USERPREFS_CONFIG_OWNER_LONG_NAME": "Test Node", "USERPREFS_CONFIG_OWNER_SHORT_NAME": "TST"}',
                     "codeOptions": {"okToMqtt": True, "customLora": {"bandwidthKhz": 125}},
                 },
             )
@@ -181,7 +181,7 @@ class CodeOptionSubmissionTests(unittest.TestCase):
                 {
                     "deviceId": "tbeam",
                     "firmwareTag": SUPPORTED_TAG,
-                    "prefsJsonc": "{}",
+                    "prefsJsonc": '{"USERPREFS_CONFIG_OWNER_LONG_NAME": "Test Node", "USERPREFS_CONFIG_OWNER_SHORT_NAME": "TST"}',
                 },
             )
 

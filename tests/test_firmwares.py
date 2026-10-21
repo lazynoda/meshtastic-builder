@@ -25,7 +25,8 @@ from meshtastic_builder.submissions import create_build_submission
 
 ROOT = Path(__file__).resolve().parent.parent
 NODASTIC_SHA = "d" * 40
-TEMPLATE = '{"USERPREFS_CONFIG_OWNER_SHORT_NAME": "DEF", "USERPREFS_FIXED_GPS": ""}'
+NAMED_PREFS = '{"USERPREFS_CONFIG_OWNER_LONG_NAME": "Test Node", "USERPREFS_CONFIG_OWNER_SHORT_NAME": "TST"}'
+TEMPLATE = '{"USERPREFS_CONFIG_OWNER_LONG_NAME": "", "USERPREFS_CONFIG_OWNER_SHORT_NAME": "DEF", "USERPREFS_FIXED_GPS": ""}'
 
 
 def temp_config(tmp_path: Path):
@@ -242,7 +243,7 @@ class SubmissionTests(unittest.TestCase):
     def submit(self, config, payload):
         return create_build_submission(
             config,
-            {"deviceId": "tbeam", "prefsJsonc": '{"USERPREFS_CONFIG_OWNER_SHORT_NAME": "TST"}', **payload},
+            {"deviceId": "tbeam", "prefsJsonc": NAMED_PREFS, **payload},
         )
 
     def test_nodastic_submission_stores_branch_head_and_firmware_version(self):
@@ -338,11 +339,11 @@ class BoardCatalogTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     create_build_submission(
                         config,
-                        {"deviceId": "heltec-v4", "firmwareId": "nodastic", "prefsJsonc": "{}"},
+                        {"deviceId": "heltec-v4", "firmwareId": "nodastic", "prefsJsonc": NAMED_PREFS},
                     )
                 row = create_build_submission(
                     config,
-                    {"deviceId": "nrf52-promicro-diy-e28", "firmwareId": "nodastic", "prefsJsonc": "{}"},
+                    {"deviceId": "nrf52-promicro-diy-e28", "firmwareId": "nodastic", "prefsJsonc": NAMED_PREFS},
                 )["row"]
             self.assertEqual(row["platformio_env"], "nrf52_promicro_diy_e28")
             self.assertEqual(row["device_label"], "NRF52 Pro-micro E28 DIY")

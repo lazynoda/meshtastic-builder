@@ -174,6 +174,8 @@ Validation:
 - `firmwareTag` must exist in `firmware_versions` for that firmware and be
   supported. A branch firmware ignores it and builds the branch head.
 - `prefsJsonc` must parse as JSONC.
+- The merged preferences must hold a non-empty `USERPREFS_CONFIG_OWNER_LONG_NAME`
+  and `USERPREFS_CONFIG_OWNER_SHORT_NAME`.
 - Preference keys must start with `USERPREFS_`.
 - Preference keys must exist in the selected tag's `userPrefs.jsonc` template when keys can be extracted.
 - Values must be scalar.

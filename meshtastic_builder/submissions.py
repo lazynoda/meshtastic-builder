@@ -12,6 +12,9 @@ from .firmwares import VERSIONING_BRANCH, get_firmware
 from .jsonc import validate_and_merge_userprefs
 
 
+OWNER_NAME_KEYS = ("USERPREFS_CONFIG_OWNER_LONG_NAME", "USERPREFS_CONFIG_OWNER_SHORT_NAME")
+
+
 def _required_str(payload: dict[str, Any], key: str) -> str:
     value = payload.get(key)
     if not isinstance(value, str) or not value.strip():
@@ -50,13 +53,18 @@ def create_build_submission(config: Config, payload: dict[str, Any]) -> dict[str
     )
     template_ref = version["sha"] if version["branch"] else version["tag"]
     template = get_userprefs_template(config, version["tag"], firmware_id=source.id, ref=template_ref)
-    prefs_jsonc, _prefs = validate_and_merge_userprefs(
+    prefs_jsonc, prefs = validate_and_merge_userprefs(
         prefs_raw,
         template,
         config.max_prefs_bytes,
         extra_keys=code_macros,
         max_channels=max_channels(load_build_options(config.root_dir), gate_version),
     )
+    # Every node needs a name of its own. The form used to prefill one and a
+    # lot of nodes went out as "Mi nodo Meshtastic"; API clients must send them too.
+    for key in OWNER_NAME_KEYS:
+        if not str(prefs.get(key) or "").strip():
+            raise ValueError("Falta el nombre largo o el nombre corto del nodo.")
     row = create_build_request(
         config,
         device_id=device.id,
