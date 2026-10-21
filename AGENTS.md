@@ -407,27 +407,6 @@ If introducing dependencies, update:
 
 Keep documentation in `docs/` synchronized with behavior.
 
-## Known Environment Notes
-
-The user's Codex/Desktop environment may expose a reduced PATH in some sessions. In newer unrestricted sessions, the full PATH includes:
-
-- `~/.nvm/versions/node/v24.15.0/bin`
-- `/opt/homebrew/bin`
-
-Useful tools observed:
-
-- `ctx7`
-- `npm`
-- `npx`
-- `tmux`
-- `docker`
-- Docker Compose plugin, installed with Homebrew as `docker-compose` 5.1.4 and
-  exposed through Docker CLI via `~/.docker/config.json`
-
-If a tool appears missing, check `printenv PATH` before assuming it is not installed.
-
-Docker note: in one unrestricted session, Docker CLI was present but the active context pointed to `ssh://other-host.example` and `docker-status` timed out. A later session validated Docker at `ssh://docker-host.example`. Verify Docker before starting any long build.
-
 ## CodeGraph
 
 This project is indexed by CodeGraph. The index lives in `.codegraph/`, which is

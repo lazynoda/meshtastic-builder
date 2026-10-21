@@ -87,15 +87,6 @@ Detailed Compose instructions, including remote Docker via
 copy `docker-compose.example.yaml` instead: it carries the same services with
 the values written out inline and a note on why each one is set that way.
 
-Current remote phone-test stack:
-
-```text
-http://docker-host.example:9990
-```
-
-It is intentionally running in `MB_BUILDER_MODE=fake` for quick UI, queue, and
-download testing from a phone.
-
 ## Firmware Version Handling
 
 The server fetches tags from `meshtastic/firmware` via the GitHub tags API and caches them in SQLite. A submitted build stores both the selected `firmware_tag` and the resolved `firmware_sha`. The worker compiles the SHA when possible and falls back to the tag only if the image does not have that SHA locally.
@@ -156,3 +147,8 @@ reason: it wants `firmware-*.mt.json`, which only `pio run -t mtjson` emits, and
 ```bash
 python3 -m unittest discover -s tests
 ```
+
+## License
+
+GPL-3.0-only, see [LICENSE](LICENSE). The patches in `docker/patches/` modify
+the Meshtastic firmware, which is GPL-3.0 as well.
