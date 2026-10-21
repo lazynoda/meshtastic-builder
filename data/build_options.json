@@ -7,7 +7,7 @@
     "patchFile": "docker/patches/fixed-gps-nodedb.patch",
     "triggerMacro": "USERPREFS_FIXED_GPS",
     "minFirmwareVersion": "2.8.0",
-    "fixedSinceFirmwareVersion": null,
+    "fixedSinceFirmwareVersion": "2.8.1",
     "upstreamPullRequest": "https://github.com/meshtastic/firmware/pull/11825"
   },
   "okToMqtt": {

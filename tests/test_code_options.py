@@ -349,6 +349,11 @@ class FixedGpsPatchTests(unittest.TestCase):
     def test_not_needed_without_a_fixed_position(self):
         self.assertFalse(fixed_gps_patch_needed(self.options, NATIVE_TAG, {"USERPREFS_TZ_STRING"}))
 
+    def test_shipped_options_skip_the_patch_from_2_8_1(self):
+        # v2.8.1 already carries PR #11825, so the patch no longer applies there.
+        self.assertTrue(fixed_gps_patch_needed(self.options, "v2.8.0.7239fe8", self.keys))
+        self.assertFalse(fixed_gps_patch_needed(self.options, "v2.8.1.8e6a88d", self.keys))
+
     def test_stops_once_a_release_carries_the_upstream_fix(self):
         options = dict(self.options)
         options["fixedGpsPatch"] = dict(options["fixedGpsPatch"], fixedSinceFirmwareVersion="2.8.1")

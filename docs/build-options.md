@@ -104,12 +104,13 @@ Tags below `2.8.0` still declare `info` and compile the block as shipped, so
 fixed position works there with **no patch at all**. Only the patch is gated,
 never the feature.
 
-`fixedGpsPatch.fixedSinceFirmwareVersion` must be set to the first release that
+`fixedGpsPatch.fixedSinceFirmwareVersion` is `2.8.1`, the first release that
 ships PR #11825; from that tag on the patch is no longer applied. Leaving it
-stale makes `git apply` fail and stops every fixed-position build on newer tags.
+unset made `git apply` fail and stopped every fixed-position build on 2.8.1.
 
 Verified with `git apply --check`: applies on `v2.8.0.7239fe8` and
-`v2.8.0.47db0e3`, refuses on `v2.7.26.54e0d8d` (which does not need it).
+`v2.8.0.47db0e3`, refuses on `v2.7.26.54e0d8d` and `v2.8.1.8e6a88d` (which do
+not need it).
 
 ## Available Options
 
@@ -153,7 +154,7 @@ leave the region band plan while a raw frequency can.
 | `nativeSinceFirmwareVersion` (`2.8.0`) | From this version the firmware reads the macros itself; no patch is shipped. |
 | `eightChannelsSinceFirmwareVersion` (`2.8.0`) | From this version 8 channels are accepted instead of 3. |
 | `fixedGpsPatch.minFirmwareVersion` (`2.8.0`) | From this version a fixed position needs `fixed-gps-nodedb.patch`. |
-| `fixedGpsPatch.fixedSinceFirmwareVersion` | The first release carrying upstream PR #11825; from it, that patch is no longer applied. |
+| `fixedGpsPatch.fixedSinceFirmwareVersion` (`2.8.1`) | The first release carrying upstream PR #11825; from it, that patch is no longer applied. |
 
 The patch applies cleanly from `v2.6.4` to `v2.7.26`, fails on `v2.2.x` and
 older, and **also fails on `v2.8.0`** because upstream rewrote the surrounding
