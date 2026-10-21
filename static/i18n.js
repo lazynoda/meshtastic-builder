@@ -5,6 +5,8 @@ const DICT = {
     "header.refresh": "Actualizar tags",
     "footer.trademark":
       "Meshtastic es una marca registrada de Meshtastic LLC. Este proyecto no esta afiliado ni respaldado por Meshtastic LLC, ni por ninguna de las marcas de los dispositivos listados. Es un proyecto hecho por aficion.",
+    "footer.source":
+      "<a href=\"https://github.com/lazynoda/meshtastic-builder\" target=\"_blank\" rel=\"noreferrer\">Codigo fuente</a> bajo licencia AGPL-3.0.",
 
     "step1.title": "Dispositivo y firmware",
     "step1.device": "Dispositivo",
@@ -248,6 +250,8 @@ const DICT = {
     "header.refresh": "Refresh tags",
     "footer.trademark":
       "Meshtastic is a registered trademark of Meshtastic LLC. This project is not affiliated with or endorsed by Meshtastic LLC, nor by any of the device brands listed. It is a hobby project.",
+    "footer.source":
+      "<a href=\"https://github.com/lazynoda/meshtastic-builder\" target=\"_blank\" rel=\"noreferrer\">Source code</a> under the AGPL-3.0 license.",
 
     "step1.title": "Device and firmware",
     "step1.device": "Device",

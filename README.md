@@ -150,5 +150,9 @@ python3 -m unittest discover -s tests
 
 ## License
 
-GPL-3.0-only, see [LICENSE](LICENSE). The patches in `docker/patches/` modify
-the Meshtastic firmware, which is GPL-3.0 as well.
+AGPL-3.0-only, see [LICENSE](LICENSE). If you run a modified version of this
+service for others over a network, you must offer them its source code.
+
+The patches in `docker/patches/` modify the Meshtastic firmware and stay under
+its license, GPL-3.0. GPL-3.0 section 13 allows combining them with this
+AGPL-3.0 project.
