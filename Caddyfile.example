@@ -6,7 +6,7 @@
 # must reach this host. Set MB_TRUST_PROXY=1 only when the app port is not
 # reachable directly, otherwise X-Forwarded-For can be spoofed.
 
-builder.meshtastic.es {
+builder.example.org {
 	reverse_proxy web:8080
 
 	encode zstd gzip

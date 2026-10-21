@@ -20,7 +20,7 @@ Configuration is read from environment variables.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `MB_GITHUB_TAGS_URL` | GitHub tags API for `meshtastic/firmware` | Tag source URL. |
+| `MB_GITHUB_TAGS_URL` | GitHub tags API for [meshtastic/firmware](https://github.com/meshtastic/firmware) | Tag source URL. |
 | `MB_GITHUB_MAX_TAG_PAGES` | `20` | Maximum GitHub tag pages to follow. |
 | `MB_AUTO_SUPPORT_LATEST_TAGS` | `20` | Number of newest tags to mark supported on first cache insert. Set `0` to auto-support all new tags. |
 | `MB_RAW_USERPREFS_URL` | Raw GitHub URL template | Source for tag-specific `userPrefs.jsonc`. |
@@ -38,6 +38,7 @@ Configuration is read from environment variables.
 | `MB_DOCKER_MEMORY` | `4g` | Memory limit for firmware builder containers. |
 | `MB_DOCKER_PIDS_LIMIT` | `512` | PID limit for firmware builder containers. |
 | `MB_BUILD_TIMEOUT_SECONDS` | `3600` | Per-build timeout. |
+| `MB_DOCKER_SOCKET` | `/var/run/docker.sock` | Compose only: host path of the Docker socket mounted into the worker. Rootless Docker uses `/run/user/<uid>/docker.sock`. |
 | `MB_STALE_RUNNING_SECONDS` | `7200` | Running jobs older than this are requeued. |
 | `MB_ARTIFACT_TTL_DAYS` | `7` | Download availability after successful build. |
 
@@ -58,7 +59,7 @@ Options that `userPrefs.jsonc` cannot express are allowlisted in
 Supported devices are allowlisted in `data/devices.json`.
 
 `data/devices.json` lists 95 devices, derived from the firmware's own variant
-metadata (see AGENTS.md for the selection rule). Each entry maps a stable `id` to
+metadata (see [AGENTS.md](../AGENTS.md#devices) for the selection rule). Each entry maps a stable `id` to
 the `platformio_env` the worker builds and a `family` used to hide settings a
 board cannot have, such as WiFi on nRF52.
 

@@ -1,152 +1,121 @@
 # Meshtastic Builder
 
-Web app and worker for requesting custom Meshtastic firmware builds.
+Custom [Meshtastic](https://meshtastic.org) firmware, built with your settings
+already inside.
 
-The current implementation is intentionally dependency-light: it uses Python standard library modules, SQLite, vanilla HTML/CSS/JS, and a Docker-based firmware builder image. Users select a Meshtastic firmware tag, choose an allowed device, configure common `userPrefs.jsonc` fields through form controls, and submit. The page then shows a private build URL where progress is tracked and the ZIP can be downloaded for 7 days. No email address is asked for and none is sent.
+Stock firmware boots with no region, no names, no channels and default
+security, and you configure it afterwards over Bluetooth or USB. Meshtastic
+Builder compiles those settings into the firmware instead: pick a device and a
+firmware version, fill in a form, and download a ZIP ready to flash.
 
-A few settings that `userPrefs.jsonc` cannot express, such as `ok_to_mqtt` and
-manual (non-preset) LoRa parameters, are offered as advanced build options.
-Firmware 2.8.0 and newer reads those macros itself; older supported tags get a
-small repo-controlled firmware patch. See
-[docs/build-options.md](docs/build-options.md).
+**Public instance:** <https://builder.meshtastic.lazynoda.es>
 
-The UI is available in Spanish and English.
+- No account and no email. Each build gets a private link, and its ZIP stays
+  downloadable for 7 days.
+- Official firmware from [meshtastic/firmware](https://github.com/meshtastic/firmware),
+  compiled with PlatformIO. Only two small, documented patches are ever applied;
+  see [Advanced Build Options](docs/build-options.md#the-two-patches).
+- 95 supported devices, the same set the
+  [Meshtastic Web Flasher](https://flasher.meshtastic.org) offers.
+- Interface in Spanish and English.
 
-## Components
+## What You Can Set
 
-- `meshtastic_builder.app`: HTTP server and API.
-- `meshtastic_builder.worker`: queue worker that claims builds and runs Docker.
-- `meshtastic_builder.code_options`: advanced build option allowlist.
-- `meshtastic_builder.cleanup`: expires old artifacts.
-- `docker/builder.Dockerfile`: PlatformIO/Meshtastic build image.
-- `docker/patches/userprefs-ext.patch`: adds the missing `USERPREFS_*` reads below firmware 2.8.
-- `docker/patches/fixed-gps-nodedb.patch`: upstream PR #11825 verbatim, so a
-  fixed position compiles on firmware 2.8.x.
-- `data/devices.json`: allowlisted devices and PlatformIO environments.
-- `data/build_options.json`: allowlisted advanced build options.
-- `static/`: the frontend, served as-is with no build step.
+- Node long and short name, timezone.
+- LoRa region, modem preset, TX power, and manual LoRa parameters (bandwidth,
+  spreading factor, coding rate, frequency).
+- Device role, rebroadcast mode, node info and telemetry intervals.
+- Up to 8 channels with name, PSK, position precision and mute.
+- Bluetooth PIN, WiFi, MQTT broker and credentials.
+- Position: GPS mode, broadcast interval, smart position, fixed position.
+- Admin keys, managed mode, packet signature policy.
+- Any other key in the firmware's `userPrefs.jsonc`.
 
-Full documentation lives in [docs/README.md](docs/README.md).
+The full list, with what the firmware accepts and why some settings are
+rejected, is in [userPrefs Support](docs/userprefs-support.md).
 
-AI agent handoff notes live in [AGENTS.md](AGENTS.md).
+## Flashing the ZIP
 
-## Quick Start
+Every ZIP carries a `FLASHING.txt` with the exact steps for its chip.
+
+- **nRF52** (Pro-micro DIY, Heltec T114, RAK4631…): double-tap reset and copy
+  the `.uf2` file onto the USB drive that appears.
+- **ESP32** (Heltec V4, T-Beam, Station G2…): open the
+  [Meshtastic Web Flasher](https://flasher.meshtastic.org), pick your device,
+  choose the custom firmware option and select the ZIP as is. Its
+  *erase and install* option does not work with custom ZIPs on firmware 2.8
+  (it asks for `bleota-s3.bin`, which upstream removed), so use `esptool` for a
+  full install; `FLASHING.txt` has the commands.
+
+Most settings are applied on first boot and after a factory reset. A node that
+is already configured keeps its current settings until it is reset.
+
+Why the files are named the way they are is explained in
+[Worker and Builder](docs/worker-and-builder.md#zip-contents).
+
+## Running Your Own Instance
+
+Requirements: Docker with the Compose plugin, and about 12 GB of disk for the
+firmware builder image. A build usually takes 4 to 12 minutes, depending on the
+chip and the CPUs you give it.
+
+```bash
+git clone https://github.com/lazynoda/meshtastic-builder.git
+cd meshtastic-builder
+cp .env.example .env    # set MB_BASE_URL to your public URL
+
+# One-off, about an hour: clones the firmware and prewarms the toolchains.
+docker build -f docker/builder.Dockerfile -t meshtastic-firmware-builder:local .
+
+docker compose -f compose.yml up -d --build
+```
+
+With rootless Docker, also set `MB_DOCKER_SOCKET=/run/user/<uid>/docker.sock` in
+`.env`.
+
+Then:
+
+- [Operations](docs/operations.md): reverse proxy, TLS, backups, firmware
+  version admin.
+- [Docker Compose Flow](docs/compose-flow.md): a step-by-step smoke test,
+  including a fake mode that tests the whole flow without compiling anything.
+- [Configuration](docs/configuration.md): every `MB_*` variable.
+
+## How It Works
+
+A small Python web app (standard library only, SQLite, no frontend build step)
+stores each request in a queue. A worker picks requests one at a time and
+compiles each one in a throwaway Docker container with PlatformIO. The web
+process never touches Docker.
+
+```text
+browser ──> web (validate, queue) ──> SQLite <── worker ──> builder container
+                                                    │          (PlatformIO)
+                                                    └──> ZIP, kept 7 days
+```
+
+Everything the user sends is validated against the selected firmware version
+before it reaches the compiler, because each setting becomes a `-D` compiler
+flag. See [Security Model](docs/security.md).
+
+## Documentation
+
+All documentation is in [docs/](docs/README.md): architecture, API, worker and
+builder image, frontend, database, security and testing.
+
+Working on the code with an AI agent? Read [AGENTS.md](AGENTS.md) first.
+
+## Development
 
 ```bash
 cp .env.example .env
 python3 -m meshtastic_builder.db
-python3 -m meshtastic_builder.app
+python3 -m meshtastic_builder.app                            # http://localhost:8080
+MB_BUILDER_MODE=fake python3 -m meshtastic_builder.worker    # no Docker needed
+python3 -B -m unittest discover -s tests
 ```
 
-In another terminal:
-
-```bash
-python3 -m meshtastic_builder.worker
-```
-
-For local queue testing without Docker:
-
-```bash
-MB_BUILDER_MODE=fake python3 -m meshtastic_builder.worker --once
-```
-
-Build the firmware builder image:
-
-```bash
-docker build -f docker/builder.Dockerfile -t meshtastic-firmware-builder:local .
-```
-
-Then start the web server at `http://localhost:8080`.
-
-## Docker Compose Flow
-
-Fast end-to-end test without compiling firmware:
-
-```bash
-MB_BUILDER_MODE=fake docker compose -f compose.yml up --build
-```
-
-Real firmware build flow:
-
-```bash
-docker build -f docker/builder.Dockerfile -t meshtastic-firmware-builder:local .
-MB_BUILDER_MODE=docker docker compose -f compose.yml up --build
-```
-
-Then open `http://localhost:8080`, submit a build, and watch worker logs:
-
-```bash
-docker compose -f compose.yml logs -f worker
-```
-
-Detailed Compose instructions, including remote Docker via
-`DOCKER_HOST=ssh://docker-host.example`, are in
-[docs/compose-flow.md](docs/compose-flow.md).
-
-`compose.yml` reads its settings from `.env`. For a deployment on another host,
-copy `docker-compose.example.yaml` instead: it carries the same services with
-the values written out inline and a note on why each one is set that way.
-
-## Firmware Version Handling
-
-The server fetches tags from `meshtastic/firmware` via the GitHub tags API and caches them in SQLite. A submitted build stores both the selected `firmware_tag` and the resolved `firmware_sha`. The worker compiles the SHA when possible and falls back to the tag only if the image does not have that SHA locally.
-
-Historical tags can require different toolchains. The DB has a `supported` flag on `firmware_versions`; the API returns only supported versions by default. New caches auto-support only the latest `MB_AUTO_SUPPORT_LATEST_TAGS` tags unless that value is set to `0`.
-
-The tag sync follows GitHub pagination up to `MB_GITHUB_MAX_TAG_PAGES`. If the network is unavailable, the app keeps serving versions already cached in SQLite.
-
-## Build Security Model
-
-- Device environments are allowlisted in `data/devices.json`.
-- Firmware versions must be selected from cached GitHub tags.
-- `userPrefs.jsonc` is parsed and normalized before storage.
-- Unknown preference keys are rejected based on the selected tag's `userPrefs.jsonc` template.
-- Advanced build options are allowlisted in `data/build_options.json`; the firmware patch is repo-controlled and never user-supplied.
-- Public download paths use cryptographically random tokens, not DB ids.
-- ZIPs expire after `MB_ARTIFACT_TTL_DAYS` days, are blocked at download time after expiry, and are deleted by cleanup.
-- Submitted preference values are shape-checked before they reach the compiler, because the firmware build turns them into `-D` defines.
-- The web process never invokes Docker; only the worker does.
-
-## Artifact Contents
-
-The builder ZIP carries only what a flasher consumes, plus `FLASHING.txt` with
-per-chip instructions, `BUILD_INFO.txt` with tag, SHA, device environment,
-timestamp and source URL metadata, and the `userPrefs.jsonc` the firmware was
-compiled against.
-
-- ESP32: `firmware-*-update.bin` (app image alone, written at `0x10000`),
-  `firmware-*.factory.bin` (bootloader + partition table + app, written at
-  `0x0`), `littlefs-*.bin` for the spiffs partition, plus `bootloader.bin` and
-  `partitions.bin` for flashing part by part.
-- nRF52: `firmware-*.uf2` and `firmware-*.hex`. No factory image, no partition
-  table and no filesystem image: those are ESP32 concepts.
-
-Only `.elf` and `.map` are excluded (see `docker/build_firmware.sh`): they were
-81% of the download and matter solely for decoding a backtrace.
-
-### Why the app image is named `-update.bin`
-
-flasher.meshtastic.org only loads a release manifest for firmware it hosts, so a
-ZIP the user picks themselves always takes the web flasher's legacy path. That
-path searches the archive for `firmware-<target>-<version>-update.bin` and
-explicitly excludes `*.factory.bin`, so naming the app image that way is what
-lets the ZIP be selected as-is instead of being unzipped first.
-
-Its "erase and install" option cannot work with this ZIP on 2.8 firmware: it asks
-for `bleota-s3.bin`, which upstream removed in 2.8. Use esptool for a full
-install; `FLASHING.txt` in the ZIP carries the commands with this build's own
-spiffs offset, read from its `partitions.bin`.
-
-The upstream `bin/device-install.sh` is also unusable here, for a different
-reason: it wants `firmware-*.mt.json`, which only `pio run -t mtjson` emits, and
-`mt-<mcu>-ota.bin`, which upstream CI downloads from the separate
-`meshtastic/esp32-unified-ota` repository.
-
-## Tests
-
-```bash
-python3 -m unittest discover -s tests
-```
+Details in [Local Development](docs/local-development.md).
 
 ## License
 
@@ -156,3 +125,6 @@ service for others over a network, you must offer them its source code.
 The patches in `docker/patches/` modify the Meshtastic firmware and stay under
 its license, GPL-3.0. GPL-3.0 section 13 allows combining them with this
 AGPL-3.0 project.
+
+Meshtastic is a registered trademark of Meshtastic LLC. This project is not
+affiliated with or endorsed by Meshtastic LLC.

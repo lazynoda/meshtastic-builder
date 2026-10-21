@@ -79,7 +79,8 @@ python3 -m meshtastic_builder set-supported v2.7.25.104df5f
 python3 -m meshtastic_builder set-unsupported v2.7.25.104df5f
 ```
 
-Validate enabled devices against a local checkout of `meshtastic/firmware`:
+Validate enabled devices against a local checkout of
+[meshtastic/firmware](https://github.com/meshtastic/firmware):
 
 ```bash
 python3 -m meshtastic_builder validate-devices /path/to/meshtastic/firmware
@@ -123,7 +124,7 @@ The service runs behind a TLS-terminating reverse proxy. `Caddyfile.example`
 in the repo root is a working starting point:
 
 ```caddyfile
-builder.meshtastic.es {
+builder.example.org {
     reverse_proxy web:8080
 }
 ```
@@ -131,7 +132,7 @@ builder.meshtastic.es {
 Checklist for a fresh host:
 
 1. Point DNS at the host and open ports 80/443 for the proxy only.
-2. Set `MB_BASE_URL=https://builder.meshtastic.es` and `MB_TRUST_PROXY=1` in `.env`,
+2. Set `MB_BASE_URL=https://builder.example.org` and `MB_TRUST_PROXY=1` in `.env`,
    or start from `docker-compose.example.yaml`, which spells the same settings out
    inline with the reasoning for each one.
    Enable `MB_TRUST_PROXY` only when the app port is not reachable directly, as
@@ -139,6 +140,7 @@ Checklist for a fresh host:
 3. Stop publishing the `web` port to the public interface; let the proxy reach it
    over the compose network.
 4. Build the firmware builder image on the host and pin it via `MB_BUILDER_IMAGE`.
+   With rootless Docker, set `MB_DOCKER_SOCKET=/run/user/<uid>/docker.sock`.
 5. Run one real build end to end before announcing the service.
 
 Services already carry `restart: unless-stopped`, so Docker restores the stack on

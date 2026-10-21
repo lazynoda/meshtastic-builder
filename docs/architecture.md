@@ -12,7 +12,7 @@ The worker process claims queued rows one at a time, writes build inputs to a te
 
 The builder container contains the Meshtastic firmware repository, Git, Python, PlatformIO CLI, and a shell entrypoint that fetches tags, checks out the requested firmware version, optionally applies the repo-controlled patches the worker staged in `input/patches/`, and runs `pio run -e <env>`.
 
-Most customization is expressed through `userPrefs.jsonc`. Settings that upstream firmware never reads from a `USERPREFS_*` macro are exposed as advanced build options, which add those reads via that patch. See [Advanced Build Options](build-options.md).
+Most customization is expressed through `userPrefs.jsonc`. Settings that `userPrefs.jsonc` cannot express are exposed as advanced build options; below firmware 2.8.0 they need a small patch that adds the missing reads. See [Advanced Build Options](build-options.md).
 
 ## Flow
 

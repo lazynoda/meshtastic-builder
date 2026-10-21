@@ -37,16 +37,19 @@ python3 -B -m unittest discover -s tests
 
 ## Test Files
 
+- `tests/test_admin.py`
+- `tests/test_app.py`
+- `tests/test_build_failures.py`
+- `tests/test_builder.py`
+- `tests/test_cleanup.py`
+- `tests/test_code_options.py`
+- `tests/test_devices.py`
+- `tests/test_fake_worker_flow.py`
+- `tests/test_firmware_versions.py`
+- `tests/test_health.py`
 - `tests/test_jsonc.py`
 - `tests/test_security.py`
-- `tests/test_firmware_versions.py`
 - `tests/test_submissions.py`
-- `tests/test_fake_worker_flow.py`
-- `tests/test_cleanup.py`
-- `tests/test_builder.py`
-- `tests/test_admin.py`
-- `tests/test_code_options.py`
-- `tests/test_app.py`
 
 ## Why Fake Mode Exists
 

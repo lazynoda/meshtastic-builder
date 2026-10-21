@@ -115,12 +115,11 @@ matrix.
 Only the worker needs Docker access.
 
 Builder containers still run with CPU, memory, PID, and network limits. The CPU
-limit defaults to 4 because T114/nRF52 builds are CPU-bound and the old 2-CPU
-cap left the compiler saturated for several minutes longer on the remote test
-host.
+limit defaults to 4 because firmware builds are CPU-bound: with 2 CPUs an nRF52
+build takes several minutes longer.
 
-The remote Docker path has been validated with `DOCKER_HOST=ssh://docker-host.example`,
-`MB_DOCKER_TRANSPORT=copy`, and `MB_DOCKER_NETWORK=bridge`.
+A remote daemon (`DOCKER_HOST=ssh://...`) works with `MB_DOCKER_TRANSPORT=copy`
+and `MB_DOCKER_NETWORK=bridge`; see [Docker Compose Flow](compose-flow.md#remote-docker-daemon).
 
 ## Builder Image
 
@@ -128,7 +127,7 @@ The remote Docker path has been validated with `DOCKER_HOST=ssh://docker-host.ex
 
 - starts from Debian,
 - installs Git, Python, PlatformIO CLI, Zip tools,
-- clones `meshtastic/firmware` with tags and submodules,
+- clones [meshtastic/firmware](https://github.com/meshtastic/firmware) with tags and submodules,
 - checks out `MESHTASTIC_REF` (`latest` = newest release tag at image build time),
 - prewarms PlatformIO dependencies for `PREWARM_ENVS` against that ref, using
   `docker/prewarm.sh`,
@@ -191,6 +190,8 @@ Inputs:
 - `/work/input/BUILD_INFO.txt`
 - `/work/input/patches/*.patch` (optional, zero or more)
 
+Output: one ZIP under `/work/output/`.
+
 Every patch in `input/patches/` is applied with `git apply` in name order, after
 checkout and before `pio run`. Their presence is the only signal; the positional
 argument contract is unchanged. The worker decides which patches a tag needs, so
@@ -246,9 +247,42 @@ ever lifted out of the log, so secrets in the flag dump cannot reach it.
 | `internal` | An unexpected worker exception; the log is the traceback. |
 | `unknown` | Nothing in the log matched; the exit code is the only evidence. |
 
-Output:
+## ZIP Contents
 
-- one ZIP under `/work/output/`
+The builder ZIP carries only what a flasher consumes, plus `FLASHING.txt` with
+per-chip instructions, `BUILD_INFO.txt` with tag, SHA, device environment,
+timestamp and source URL metadata, and the `userPrefs.jsonc` the firmware was
+compiled against.
+
+- ESP32: `firmware-*-update.bin` (app image alone, written at `0x10000`),
+  `firmware-*.factory.bin` (bootloader + partition table + app, written at
+  `0x0`), `littlefs-*.bin` for the spiffs partition, plus `bootloader.bin` and
+  `partitions.bin` for flashing part by part.
+- nRF52: `firmware-*.uf2` and `firmware-*.hex`. No factory image, no partition
+  table and no filesystem image: those are ESP32 concepts.
+
+Only `.elf` and `.map` are excluded (see `docker/build_firmware.sh`): they were
+81% of the download and matter solely for decoding a backtrace.
+
+### Why the App Image Is Named `-update.bin`
+
+The [Meshtastic Web Flasher](https://flasher.meshtastic.org) only loads a release
+manifest for firmware it hosts, so a ZIP the user picks themselves always takes
+the web flasher's legacy path. That path searches the archive for
+`firmware-<target>-<version>-update.bin` and explicitly excludes
+`*.factory.bin`, so naming the app image that way is what lets the ZIP be
+selected as-is instead of being unzipped first.
+
+Its "erase and install" option cannot work with this ZIP on 2.8 firmware: it asks
+for `bleota-s3.bin`, which upstream removed in 2.8. Use esptool for a full
+install; `FLASHING.txt` in the ZIP carries the commands with this build's own
+spiffs offset, read from its `partitions.bin`.
+
+The upstream `bin/device-install.sh` is also unusable here, for a different
+reason: it wants `firmware-*.mt.json`, which only `pio run -t mtjson` emits, and
+`mt-<mcu>-ota.bin`, which upstream CI downloads from the separate
+[meshtastic/esp32-unified-ota](https://github.com/meshtastic/esp32-unified-ota)
+repository.
 
 ## Version Reproducibility
 

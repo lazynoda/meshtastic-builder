@@ -14,7 +14,7 @@ For real firmware builds:
 
 For local fake builds, Docker is not required.
 
-## Run The Web App
+## Run the Web App
 
 ```bash
 cp .env.example .env
@@ -45,7 +45,7 @@ A `docker/build_firmware.sh` rebuild is cheap: it is copied in after the prewarm
 layer, so only the last two layers are redone. A `docker/prewarm.sh` or
 Dockerfile change re-prewarms, which is the hour-long one.
 
-## Run The Worker
+## Run the Worker
 
 Real Docker builder mode:
 
@@ -65,13 +65,13 @@ Process at most one job:
 MB_BUILDER_MODE=fake python3 -m meshtastic_builder.worker --once
 ```
 
-## Build The Firmware Builder Image
+## Build the Firmware Builder Image
 
 ```bash
 docker build -f docker/builder.Dockerfile -t meshtastic-firmware-builder:local .
 ```
 
-The image clones `meshtastic/firmware`, installs PlatformIO, fetches tags, and prewarms dependencies for the configured environments.
+The image clones [meshtastic/firmware](https://github.com/meshtastic/firmware), installs PlatformIO, fetches tags, and prewarms dependencies for the configured environments.
 
 ## Docker Compose
 
@@ -90,12 +90,6 @@ MB_BUILDER_MODE=docker docker compose -f compose.yml up --build
 
 For the full checklist, including remote Docker and API-based submission, see
 [Docker Compose Flow](compose-flow.md).
-
-Basic start command:
-
-```bash
-docker compose -f compose.yml up --build
-```
 
 The worker service mounts the host Docker socket (`MB_DOCKER_SOCKET`, default `/var/run/docker.sock`; rootless Docker uses `/run/user/<uid>/docker.sock`) so it can create ephemeral builder containers. The web service does not need Docker socket access.
 

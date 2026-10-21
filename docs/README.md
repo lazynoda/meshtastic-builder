@@ -1,22 +1,35 @@
 # Meshtastic Builder Documentation
 
-This directory documents the current implementation of Meshtastic Builder.
+New here? Start with the [project README](../README.md).
 
-AI agent handoff notes live in [`../AGENTS.md`](../AGENTS.md).
+## Running It
 
-Start here:
+- [Local Development](local-development.md): run the app and a worker on your
+  machine, with or without Docker.
+- [Docker Compose Flow](compose-flow.md): step-by-step smoke test, fake and real
+  builds, remote Docker daemons.
+- [Operations](operations.md): deployment behind a reverse proxy, backups, logs,
+  firmware version admin.
+- [Configuration](configuration.md): every `MB_*` environment variable.
 
-- [Architecture](architecture.md)
-- [Local Development](local-development.md)
-- [Docker Compose Flow](compose-flow.md)
-- [Configuration](configuration.md)
-- [API](api.md)
-- [Worker and Builder](worker-and-builder.md)
-- [userPrefs Support](userprefs-support.md)
-- [Advanced Build Options](build-options.md)
-- [Frontend](frontend.md)
-- [Database](database.md)
-- [Security Model](security.md)
-- [Testing](testing.md)
-- [Operations](operations.md)
-- [Roadmap](roadmap.md)
+## How It Works
+
+- [Architecture](architecture.md): the web, worker and builder split, and the
+  request flow.
+- [Worker and Builder](worker-and-builder.md): build lifecycle, the builder
+  image, reading build logs, what goes into the ZIP.
+- [userPrefs Support](userprefs-support.md): which firmware settings the form
+  offers, and which it rejects and why.
+- [Advanced Build Options](build-options.md): settings `userPrefs.jsonc` cannot
+  express, and the two firmware patches.
+- [Frontend](frontend.md): the static UI, translations, version gating.
+- [API](api.md): HTTP endpoints.
+- [Database](database.md): SQLite schema and queue semantics.
+
+## Quality
+
+- [Security Model](security.md): input validation, builder isolation, secrets.
+- [Testing](testing.md): what the test suite covers.
+- [Roadmap](roadmap.md): what is done and what comes next.
+
+Working on the code with an AI agent? Read [AGENTS.md](../AGENTS.md) first.

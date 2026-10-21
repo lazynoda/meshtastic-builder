@@ -13,7 +13,7 @@ macros.
 
 ## How It Works
 
-Upstream `bin/platformio-custom.py` turns *every* key in `userPrefs.jsonc` into
+Upstream [`bin/platformio-custom.py`](https://github.com/meshtastic/firmware/blob/develop/bin/platformio-custom.py) turns *every* key in `userPrefs.jsonc` into
 a `-D` compiler define. Below 2.8.0 the missing half is the firmware reading
 them, so a single repo-controlled patch,
 `docker/patches/userprefs-ext.patch`, adds the missing `#ifdef` blocks to
@@ -74,8 +74,9 @@ someone's radio.
 
 ### fixed-gps-nodedb.patch
 
-Upstream commit `94bb21ecc` (PR #10413, "2.8: NodeDB shrink, decoupling, and
-restructuring") dropped
+Upstream commit `94bb21ecc`
+([PR #10413](https://github.com/meshtastic/firmware/pull/10413), "2.8: NodeDB
+shrink, decoupling, and restructuring") dropped
 
 ```cpp
 meshtastic_NodeInfoLite *info = getOrCreateMeshNode(getNodeNum());
@@ -94,8 +95,8 @@ This service sets `USERPREFS_FIXED_GPS` whenever the user asks for a fixed
 position (`static/app.js`), so every 2.8.x fixed-position build hits it.
 
 The patch is upstream's own fix, taken verbatim from
-<https://github.com/meshtastic/firmware/pull/11825>, merged to the firmware
-`develop` branch on 2026-09-12 as `df47f95ff`. Nothing about it is
+[PR #11825](https://github.com/meshtastic/firmware/pull/11825), merged to the
+firmware `develop` branch as `df47f95ff`. Nothing about it is
 locally invented: keeping the compiled firmware as close to upstream as possible
 is the point.
 
@@ -103,10 +104,9 @@ Tags below `2.8.0` still declare `info` and compile the block as shipped, so
 fixed position works there with **no patch at all**. Only the patch is gated,
 never the feature.
 
-`fixedGpsPatch.fixedSinceFirmwareVersion` is `null` because no released tag
-carries the fix yet — `v2.8.0.47db0e3` is dated 2026-08-31, before the merge.
-Set it to the first tag that ships PR #11825 and the patch stops being applied
-from that tag on; leaving it stale would make `git apply` fail and stop builds.
+`fixedGpsPatch.fixedSinceFirmwareVersion` must be set to the first release that
+ships PR #11825; from that tag on the patch is no longer applied. Leaving it
+stale makes `git apply` fail and stops every fixed-position build on newer tags.
 
 Verified with `git apply --check`: applies on `v2.8.0.7239fe8` and
 `v2.8.0.47db0e3`, refuses on `v2.7.26.54e0d8d` (which does not need it).
@@ -153,7 +153,7 @@ leave the region band plan while a raw frequency can.
 | `nativeSinceFirmwareVersion` (`2.8.0`) | From this version the firmware reads the macros itself; no patch is shipped. |
 | `eightChannelsSinceFirmwareVersion` (`2.8.0`) | From this version 8 channels are accepted instead of 3. |
 | `fixedGpsPatch.minFirmwareVersion` (`2.8.0`) | From this version a fixed position needs `fixed-gps-nodedb.patch`. |
-| `fixedGpsPatch.fixedSinceFirmwareVersion` (`null`) | The first release carrying upstream PR #11825; from it, that patch is no longer applied. |
+| `fixedGpsPatch.fixedSinceFirmwareVersion` | The first release carrying upstream PR #11825; from it, that patch is no longer applied. |
 
 The patch applies cleanly from `v2.6.4` to `v2.7.26`, fails on `v2.2.x` and
 older, and **also fails on `v2.8.0`** because upstream rewrote the surrounding

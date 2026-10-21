@@ -1,12 +1,12 @@
 # Firmware Builder Image
 
-Build:
+The image the worker runs for every real build.
 
 ```bash
 docker build -f docker/builder.Dockerfile -t meshtastic-firmware-builder:local .
 ```
 
-The image clones `meshtastic/firmware`, fetches tags, installs PlatformIO, and prewarms packages for the environments in `PREWARM_ENVS`.
+The image clones [meshtastic/firmware](https://github.com/meshtastic/firmware), fetches tags, installs PlatformIO, and prewarms packages for the environments in `PREWARM_ENVS`.
 
 Two scripts, on purpose. `docker/prewarm.sh` runs once at image build time and
 owns the expensive layer; `docker/build_firmware.sh` is the runtime entrypoint
@@ -27,7 +27,7 @@ docker build \
 
 PlatformIO is pinned to 6.1.19 (`--build-arg PLATFORMIO_VERSION`). 6.2.0 breaks
 ESP32-S3 builds through a tool-scons version fight with pioarduino; see
-`docs/worker-and-builder.md`.
+[Worker and Builder](../docs/worker-and-builder.md#builder-image).
 
 Runtime builds check out the requested SHA/tag directly inside the container's
 ephemeral `/opt/firmware`, avoiding a full checkout copy per request and keeping
@@ -47,11 +47,11 @@ docker run --rm \
 
 The input directory must contain `userPrefs.jsonc` and `BUILD_INFO.txt`. The output directory receives a ZIP.
 
-When the Docker daemon is remote, use the application worker's copy transport
-instead of bind mounts:
+When the Docker daemon is remote, use the worker's copy transport instead of
+bind mounts:
 
 ```bash
-DOCKER_HOST=ssh://docker-host.example \
+DOCKER_HOST=ssh://user@build-host \
 MB_DOCKER_TRANSPORT=copy \
 MB_DOCKER_NETWORK=bridge \
 python3 -m meshtastic_builder.worker --once

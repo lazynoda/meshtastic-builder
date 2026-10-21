@@ -13,7 +13,7 @@ The most important rule is separation: the web process accepts input, but only t
 - Preference values must be scalar.
 - Submitted preference files are size-limited.
 - `codeOptions` keys and values are allowlisted in `data/build_options.json`.
-- The firmware patch is repo-controlled. Users never supply patch content, only
+- Firmware patches are repo-controlled. Users never supply patch content, only
   which allowlisted options to enable.
 - Synthetic macros are merged after user overrides, so `prefsJsonc` cannot set
   or override them.

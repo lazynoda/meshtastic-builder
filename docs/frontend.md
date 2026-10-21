@@ -14,7 +14,7 @@ development loop.
 | `static/styles.css` | Design tokens, shell, panels, buttons, form controls. |
 | `static/i18n.js` | Spanish/English dictionary, `t()`, language toggle. |
 | `static/app.js` | Form logic, `userPrefs.jsonc` generation, submit and polling. |
-| `static/favicon.svg` | Shared meshtastic.es mark. |
+| `static/favicon.svg` | Shared [meshtastic.es](https://meshtastic.es) mark. |
 
 ## Styling
 

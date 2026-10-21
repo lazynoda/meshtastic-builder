@@ -31,7 +31,7 @@ to `/run/user/<uid>/docker.sock`: if the host path does not exist, the worker
 fails to start after the next reboot with `error mounting "/var/run/docker.sock"
 ... not a directory`. The web service does not need Docker socket access.
 
-## Fast End-To-End Test With Fake Builds
+## Fast End-to-End Test With Fake Builds
 
 Use this first when validating the web app, queue, worker, and download links
 without compiling Meshtastic firmware.
@@ -100,7 +100,7 @@ Submit a build with:
 
 - device: `LILYGO T-Beam`
 - PlatformIO env: `tbeam`
-- firmware tag: `v2.8.0.47db0e3` if available and supported
+- firmware tag: the newest one offered
 - preferences: set the visible form controls; the page generates `userPrefs.jsonc`
 
 The first real build can take several minutes because PlatformIO may download
@@ -116,7 +116,7 @@ When the worker reports success, open the download link on the build page. A
 successful real ZIP should include firmware binaries plus `BUILD_INFO.txt` and
 `userPrefs.jsonc`.
 
-## Real Build Test By API
+## Real Build Test by API
 
 This script submits a build and polls status without using browser UI:
 
@@ -127,7 +127,7 @@ import time
 import urllib.request
 
 base = "http://localhost:8080"
-tag = "v2.8.0.47db0e3"
+tag = "v2.8.1.8e6a88d"  # any tag listed by /api/firmware-versions
 
 prefs = urllib.request.urlopen(f"{base}/api/prefs-template?tag={tag}").read().decode()
 payload = {
@@ -176,66 +176,30 @@ the PlatformIO flag dump should appear.
 
 ## Remote Docker Daemon
 
-The remote Docker path has been validated with:
+The worker can drive a Docker daemon on another machine, for example a bigger
+build host. Point `DOCKER_HOST` at it:
 
 ```bash
-export DOCKER_HOST=ssh://docker-host.example
+export DOCKER_HOST=ssh://user@build-host
 ```
 
-Build the firmware builder image on the remote daemon:
+Build the firmware builder image on that daemon, then start Compose against it:
 
 ```bash
-DOCKER_HOST=ssh://docker-host.example \
 docker build -f docker/builder.Dockerfile -t meshtastic-firmware-builder:local .
-```
 
-Start Compose on that same remote daemon:
-
-```bash
-DOCKER_HOST=ssh://docker-host.example \
-MB_BASE_URL=http://docker-host.example:8080 \
-MB_BUILDER_MODE=docker \
-docker compose -f compose.yml up --build
-```
-
-Open:
-
-```text
-http://docker-host.example:8080
-```
-
-If port `8080` is already in use on the remote host, publish the web service on
-another host port. The current phone-test deployment uses `9990`:
-
-```bash
-DOCKER_HOST=ssh://docker-host.example \
 MB_PORT=9990 \
-MB_BASE_URL=http://docker-host.example:9990 \
-MB_BUILDER_MODE=fake \
-docker compose -f compose.yml up -d --build --force-recreate
-```
-
-Open:
-
-```text
-http://docker-host.example:9990
-```
-
-To switch that same deployment to real firmware builds:
-
-```bash
-DOCKER_HOST=ssh://docker-host.example \
-MB_PORT=9990 \
-MB_BASE_URL=http://docker-host.example:9990 \
+MB_BASE_URL=http://build-host:9990 \
 MB_BUILDER_MODE=docker \
-docker compose -f compose.yml up -d --build --force-recreate
+docker compose -f compose.yml up -d --build
 ```
 
-Check the current remote stack:
+`MB_PORT` is only needed when `8080` is already taken on that host. Check the
+stack with:
 
 ```bash
-DOCKER_HOST=ssh://docker-host.example docker compose -f compose.yml ps
-DOCKER_HOST=ssh://docker-host.example docker compose -f compose.yml logs -f web worker
+docker compose -f compose.yml ps
+docker compose -f compose.yml logs -f web worker
 ```
 
 The worker should use:
@@ -249,35 +213,6 @@ the host daemon through the mounted socket, so a bind mount of
 where that path does not exist — the builder would start with an empty input
 directory. `copy` streams the inputs into the container instead. Use `bind` only
 when the worker and the daemon genuinely share a filesystem.
-
-## Known Good Smoke Test
-
-On 2026-06-12, this real remote-Docker smoke test passed:
-
-- daemon: `ssh://docker-host.example`
-- builder image: `meshtastic-firmware-builder:local`
-- transport: `copy`
-- network: `bridge`
-- firmware tag: `v2.7.25.104df5f`
-- firmware SHA: `104df5f9e590119e99b289b8331e0ea59940514c`
-- device/env: `tbeam`
-- artifact size: `11123897`
-- artifact SHA256: `f3da99411de5f9cca1f30e3ecbe171623cf27fcc1fd364513f78ddcf10b25550`
-
-The ZIP contained firmware `.bin`, `.factory.bin`, `.elf`, `.map`, LittleFS,
-bootloader, partitions, `BUILD_INFO.txt`, and `userPrefs.jsonc`.
-
-## Current Remote Phone-Test State
-
-As of 2026-06-12:
-
-- URL: `http://docker-host.example:9990`
-- Mode: `fake`
-- Remote daemon: `ssh://docker-host.example`
-- Services: `meshtastic-builder-web-1`, `meshtastic-builder-worker-1`
-- Validation: `/api/devices` returned all six enabled devices.
-- Validation: a fake build for `heltec-mesh-node-t114` succeeded and produced a
-  downloadable ZIP.
 
 ## Troubleshooting
 

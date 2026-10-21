@@ -13,9 +13,23 @@ The backend still validates submitted JSONC because users can bypass the page.
 | Area | Keys | Notes |
 | --- | --- | --- |
 | Owner identity | `USERPREFS_CONFIG_OWNER_LONG_NAME`, `USERPREFS_CONFIG_OWNER_SHORT_NAME` | Short name is limited to 4 UTF-8 bytes. |
+| Timezone | `USERPREFS_TZ_STRING` | Must be a POSIX TZ string, not an IANA name. Examples: peninsular Spain `CET-1CEST,M3.5.0,M10.5.0/3`, Canary Islands `WET0WEST,M3.5.0/1,M10.5.0`. |
 | LoRa region | `USERPREFS_CONFIG_LORA_REGION` | Values must match known `RegionCode` enum constants from Meshtastic protobufs. |
-| Device role | `USERPREFS_CONFIG_DEVICE_ROLE` | Only roles accepted by firmware for `userPrefs`: `CLIENT`, `CLIENT_MUTE`, `CLIENT_HIDDEN`, `TRACKER`, `SENSOR`, `TAK`, `TAK_TRACKER`. |
 | Modem preset | `USERPREFS_LORACONFIG_MODEM_PRESET` | Deprecated presets such as `LONG_SLOW` and `VERY_LONG_SLOW` are rejected. |
+| LoRa TX power | `USERPREFS_LORACONFIG_TX_POWER` | `0`–`30` dBm. Empty or `0` means the region maximum. |
+| Device role | `USERPREFS_CONFIG_DEVICE_ROLE` | Only roles accepted by firmware for `userPrefs`: `CLIENT`, `CLIENT_MUTE`, `CLIENT_HIDDEN`, `TRACKER`, `SENSOR`, `TAK`, `TAK_TRACKER`. |
+| Node behaviour | `USERPREFS_CONFIG_DEVICE_REBROADCAST_MODE`, `USERPREFS_CONFIG_DEVICE_NODE_INFO_BROADCAST_SECS` | Rebroadcast mode is allowlisted. The node-info interval is floored at 3600 s, the same clamp the firmware applies. |
+| Telemetry | `USERPREFS_CONFIG_DEVICE_TELEM_UPDATE_INTERVAL`, `USERPREFS_CONFIG_ENV_TELEM_UPDATE_INTERVAL`, `USERPREFS_CONFIG_ENVIRONMENT_MEASUREMENT_ENABLED` | Intervals in seconds. |
+| Channels | `USERPREFS_CHANNELS_TO_WRITE`, `USERPREFS_CHANNEL_<n>_*` | 3 channels below 2.8.0, 8 from 2.8.0 (`eightChannelsSinceFirmwareVersion`). Per-channel mute (`_IS_MUTED`) is offered where the firmware supports it. PSKs are entered as base64 and serialized to brace byte arrays. |
+| Bluetooth | `USERPREFS_FIXED_BLUETOOTH` | Fixed pairing PIN, `0`–`999999`. |
+| WiFi | `USERPREFS_NETWORK_WIFI_ENABLED`, `USERPREFS_NETWORK_WIFI_SSID`, `USERPREFS_NETWORK_WIFI_PSK` | Only offered for devices with a WiFi radio, so an nRF52 build never carries WiFi macros. SSID up to 32 bytes, password up to 64. |
+| MQTT broker | `USERPREFS_MQTT_ADDRESS`, `USERPREFS_MQTT_ENABLED`, `USERPREFS_MQTT_USERNAME`, `USERPREFS_MQTT_PASSWORD`, `USERPREFS_MQTT_ROOT_TOPIC`, `USERPREFS_MQTT_TLS_ENABLED`, `USERPREFS_MQTT_ENCRYPTION_ENABLED`, `USERPREFS_CONFIG_LORA_IGNORE_MQTT` | Broker address is serialized with the extra single quotes expected by Meshtastic examples. Lengths are capped at the nanopb buffer sizes: address and username 63 bytes, password and root topic 31 bytes. Credentials are compiled into the firmware in clear text; the UI says so. |
+| Position | `USERPREFS_CONFIG_GPS_MODE`, `USERPREFS_CONFIG_GPS_UPDATE_INTERVAL`, `USERPREFS_CONFIG_POSITION_BROADCAST_INTERVAL`, `USERPREFS_CONFIG_SMART_POSITION_ENABLED`, `USERPREFS_BLOCK_POSITION_ON_EVENT_CHANNEL` | |
+| Fixed position | `USERPREFS_FIXED_GPS`, `USERPREFS_FIXED_GPS_LAT`, `USERPREFS_FIXED_GPS_LON`, `USERPREFS_FIXED_GPS_ALT` | Plain decimal coordinates, range-checked, because the firmware multiplies them into an int32. On 2.8.x this needs a patch; see [Advanced Build Options](build-options.md#fixed-gps-nodedbpatch). |
+| Admin keys | `USERPREFS_USE_ADMIN_KEY_0/1/2` | Entered as base64 and serialized to 32-byte brace arrays. |
+| Managed mode | `USERPREFS_CONFIG_SECURITY_IS_MANAGED` | Only selectable once an admin key is set; firmware ignores it otherwise and warns. |
+| Packet signature policy | `USERPREFS_CONFIG_SECURITY_PACKET_SIGNATURE_POLICY` | `COMPATIBLE`, `BALANCED`, `STRICT`. Firmware 2.8.0 and newer. |
+| Anything else | Any other key in the tag's `userPrefs.jsonc` | Set from the *Other config values* section. The server validates the value shape like every other key. |
 
 ### Enum Values Change Between Versions
 
@@ -32,15 +46,6 @@ offers only the ones the selected tag knows:
 
 The backend allowlist is the superset of all supported tags; version gating is
 the frontend's job.
-| LoRa TX power | `USERPREFS_LORACONFIG_TX_POWER` | `0`–`30` dBm. Empty or `0` means the region maximum. |
-| Channels | `USERPREFS_CHANNELS_TO_WRITE`, `USERPREFS_CHANNEL_<n>_*` | 3 channels below 2.8.0, 8 from 2.8.0 (`eightChannelsSinceFirmwareVersion`). Per-channel mute (`_IS_MUTED`) is offered where the firmware supports it. PSKs are entered as base64 and serialized to brace byte arrays. |
-| Node behaviour | `USERPREFS_CONFIG_DEVICE_REBROADCAST_MODE`, `USERPREFS_CONFIG_DEVICE_NODE_INFO_BROADCAST_SECS` | Rebroadcast mode is allowlisted. The node-info interval is floored at 3600 s, the same clamp the firmware applies. |
-| Telemetry | `USERPREFS_CONFIG_DEVICE_TELEM_UPDATE_INTERVAL`, `USERPREFS_CONFIG_ENV_TELEM_UPDATE_INTERVAL`, `USERPREFS_CONFIG_ENVIRONMENT_MEASUREMENT_ENABLED` | Intervals in seconds. |
-| MQTT broker | `USERPREFS_MQTT_ADDRESS`, `USERPREFS_MQTT_ENABLED`, `USERPREFS_MQTT_USERNAME`, `USERPREFS_MQTT_PASSWORD`, `USERPREFS_MQTT_ROOT_TOPIC`, `USERPREFS_MQTT_TLS_ENABLED`, `USERPREFS_MQTT_ENCRYPTION_ENABLED` | Broker address is serialized with the extra single quotes expected by Meshtastic examples. Lengths are capped at the nanopb buffer sizes: address and username 63 bytes, password and root topic 31 bytes. Credentials are compiled into the firmware in clear text; the UI says so. |
-| Admin keys | `USERPREFS_USE_ADMIN_KEY_0/1/2` | Entered as base64 and serialized to 32-byte brace arrays. |
-| Managed mode | `USERPREFS_CONFIG_SECURITY_IS_MANAGED` | Only selectable once an admin key is set; firmware ignores it otherwise and warns. |
-| Packet signature policy | `USERPREFS_CONFIG_SECURITY_PACKET_SIGNATURE_POLICY` | `COMPATIBLE`, `BALANCED`, `STRICT`. Firmware 2.8.0 and newer. |
-| Timezone | `USERPREFS_TZ_STRING` | Must be a POSIX TZ string, not an IANA name. Examples: peninsula Spain `CET-1CEST,M3.5.0,M10.5.0/3`, Canary Islands `WET0WEST,M3.5.0/1,M10.5.0`. |
 
 ## Beyond userPrefs
 
@@ -49,24 +54,23 @@ happily define the macro: `ok_to_mqtt` and the manual (non-preset) LoRa
 parameters. Those are offered separately as advanced build options, native on
 2.8.0 and patched below it. See [Advanced Build Options](build-options.md).
 
-## Rejected Or Hidden
+## Rejected
 
-| Area | Status | Reason |
-| --- | --- | --- |
-| Router-like roles | Rejected | Firmware explicitly demotes `ROUTER`, `ROUTER_LATE`, and `LOST_AND_FOUND` from `USERPREFS_CONFIG_DEVICE_ROLE` to `CLIENT` for security. The UI does not offer them and the backend rejects them. |
-| IANA timezone names | Rejected | Meshtastic passes `USERPREFS_TZ_STRING` to `TZ`/`tzset`; it expects POSIX TZ database strings, not names like `Europe/Madrid`. |
-| Deprecated modem presets | Rejected | `LONG_SLOW` and `VERY_LONG_SLOW` are deprecated in current firmware. |
-| OEM branding | Hidden for now | Valid build-time keys exist, but logo/image data needs stricter validation and a dedicated UI. |
-| Firmware edition / event mode | Hidden for now | Event mode changes mesh behavior and applies congestion controls; it should not be a casual public toggle. |
-| Ringtone / RTTTL | Hidden for now | Valid keys exist, but need format validation. |
-| NodeInfo reply suppression / test logs / IPv6 | Hidden for now | Advanced or test-specific settings. |
-| WiFi credentials | Hidden for now | Only useful for WiFi-capable devices and requires careful secret handling. |
-| Fixed GPS position | Hidden for now | Valid for static deployments, but needs clear first-boot/factory-reset semantics in the UI. |
+| Area | Reason |
+| --- | --- |
+| Router-like roles | Firmware explicitly demotes `ROUTER`, `ROUTER_LATE`, and `LOST_AND_FOUND` from `USERPREFS_CONFIG_DEVICE_ROLE` to `CLIENT` for security. The UI does not offer them and the backend rejects them. |
+| IANA timezone names | Meshtastic passes `USERPREFS_TZ_STRING` to `TZ`/`tzset`; it expects POSIX TZ strings, not names like `Europe/Madrid`. |
+| Deprecated modem presets | `LONG_SLOW` and `VERY_LONG_SLOW` are deprecated in current firmware. |
+
+OEM branding, event mode, the ringtone, NodeInfo reply suppression and the other
+template keys have no dedicated control. They can still be set from *Other
+config values*.
 
 ## Firmware Evidence
 
-The analysis is based on a local firmware checkout of `meshtastic/firmware`,
-last verified against `v2.8.0.47db0e3`:
+The analysis is based on a checkout of
+[meshtastic/firmware](https://github.com/meshtastic/firmware), last verified
+against `v2.8.0.47db0e3`:
 
 - `userPrefs.jsonc` lists available build-time keys, mostly commented out.
 - `userPrefs_guide.md` documents the intended userPrefs surface.
