@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-10-21
+
+### Changed
+
+- The node's long and short names are required and no longer prefilled. The
+  form used to open with "Mi nodo Meshtastic" / "MESH", and many nodes were
+  flashed with that name. Submitting without either name now marks the empty
+  field, and `POST /api/builds` refuses a build whose merged `userPrefs.jsonc`
+  lacks either name.
+
 ## [1.1.0] - 2026-10-21
 
 ### Firmwares
@@ -152,5 +162,6 @@ First tagged release: the version running on
 
 - AGPL-3.0-only. The firmware patches stay under GPL-3.0.
 
+[1.1.1]: https://github.com/lazynoda/meshtastic-builder/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/lazynoda/meshtastic-builder/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/lazynoda/meshtastic-builder/releases/tag/v1.0.0
