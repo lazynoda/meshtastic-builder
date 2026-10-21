@@ -97,7 +97,7 @@ Basic start command:
 docker compose -f compose.yml up --build
 ```
 
-The worker service mounts `/var/run/docker.sock` so it can create ephemeral builder containers. The web service does not need Docker socket access.
+The worker service mounts the host Docker socket (`MB_DOCKER_SOCKET`, default `/var/run/docker.sock`; rootless Docker uses `/run/user/<uid>/docker.sock`) so it can create ephemeral builder containers. The web service does not need Docker socket access.
 
 ## tmux
 

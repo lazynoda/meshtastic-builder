@@ -45,7 +45,9 @@ services:
       MB_BUILD_TIMEOUT_SECONDS: ${MB_BUILD_TIMEOUT_SECONDS:-3600}
     volumes:
       - app-data:/data
-      - /var/run/docker.sock:/var/run/docker.sock
+      # Host path of the Docker socket. Rootless Docker lives at
+      # /run/user/<uid>/docker.sock; set MB_DOCKER_SOCKET in .env for that.
+      - ${MB_DOCKER_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock
 
 volumes:
   app-data:

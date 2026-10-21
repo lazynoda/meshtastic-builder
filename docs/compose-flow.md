@@ -24,8 +24,12 @@ Runtime data in Compose:
 - SQLite DB: `/data/meshtastic-builder.sqlite`
 - artifacts: `/data/artifacts`
 
-The worker mounts `/var/run/docker.sock` so it can create ephemeral firmware
-builder containers. The web service does not need Docker socket access.
+The worker mounts the host Docker socket at `/var/run/docker.sock` so it can
+create ephemeral firmware builder containers. The host side comes from
+`MB_DOCKER_SOCKET` (default `/var/run/docker.sock`). With rootless Docker set it
+to `/run/user/<uid>/docker.sock`: if the host path does not exist, the worker
+fails to start after the next reboot with `error mounting "/var/run/docker.sock"
+... not a directory`. The web service does not need Docker socket access.
 
 ## Fast End-To-End Test With Fake Builds
 
