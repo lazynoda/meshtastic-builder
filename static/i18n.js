@@ -219,7 +219,7 @@ const DICT = {
       "Firmware Meshtastic compilado con tus preferencias ya dentro, en lugar del firmware de serie que llega con la region, los nombres, la seguridad y casi todo lo demas sin configurar. Rellenas el formulario, el servidor compila el firmware para tu dispositivo y te descargas el ZIP.",
     "about.whereTitle": "Donde se ejecuta",
     "about.where":
-      "La pagina y el compilador corren en una maquina alojada por @lazynoda (o sea, yo). Si, tecnicamente podria ver tu contraseña WiFi. No lo voy a hacer. Tampoco me voy a plantar en tu casa, a cientos de kilometros, solo para usar tu WiFi.",
+      "La pagina y el compilador corren en un VPS de Oracle en Madrid gestionado por <a href=\"https://t.me/lazynoda\" target=\"_blank\" rel=\"noreferrer\">@lazynoda</a> (o sea, yo). Si, tecnicamente podria ver tu contraseña WiFi. No lo voy a hacer. Tampoco me voy a plantar en tu casa, a cientos de kilometros, solo para usar tu WiFi.",
     "about.retentionTitle": "Cuanto se guarda tu build",
     "about.retention":
       "Tu build y su ZIP se guardan {days} dias desde que termina la compilacion, para que tengas tiempo de descargarlo. Despues, un script automatico los borra.",
@@ -461,7 +461,7 @@ const DICT = {
       "Meshtastic firmware compiled with your preferences already baked in, instead of the stock firmware that ships with the region, the names, the security keys and most everything else unset. You fill in the form, the server compiles the firmware for your device, and you download the ZIP.",
     "about.whereTitle": "Where it runs",
     "about.where":
-      "The page and the builder run on a machine hosted by @lazynoda (that is me). Yes, technically I could read your WiFi password. I am not going to. I am also not driving hundreds of kilometres to your house just to use your WiFi.",
+      "The page and the builder run on an Oracle VPS in Madrid managed by <a href=\"https://t.me/lazynoda\" target=\"_blank\" rel=\"noreferrer\">@lazynoda</a> (that is me). Yes, technically I could read your WiFi password. I am not going to. I am also not driving hundreds of kilometres to your house just to use your WiFi.",
     "about.retentionTitle": "How long your build is kept",
     "about.retention":
       "Your build and its ZIP are kept for {days} days after the build finishes, so you have time to download it. After that an automated script deletes them.",
