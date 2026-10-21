@@ -4,6 +4,73 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-10-21
+
+### Firmwares
+
+- Choose the firmware to build, not only the official one. The list lives in
+  `data/firmwares.json` (id, name, GitHub URL, versioning) and ships with
+  Meshtastic Oficial (default), [Jentastic](https://github.com/derpyspike/jentastic)
+  and [Nodastic](https://github.com/lazynoda/meshtastic-firmware). See
+  [Firmware Sources](docs/firmwares.md).
+- Firmwares versioned by tags keep their own tag cache in SQLite, keyed by
+  firmware and tag. Firmwares built from a branch show the version as `N/A`
+  and always build the branch head; the commit is resolved at submit time and
+  stored with the build.
+- Version gates (patches, channel count, advanced options) compare the
+  firmware's own version: the tag, or `version.properties` for branch
+  firmwares.
+- The `userPrefs.jsonc` template, `BUILD_INFO.txt` (`firmware`, `source`,
+  `firmware_version`) and the ZIP name come from the chosen firmware.
+- The builder image fetches other repositories into its upstream clone at
+  build time. Adding a firmware needs no image rebuild.
+- The firmware's GitHub link is shown under its selector.
+
+### Devices
+
+- The device list is read from the chosen firmware at the chosen version
+  (`variants/**/platformio.ini`, the Web Flasher's rule) and cached per commit.
+  Forks show their own boards (Jentastic adds the Pro-micro E28 2.4 GHz,
+  2.4 GHz TCXO, SX1262 and NiceRF LR1121 variants), and older tags only offer
+  the boards they had. A board the selected commit lacks is refused at submit
+  time instead of failing to compile.
+- Builds store the board's label, so the build page names fork-only boards.
+- `sync-devices` regenerates `data/devices.json` from a firmware checkout,
+  keeping existing ids and labels. Added LILYGO T-Connect Pro.
+- nRF54L15 boards are excluded until they can be flashed from the ZIP
+  ([#2](https://github.com/lazynoda/meshtastic-builder/issues/2)).
+
+### Interface
+
+- Section 1 is now "Firmware and device": firmware, version, then device.
+- Every dropdown uses the same picker as the device selector. Short lists open
+  as a menu; long ones can be filtered by typing.
+- The running version is shown in the footer, linked to its release.
+- The "Refresh tags" button is gone. Tags are refreshed by an operator
+  (`refresh-versions`, all firmwares by default), for example from a daily
+  timer; see [Operations](docs/operations.md#firmware-version-admin).
+
+### Fixed
+
+- Picking an option in a dropdown now closes it. The click also reached the
+  surrounding label, which refocused the input and reopened the list.
+- Tags deleted from a firmware's repository stop being offered after the next
+  refresh. Their rows stay, unsupported, so old builds still resolve.
+- nRF54 builds no longer die on the last step on arm64 hosts: PlatformIO's
+  32-bit ARM `srec_cat` is replaced by Debian's native one when it cannot run.
+- A build tool that cannot be started is reported as an infrastructure
+  failure instead of an unknown one.
+
+### Upgrading
+
+- Rebuild the builder image (`docker build -f docker/builder.Dockerfile …`).
+  Only the layers after the prewarm change: `srecord` is installed and
+  `build-firmware` takes the repository URL as a fourth argument.
+- The database migrates itself on start: `firmware_versions` is rebuilt with
+  `(firmware_id, tag)` as key, and `build_requests` gains `firmware_id`,
+  `firmware_version` and `device_label`. Back it up first.
+- Rebuild and restart `web` and `worker`.
+
 ## [1.0.0] - 2026-10-21
 
 First tagged release: the version running on
@@ -85,4 +152,5 @@ First tagged release: the version running on
 
 - AGPL-3.0-only. The firmware patches stay under GPL-3.0.
 
+[1.1.0]: https://github.com/lazynoda/meshtastic-builder/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/lazynoda/meshtastic-builder/releases/tag/v1.0.0
