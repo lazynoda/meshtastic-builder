@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] - 2026-10-22
+
+### Fixed
+
+- Text settings without spaces that contained shell characters (`|`, `;`, `&`,
+  `<`, `>`, `(`, `)`, `'`, `*`, `?`, `[`, `]`, `~`, `#`, `{`, `}`, `!`, `^`)
+  broke the build or were run by the shell. PlatformIO passes such a value to
+  the compiler without real quotes, so a long name like `ABC|DEF` piped the
+  compiler into `DEF`. The builder now backslash-escapes those characters in
+  the `userPrefs.jsonc` it compiles with, so the value reaches the firmware
+  exactly as typed. Values with spaces, numbers, enums, byte arrays and
+  upstream's `'host'` form are left as they are. The stored request keeps the
+  original text; the ZIP's `userPrefs.jsonc` is the escaped copy that was
+  compiled.
+
+### Upgrading
+
+- Rebuild `web` and `worker`. No builder image or database change.
+
 ## [1.1.1] - 2026-10-21
 
 ### Changed
