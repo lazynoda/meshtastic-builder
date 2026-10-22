@@ -194,6 +194,49 @@ def _reaches_compiler_unquoted(value: str) -> bool:
     )
 
 
+# PlatformIO's StringifyMacro renders a string pref as -DKEY=\"value\": the quotes are escaped,
+# so the shell that runs the compiler sees the value as a bare word. SCons only wraps an
+# argument in real double quotes when it contains a space or a tab. A value without
+# whitespace therefore reaches /bin/sh unquoted, and `|`, `;`, `&`, `<`, `>`, `(`, `)`,
+# globs or a stray `'` are interpreted (a long name "A|B" piped the compiler into `B`).
+# The firmware itself accepts these characters, so instead of rejecting them the builder
+# backslash-escapes them in the file the compiler reads. With whitespace the value sits
+# inside SCons' double quotes, where a backslash before these characters would survive
+# into the string, so those values are left alone.
+SHELL_META_CHARS = frozenset("|&;<>()'*?[]~#{}!^")
+SHELL_QUOTED_TEMPLATE_RE = re.compile(r"^'[^']*'$")
+
+
+def shell_escape_for_compiler(value: str) -> str:
+    """Escape what /bin/sh would interpret in an unquoted string pref.
+
+    Leaves untouched: values the firmware passes unquoted (numbers, enums, byte
+    arrays...), values containing whitespace (SCons quotes them), and values written
+    in upstream's own `'host'` form, where the shell strips the single quotes on purpose.
+    """
+    if _reaches_compiler_unquoted(value):
+        return value
+    if " " in value or "\t" in value:
+        return value
+    if SHELL_QUOTED_TEMPLATE_RE.match(value):
+        return value
+    return "".join("\\" + ch if ch in SHELL_META_CHARS else ch for ch in value)
+
+
+def prefs_for_compiler(prefs_text: str) -> str:
+    """The userPrefs.jsonc the builder container compiles with (shell-escaped values)."""
+    parsed = parse_jsonc(prefs_text)
+    if not isinstance(parsed, dict):
+        return prefs_text
+    escaped = {
+        key: shell_escape_for_compiler(value) if isinstance(value, str) else value
+        for key, value in parsed.items()
+    }
+    if escaped == parsed:
+        return prefs_text
+    return json.dumps(escaped, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+
+
 class JsoncValidationError(ValueError):
     pass
 

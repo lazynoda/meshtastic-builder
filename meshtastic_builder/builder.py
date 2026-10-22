@@ -19,7 +19,7 @@ from .code_options import code_options_need_patch, fixed_gps_patch_needed, load_
 from .config import Config
 from .db import iso_now
 from .firmwares import DEFAULT_FIRMWARE_ID, FirmwareSource, get_firmware
-from .jsonc import extract_userpref_keys
+from .jsonc import extract_userpref_keys, prefs_for_compiler
 
 
 PATCH_RELATIVE_PATH = Path("docker") / "patches" / "userprefs-ext.patch"
@@ -92,7 +92,10 @@ def run_build(config: Config, build: dict[str, object]) -> BuildArtifact:
         shutil.rmtree(job_root)
     input_dir.mkdir(parents=True, exist_ok=True)
     output_dir.mkdir(parents=True, exist_ok=True)
-    (input_dir / "userPrefs.jsonc").write_text(str(build["prefs_jsonc"]), encoding="utf-8")
+    # The stored prefs stay as the user wrote them; only the copy the compiler reads is
+    # shell-escaped (see jsonc.shell_escape_for_compiler). The ZIP ships this copy, so
+    # rebuilding from it with upstream PlatformIO gives the same firmware.
+    (input_dir / "userPrefs.jsonc").write_text(prefs_for_compiler(str(build["prefs_jsonc"])), encoding="utf-8")
     source = build_firmware_source(config, build)
     (input_dir / "BUILD_INFO.txt").write_text(build_info(build, source), encoding="utf-8")
     stage_patches(config, build, input_dir)
