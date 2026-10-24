@@ -130,8 +130,11 @@ INT_RANGE_KEYS = {
     "USERPREFS_CONFIG_DEVICE_NODE_INFO_BROADCAST_SECS": (3600, None),
     "USERPREFS_CONFIG_DEVICE_TELEM_UPDATE_INTERVAL": (0, None),
     "USERPREFS_CONFIG_ENV_TELEM_UPDATE_INTERVAL": (0, None),
-    # Bluetooth passkey. Setting it also switches pairing to FIXED_PIN mode.
-    "USERPREFS_FIXED_BLUETOOTH": (0, 999999),
+    # Bluetooth passkey. Setting it also switches pairing to FIXED_PIN mode. Exactly six
+    # digits without a leading zero: on nRF52 the firmware passes std::to_string(pin) to
+    # Bluefruit's setPIN, which refuses anything but 6 characters and leaves the node
+    # without the fixed PIN; a leading zero would also be compiled as an octal literal.
+    "USERPREFS_FIXED_BLUETOOTH": (100000, 999999),
     "USERPREFS_CONFIG_GPS_UPDATE_INTERVAL": (0, None),
     "USERPREFS_CONFIG_POSITION_BROADCAST_INTERVAL": (0, None),
     "USERPREFS_BLOCK_POSITION_ON_EVENT_CHANNEL": (0, 1),
@@ -223,13 +226,38 @@ def shell_escape_for_compiler(value: str) -> str:
     return "".join("\\" + ch if ch in SHELL_META_CHARS else ch for ch in value)
 
 
+# An integer pref reaches the compiler as a bare `-DKEY=<digits>`, and C reads a literal
+# with a leading zero as octal: a Bluetooth PIN `012389` failed with `invalid digit "8" in
+# octal constant`, and `012345` would have compiled silently as 5349. The user means a
+# decimal number, so the compiled copy drops the leading zeros. Submissions already refuse
+# such a PIN; this covers other integer keys and requests stored before that check.
+LEADING_ZERO_INT_RE = re.compile(r"^(-?)0+(\d+)$")
+
+
+def strip_octal_leading_zeros(value: str) -> str:
+    """`012389` -> `12389`, `-007` -> `-7`, `000` -> `0`; anything else unchanged."""
+    match = LEADING_ZERO_INT_RE.match(value)
+    if not match:
+        return value
+    sign, digits = match.groups()
+    return ("" if digits == "0" else sign) + digits
+
+
+def _value_for_compiler(value: str) -> str:
+    return shell_escape_for_compiler(strip_octal_leading_zeros(value))
+
+
 def prefs_for_compiler(prefs_text: str) -> str:
-    """The userPrefs.jsonc the builder container compiles with (shell-escaped values)."""
+    """The userPrefs.jsonc the builder container compiles with.
+
+    String values are shell-escaped and integers lose their leading zeros, so the
+    compiler sees what the user typed. The stored request keeps the original text.
+    """
     parsed = parse_jsonc(prefs_text)
     if not isinstance(parsed, dict):
         return prefs_text
     escaped = {
-        key: shell_escape_for_compiler(value) if isinstance(value, str) else value
+        key: _value_for_compiler(value) if isinstance(value, str) else value
         for key, value in parsed.items()
     }
     if escaped == parsed:

@@ -76,6 +76,15 @@ MISSING_TOOL_RE = re.compile(
 )
 
 
+# GCC rejecting a `-D` macro from the command line itself, e.g. an integer pref with a
+# leading zero read as octal: `<command-line>: error: invalid digit "9" in octal constant`.
+# No source path, so COMPILER_ERROR_RE misses it and the build used to show `unknown`.
+COMMAND_LINE_ERROR_RE = re.compile(
+    r"^\s*(?P<line><command-line>: (?:fatal )?error: .+)$",
+    re.MULTILINE,
+)
+
+
 class BuildFailure(Exception):
     """A build that failed for a reason we can name.
 
@@ -122,6 +131,10 @@ def classify_build_log(log: str) -> tuple[str, str, str]:
     compile_error = COMPILER_ERROR_RE.search(log or "")
     if compile_error:
         return CODE_COMPILE_ERROR, "compile", _clip(compile_error.group("line"))
+
+    command_line_error = COMMAND_LINE_ERROR_RE.search(log or "")
+    if command_line_error:
+        return CODE_COMPILE_ERROR, "compile", _clip(command_line_error.group("line"))
 
     linker_error = LINKER_ERROR_RE.search(log or "")
     if linker_error:

@@ -17,7 +17,7 @@ from pathlib import Path
 
 from meshtastic_builder.builder import run_build
 from meshtastic_builder.config import load_config
-from meshtastic_builder.jsonc import prefs_for_compiler, shell_escape_for_compiler
+from meshtastic_builder.jsonc import prefs_for_compiler, shell_escape_for_compiler, strip_octal_leading_zeros
 
 SH = shutil.which("dash") or "/bin/sh"
 
@@ -103,6 +103,43 @@ class ShellEscapeTests(unittest.TestCase):
         out = json.loads(prefs_for_compiler(dirty))
         self.assertEqual(out["USERPREFS_CONFIG_OWNER_LONG_NAME"], "A\\|B")
         self.assertEqual(out["USERPREFS_LORACONFIG_CHANNEL_NUM"], "4")
+
+
+class LeadingZeroTests(unittest.TestCase):
+    def test_leading_zeros_are_dropped(self):
+        cases = {
+            "012389": "12389",
+            "000123": "123",
+            "09": "9",
+            "-007": "-7",
+            "0": "0",
+            "000": "0",
+            "-0": "-0",
+            "-000": "0",
+            "121212": "121212",
+            "10": "10",
+            "": "",
+            "0.5": "0.5",
+            "0x1F": "0x1F",
+            "0A": "0A",
+            "{ 0x01 }": "{ 0x01 }",
+        }
+        for value, expected in cases.items():
+            with self.subTest(value=value):
+                self.assertEqual(strip_octal_leading_zeros(value), expected)
+
+    def test_ble_pin_with_leading_zero_reaches_the_compiler_as_decimal(self):
+        # Real failure: a PIN starting with 0 and holding an 8 or 9 was read as octal by
+        # GCC (`invalid digit "9" in octal constant`); one without 8/9 compiled to another PIN.
+        prefs = json.dumps({"USERPREFS_FIXED_BLUETOOTH": "012389"})
+        out = json.loads(prefs_for_compiler(prefs))
+        # platformio-custom.py passes all-digit values bare (-DKEY=12389), and a C integer
+        # literal without a leading 0 is decimal.
+        self.assertEqual(out["USERPREFS_FIXED_BLUETOOTH"], "12389")
+
+    def test_stored_request_keeps_the_typed_pin(self):
+        prefs = json.dumps({"USERPREFS_FIXED_BLUETOOTH": "121212"})
+        self.assertIs(prefs_for_compiler(prefs), prefs)
 
 
 class StagedPrefsTests(unittest.TestCase):

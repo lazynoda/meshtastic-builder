@@ -106,6 +106,12 @@ class JsoncTests(unittest.TestCase):
 
         for payload in (
             '{"USERPREFS_FIXED_BLUETOOTH": "1234567"}',
+            # Leading zero or under six digits: octal on the compiler, and setPIN on
+            # nRF52 refuses a passkey that is not six characters long.
+            '{"USERPREFS_FIXED_BLUETOOTH": "012389"}',
+            '{"USERPREFS_FIXED_BLUETOOTH": "012345"}',
+            '{"USERPREFS_FIXED_BLUETOOTH": "99999"}',
+            '{"USERPREFS_FIXED_BLUETOOTH": "0"}',
             '{"USERPREFS_NETWORK_WIFI_ENABLED": "yes"}',
             '{"USERPREFS_NETWORK_WIFI_SSID": "' + "x" * 33 + '"}',
         ):

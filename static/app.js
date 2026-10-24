@@ -1127,6 +1127,19 @@ function validateCompilesAsString(value, label) {
   return value;
 }
 
+// Six digits, first one not 0. A leading 0 is compiled as an octal number, and
+// on nRF52 the firmware only accepts a passkey of exactly six characters.
+function validateBlePin() {
+  const input = $("blePin");
+  const value = input.value.trim();
+  const valid = value === "" || /^[1-9]\d{5}$/.test(value);
+  input.classList.toggle("fieldError", !valid);
+  if (!valid) {
+    throw new Error(t("error.blePin"));
+  }
+  return value;
+}
+
 function validateMaxBytes(value, label, maxBytes) {
   if (encoder.encode(value).length > maxBytes) {
     throw new Error(t("error.maxBytes", { label, bytes: maxBytes }));
@@ -1212,7 +1225,7 @@ function buildPrefs() {
   }
 
   if ($("blePinEnabled").checked) {
-    setOptionalPref(prefs, "USERPREFS_FIXED_BLUETOOTH", $("blePin").value);
+    setOptionalPref(prefs, "USERPREFS_FIXED_BLUETOOTH", validateBlePin());
   }
   // A board with no WiFi radio gets no WiFi macros, whatever is still typed in the form.
   if (wifiSupported()) {

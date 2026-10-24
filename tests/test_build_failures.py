@@ -33,6 +33,17 @@ class ClassifyTests(unittest.TestCase):
         self.assertEqual(phase, "compile")
         self.assertIn("srec_cat: not found", detail)
 
+    def test_command_line_macro_error_is_a_compile_error(self):
+        # Real tail of a build whose Bluetooth PIN started with 0 (read as octal by GCC).
+        log = (
+            "src/NexusSensorBudget.h:199:57: warning: \"/*\" within comment [-Wcomment]\n"
+            "<command-line>: error: invalid digit \"9\" in octal constant\n"
+            "*** [.pio/build/seeed_mesh_tracker_X1/src/mesh/NodeDB.cpp.o] Error 1\n"
+        )
+        code, phase, detail = classify_build_log(log)
+        self.assertEqual((code, phase), (CODE_COMPILE_ERROR, "compile"))
+        self.assertEqual(detail, '<command-line>: error: invalid digit "9" in octal constant')
+
     def test_not_found_without_error_127_is_not_classified(self):
         self.assertEqual(classify_build_log("sh: 1: foo: not found\n")[0], CODE_UNKNOWN)
 
