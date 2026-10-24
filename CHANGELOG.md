@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.3] - 2026-10-24
+
+### Fixed
+
+- A Bluetooth PIN that started with `0` reached the compiler as an octal
+  number. With an `8` or `9` in it the build failed (`invalid digit "9" in
+  octal constant`); without them it compiled silently with a different PIN.
+  The form and the API now require six digits without a leading zero
+  (`100000`–`999999`), which is also the only length the nRF52 firmware accepts
+  as a fixed passkey.
+- Any other integer setting with leading zeros is compiled without them, so it
+  keeps its decimal value. The stored request keeps what was typed.
+- Compiler errors about a `-D` flag itself (`<command-line>: error: ...`) are
+  now reported as `compile_error` with that line, instead of `unknown`.
+
+### Upgrading
+
+- Rebuild `web` and `worker`. No builder image or database change.
+
 ## [1.1.2] - 2026-10-22
 
 ### Fixed
@@ -181,6 +200,8 @@ First tagged release: the version running on
 
 - AGPL-3.0-only. The firmware patches stay under GPL-3.0.
 
+[1.1.3]: https://github.com/lazynoda/meshtastic-builder/compare/v1.1.2...v1.1.3
+[1.1.2]: https://github.com/lazynoda/meshtastic-builder/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/lazynoda/meshtastic-builder/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/lazynoda/meshtastic-builder/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/lazynoda/meshtastic-builder/releases/tag/v1.0.0
