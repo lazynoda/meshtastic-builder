@@ -41,6 +41,11 @@
 
       <main class="app-main">
         <form id="buildForm">
+          <div class="import-bar">
+            <p id="importNotice" class="status-line" role="status" hidden></p>
+            <button id="openImport" class="btn btn-mini" type="button" data-i18n="import.open"></button>
+          </div>
+
           <section class="panel">
             <h2><span data-i18n="step1.title"></span></h2>
             <div class="grid grid-three">
@@ -400,6 +405,23 @@
           </section>
         </form>
 
+        <!-- Outside the form: nothing in here is a pref, and its buttons must
+             never submit a build. -->
+        <dialog id="importDialog" class="import-dialog" aria-labelledby="importTitle">
+          <h2 id="importTitle" data-i18n="import.title"></h2>
+          <p class="status-line" data-i18n="import.help"></p>
+          <textarea id="importText" spellcheck="false" autocomplete="off" data-i18n-placeholder="import.placeholder"></textarea>
+          <input id="importFile" type="file" accept=".json,.jsonc,.txt,application/json,text/plain" hidden>
+          <p id="importError" class="status-line status-error" role="alert" hidden></p>
+          <div class="import-actions">
+            <button id="importPickFile" class="btn btn-mini" type="button" data-i18n="import.pickFile"></button>
+            <span class="import-actions-right">
+              <button id="importCancel" class="btn" type="button" data-i18n="import.cancel"></button>
+              <button id="importConfirm" class="btn btn-primary" type="button" data-i18n="import.confirm"></button>
+            </span>
+          </div>
+        </dialog>
+
         <section id="result" class="panel" hidden>
           <h2><span id="resultTitle" data-i18n="result.title"></span></h2>
           <p id="resultKeep" class="status-line" data-i18n="result.keep"></p>
@@ -437,5 +459,6 @@
     </div>
     <script src="/static/i18n.js"></script>
     <script src="/static/app.js"></script>
+    <script src="/static/prefs-import.js"></script>
   </body>
 </html>

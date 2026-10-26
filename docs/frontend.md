@@ -14,6 +14,7 @@ development loop.
 | `static/styles.css` | Design tokens, shell, panels, buttons, form controls. |
 | `static/i18n.js` | Spanish/English dictionary, `t()`, language toggle. |
 | `static/app.js` | Form logic, `userPrefs.jsonc` generation, submit and polling. |
+| `static/prefs-import.js` | "Import userPrefs" dialog: parses a `userPrefs.jsonc` back into the form. |
 | `static/favicon.svg` | Shared [meshtastic.es](https://meshtastic.es) mark. |
 
 ## Styling
@@ -84,6 +85,27 @@ Two independent mechanisms keep the form honest across firmware versions:
 
 The channel cap (3, or 8 from `eightChannelsSinceFirmwareVersion`) comes from
 `/api/build-options` as well.
+
+## Importing userPrefs
+
+The "Import userPrefs" button above the form opens a `<dialog>` with a textarea.
+"Choose file..." only reads the file into that textarea (so it can be checked or
+edited before importing); dropping a file on the textarea does the same. Nothing
+is sent to the server: `static/prefs-import.js` parses the JSONC in the browser.
+
+- Validation before anything is touched: JSONC syntax, a top-level object, every
+  key `USERPREFS_*`, scalar values, 64 KB cap, byte arrays of the right length.
+  An error keeps the dialog open with the reason.
+- Firmware, version and device are not in the JSON, so the import applies on top
+  of whatever is selected. Keys the selected version lacks, and channels above its
+  cap, are listed in the notice above the form.
+- The owner long and short names are never imported: every node needs its own.
+- The advanced-option macros the preview writes as comments are read back, so a
+  manual LoRa profile round-trips too.
+- After applying, the form is re-read and any key that did not come out with the
+  same value (e.g. an enum the version lacks) is listed as "check these".
+- Keys no dedicated control owns go to "Other config values", except values equal
+  to the template default, which come back by themselves.
 
 ## Form Groups
 
