@@ -1,0 +1,76 @@
+name: CI
+
+# Proves that what is on main works: the unit tests pass, the frontend and
+# shell scripts parse, and the web image builds and serves. The firmware
+# builder image (docker/builder.Dockerfile) is not built here: it is ~11 GB
+# and its prewarm compiles firmware for about an hour.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      # Same Python as the web and worker image (Dockerfile).
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Unit tests
+        run: python -B -m unittest discover -s tests -v
+
+      - name: Frontend scripts parse
+        run: for f in static/*.js; do node --check "$f"; done
+
+      - name: Shell scripts parse
+        run: for f in docker/*.sh; do bash -n "$f"; done
+
+      - name: Data files are valid JSON
+        run: for f in data/*.json; do python -m json.tool "$f" > /dev/null; done
+
+  image:
+    name: Build and smoke-test the web image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Compose file is valid
+        run: docker compose config -q
+
+      - name: Build image
+        run: docker build -t meshtastic-builder:ci .
+
+      - name: Start the web app
+        run: docker run -d --name mb-ci -p 8080:8080 meshtastic-builder:ci
+
+      - name: Health, page and static files answer
+        run: |
+          for i in $(seq 1 30); do
+            curl -fs http://127.0.0.1:8080/api/health > health.json && break
+            sleep 1
+          done
+          python3 -c "import json; h = json.load(open('health.json')); assert h['status'] == 'ok', h; print(h)"
+          version=$(python3 -c "import re; print(re.search(r'__version__ = \"([^\"]+)\"', open('meshtastic_builder/__init__.py').read())[1])")
+          curl -fsS http://127.0.0.1:8080/ | grep -q "v${version}"
+          for f in app.js i18n.js prefs-import.js styles.css; do
+            curl -fsS -o /dev/null "http://127.0.0.1:8080/static/$f"
+          done
+
+      - name: Container log
+        if: always()
+        run: docker logs mb-ci || true

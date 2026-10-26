@@ -8,6 +8,21 @@ python3 -B -m unittest discover -s tests
 
 `-B` avoids writing `__pycache__` directories during local verification.
 
+## Continuous Integration
+
+`.github/workflows/ci.yml` runs on every push to `main`, on pull requests and
+on demand. It has two jobs:
+
+- **Tests:** the unit tests on Python 3.12 (the image's version), `node --check`
+  on `static/*.js`, `bash -n` on `docker/*.sh`, and `data/*.json` must parse.
+- **Image:** `docker compose config`, builds the web image from `Dockerfile`,
+  starts it and checks `/api/health`, that `/` shows the version in
+  `meshtastic_builder/__init__.py`, and that the static files are served.
+
+It does not build `docker/builder.Dockerfile` (about 11 GB, and its prewarm
+compiles firmware for about an hour) and runs no real firmware build. Changes
+to the build pipeline still need a real build on the VM.
+
 ## Current Coverage Areas
 
 - JSONC parsing, comments, trailing commas, and normalization.
