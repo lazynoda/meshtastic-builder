@@ -1,5 +1,12 @@
 # Meshtastic Builder
 
+[![CI](https://github.com/lazynoda/meshtastic-builder/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lazynoda/meshtastic-builder/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/lazynoda/meshtastic-builder)](https://github.com/lazynoda/meshtastic-builder/releases/latest)
+[![License](https://img.shields.io/github/license/lazynoda/meshtastic-builder)](LICENSE)
+[![Website](https://img.shields.io/website?url=https%3A%2F%2Fbuilder.meshtastic.lazynoda.es%2Fapi%2Fhealth)](https://builder.meshtastic.lazynoda.es)
+[![Firmwares built](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fbuilder.meshtastic.lazynoda.es%2Fapi%2Fhealth&query=%24.builds.succeeded&label=firmwares%20built)](https://builder.meshtastic.lazynoda.es)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-lazynoda-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/lazynoda)
+
 Custom [Meshtastic](https://meshtastic.org) firmware, built with your settings
 already inside.
 
