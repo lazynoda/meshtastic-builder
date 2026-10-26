@@ -4,6 +4,30 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-10-26
+
+### Added
+
+- "Import userPrefs" button above the form. It opens a dialog where you paste a
+  `userPrefs.jsonc` (or pick the file, which only fills the text box) and fills
+  the form from it, so several nodes can share one configuration. It runs in
+  the browser only; nothing is sent until you request the build.
+  - The JSON is checked before the form is touched: JSONC syntax, an object of
+    `USERPREFS_*` keys with plain values, at most 64 KB, and byte arrays (admin
+    keys, channel PSKs) of the right length. An error keeps the dialog open
+    with the reason.
+  - Firmware, version and device are not part of the JSON: the import applies
+    to the ones selected.
+  - The node's long and short names are never imported: every node needs its
+    own.
+  - The manual LoRa settings the preview lists as comments are read back too.
+  - Keys the selected version does not have, channels above its limit, and
+    values that could not be set the same way are listed after the import.
+
+### Upgrading
+
+- Rebuild `web` and `worker`. No builder image or database change.
+
 ## [1.1.3] - 2026-10-24
 
 ### Fixed
@@ -200,6 +224,7 @@ First tagged release: the version running on
 
 - AGPL-3.0-only. The firmware patches stay under GPL-3.0.
 
+[1.2.0]: https://github.com/lazynoda/meshtastic-builder/compare/v1.1.3...v1.2.0
 [1.1.3]: https://github.com/lazynoda/meshtastic-builder/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/lazynoda/meshtastic-builder/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/lazynoda/meshtastic-builder/compare/v1.1.0...v1.1.1
