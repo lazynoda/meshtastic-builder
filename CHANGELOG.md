@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-10-29
+
+### Added
+
+- Meshtastic UI builds. Boards whose firmware has a Meshtastic UI variant they
+  do not list as a board of their own (T-Deck, SenseCAP Indicator, PICOmputer
+  S3 and WisMesh Tap V2 in the current firmwares) show a "Meshtastic UI"
+  checkbox under the device picker, like the Web Flasher's switch. Ticked, the
+  build compiles the board's `-tft` env; the build page names it
+  "<board> (Meshtastic UI)". The API takes it as `"mui": true` and
+  `/api/devices` marks the boards that offer it.
+- A (?) help button next to the checkbox shows its explanation on hover,
+  keyboard focus or tap.
+
+### Upgrading
+
+- Board lists cached by earlier versions are read again from GitHub once, on
+  the first request for each firmware version, to pick up the new field.
+
 ## [1.2.5] - 2026-10-29
 
 ### Fixed
@@ -286,6 +305,7 @@ First tagged release: the version running on
 
 - AGPL-3.0-only. The firmware patches stay under GPL-3.0.
 
+[1.3.0]: https://github.com/lazynoda/meshtastic-builder/compare/v1.2.5...v1.3.0
 [1.2.5]: https://github.com/lazynoda/meshtastic-builder/compare/v1.2.4...v1.2.5
 [1.2.4]: https://github.com/lazynoda/meshtastic-builder/compare/v1.2.3...v1.2.4
 [1.2.3]: https://github.com/lazynoda/meshtastic-builder/compare/v1.2.2...v1.2.3
