@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.4] - 2026-10-29
+
+### Changed
+
+- The Bluetooth PIN is a single optional field with no prefilled value (the
+  example `121212` is now only a placeholder) and no separate checkbox. A PIN
+  typed there goes into `userPrefs.jsonc`; left empty, the key is omitted and
+  the firmware keeps its own pairing default.
+
 ## [1.2.3] - 2026-10-29
 
 ### Fixed
@@ -267,6 +276,7 @@ First tagged release: the version running on
 
 - AGPL-3.0-only. The firmware patches stay under GPL-3.0.
 
+[1.2.4]: https://github.com/lazynoda/meshtastic-builder/compare/v1.2.3...v1.2.4
 [1.2.3]: https://github.com/lazynoda/meshtastic-builder/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/lazynoda/meshtastic-builder/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/lazynoda/meshtastic-builder/compare/v1.2.0...v1.2.1
