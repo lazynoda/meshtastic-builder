@@ -485,6 +485,90 @@ input[type="checkbox"] {
   grid-column: span 2;
 }
 
+/* A grid cell holding a field plus a control right under it. */
+.field-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Right under the device picker, level with the repository link under the firmware. */
+.mui-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.mui-option[hidden] {
+  display: none;
+}
+
+.mui-option .check-line {
+  padding: 0;
+}
+
+/* (?) help: the text shows on hover, on keyboard focus, or after a tap (.open). */
+.help {
+  position: relative;
+  display: inline-flex;
+}
+
+.help-tip {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--muted);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+}
+
+.help-tip:hover,
+.help-tip:focus-visible,
+.help.open .help-tip {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.help-pop {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  /* --help-shift keeps the box inside the viewport on narrow screens (wireHelpTips). */
+  transform: translateX(calc(-50% + var(--help-shift, 0px)));
+  width: max-content;
+  max-width: min(280px, 80vw);
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel2);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  text-transform: none;
+  letter-spacing: normal;
+  z-index: 40;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.12s;
+  pointer-events: none;
+}
+
+.help:hover .help-pop,
+.help-tip:focus-visible + .help-pop,
+.help.open .help-pop {
+  visibility: visible;
+  opacity: 1;
+}
+
 @media (max-width: 720px) {
   .grid-two,
   .grid-three,

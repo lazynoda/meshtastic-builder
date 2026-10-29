@@ -50,6 +50,8 @@ def device_json(device: Device, source: FirmwareSource | None) -> dict[str, Any]
         "platformioEnv": device.platformio_env,
         "family": device.family,
     }
+    if device.mui_env:
+        payload["mui"] = True
     # Only for boards the selected firmware cannot build yet: still listed, with why.
     unavailable = source.unavailable(device.platformio_env) if source is not None else None
     if unavailable is not None:

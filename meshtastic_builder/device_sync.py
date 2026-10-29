@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from .devices import Device, load_devices
@@ -65,6 +65,14 @@ class FlasherBoard:
     label: str
     family: str
     source: str
+    mui_env: str | None = None
+
+
+# The Web Flasher's "Meshtastic UI" switch: a board declaring
+# custom_meshtastic_has_mui = true whose `<env>-tft` env exists builds that env
+# instead. Boards whose own env already ends in -tft (Crowpanel) are that build,
+# and a -tft env listed as a board of its own (Heltec V4 TFT) is picked directly.
+MUI_SUFFIX = "-tft"
 
 
 # Env names reach `pio run -e` in the builder; the shell script enforces the same set.
@@ -78,11 +86,15 @@ def parse_boards(files: Iterable[tuple[str, str]]) -> dict[str, FlasherBoard]:
     declares them: the custom_meshtastic_* keys are never inherited via extends.
     """
     boards: dict[str, FlasherBoard] = {}
+    has_mui: set[str] = set()
+    # Every env's board_level, listed or not: a -tft variant has no display name of its own.
+    levels: dict[str, str] = {}
     for source, text in sorted(files):
         for block in _ENV_HEADER_RE.split(text):
             match = _ENV_NAME_RE.match(block)
             if match is None:
                 continue
+            levels[match.group(1)] = (_key(block, "board_level") or "").lower()
             label = _key(block, "custom_meshtastic_display_name")
             if not label:
                 continue
@@ -93,12 +105,25 @@ def parse_boards(files: Iterable[tuple[str, str]]) -> dict[str, FlasherBoard]:
             env = match.group(1)
             if not SAFE_ENV_RE.match(env):
                 continue
+            if (_key(block, "custom_meshtastic_has_mui") or "").lower() == "true":
+                has_mui.add(env)
             boards[env] = FlasherBoard(
                 env=env,
                 label=label[:120],
                 family=(_key(block, "custom_meshtastic_architecture") or "unknown")[:40],
                 source=source,
             )
+    for env in has_mui:
+        mui_env = env + MUI_SUFFIX
+        if (
+            env.endswith(MUI_SUFFIX)
+            or mui_env in boards
+            or mui_env not in levels
+            or levels[mui_env] == "extra"
+            or not SAFE_ENV_RE.match(mui_env)
+        ):
+            continue
+        boards[env] = replace(boards[env], mui_env=mui_env)
     return boards
 
 
@@ -166,6 +191,7 @@ def sync_devices(
                 platformio_env=device.platformio_env,
                 family=board.family,
                 enabled=True,
+                mui_env=board.mui_env,
             )
         )
 
@@ -183,7 +209,9 @@ def sync_devices(
         if label in used_labels:
             # Same rule as the existing entries: a shared display name gets a suffix.
             label = f"{label} ({env})"
-        device = Device(id=device_id, label=label, platformio_env=env, family=board.family, enabled=True)
+        device = Device(
+            id=device_id, label=label, platformio_env=env, family=board.family, enabled=True, mui_env=board.mui_env
+        )
         result.added.append(device)
         kept.append(device)
         used_ids.add(device_id)

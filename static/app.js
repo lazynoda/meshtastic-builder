@@ -55,6 +55,8 @@ const state = {
   deviceLabels: {},
   // Boards the selected firmware lists but cannot build yet: id -> {reason, issue}.
   unavailableDevices: {},
+  // Boards with a Meshtastic UI build in the selected firmware version.
+  muiDevices: new Set(),
   firmwares: [],
   firmwareNames: {},
   versions: [],
@@ -628,6 +630,57 @@ function syncDeviceAvailability() {
   $("submitBuild").disabled = Boolean(info);
 }
 
+// The Web Flasher's "Meshtastic UI" switch: only for boards whose firmware has a
+// -tft build. Unticked and hidden for any other board, so it never leaks into a submit.
+function syncMuiOption() {
+  const picker = $("deviceId");
+  const available = Boolean(picker && state.muiDevices.has(picker.value));
+  $("muiOption").hidden = !available;
+  if (!available) $("muiEnabled").checked = false;
+}
+
+// (?) buttons: hover and keyboard focus are pure CSS; a tap or click toggles the
+// box so it also works on touch screens. A click elsewhere or Escape closes it.
+function wireHelpTips() {
+  // Centred on the (?) by default; near a screen edge, slide it back inside.
+  const place = (help) => {
+    const pop = help.querySelector(".help-pop");
+    pop.style.setProperty("--help-shift", "0px");
+    const rect = pop.getBoundingClientRect();
+    const margin = 8;
+    let shift = 0;
+    if (rect.right > window.innerWidth - margin) shift = window.innerWidth - margin - rect.right;
+    if (rect.left + shift < margin) shift = margin - rect.left;
+    pop.style.setProperty("--help-shift", `${Math.round(shift)}px`);
+  };
+  for (const help of document.querySelectorAll(".help")) {
+    help.addEventListener("mouseenter", () => place(help));
+    help.addEventListener("focusin", () => place(help));
+  }
+  const closeAll = (except) => {
+    for (const el of document.querySelectorAll(".help.open")) {
+      if (el !== except) el.classList.remove("open");
+    }
+  };
+  for (const button of document.querySelectorAll(".help-tip")) {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const help = button.closest(".help");
+      closeAll(help);
+      place(help);
+      help.classList.toggle("open");
+    });
+  }
+  document.addEventListener("click", () => closeAll(null));
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    closeAll(null);
+    // A key press makes the focused (?) match :focus-visible, which shows the box again.
+    if (document.activeElement?.classList.contains("help-tip")) document.activeElement.blur();
+  });
+}
+
 function syncFixedGps() {
   $("fixedGpsFields").hidden = !$("fixedGpsEnabled").checked;
 }
@@ -663,6 +716,7 @@ async function loadDevices() {
   const tag = $("firmwareTag").value;
   let devices;
   state.unavailableDevices = {};
+  state.muiDevices = new Set();
   if (firmware && (tag || firmware.versioning === "branch")) {
     const params = new URLSearchParams({ firmware: firmware.id });
     if (tag) params.set("tag", tag);
@@ -675,6 +729,7 @@ async function loadDevices() {
       state.deviceFamilies[device.id] = device.family;
       state.deviceLabels[device.id] = device.label;
       if (device.unavailable) state.unavailableDevices[device.id] = device.unavailable;
+      if (device.mui) state.muiDevices.add(device.id);
     }
   } else {
     devices = await loadDeviceCatalog();
@@ -694,8 +749,10 @@ async function loadDevices() {
   );
   $("deviceId").addEventListener("change", syncWifiAvailability);
   $("deviceId").addEventListener("change", syncDeviceAvailability);
+  $("deviceId").addEventListener("change", syncMuiOption);
   $("deviceId").addEventListener("change", updatePrefsPreview);
   syncDeviceAvailability();
+  syncMuiOption();
   // The list arrives after the first render, so repaint with the real device.
   syncWifiAvailability();
   updatePrefsPreview();
@@ -1574,6 +1631,9 @@ async function submitBuild(event) {
     if (selectedFirmware()?.versioning !== "branch") {
       payload.firmwareTag = $("firmwareTag").value;
     }
+    if (!$("muiOption").hidden && $("muiEnabled").checked) {
+      payload.mui = true;
+    }
     const codeOptions = buildCodeOptions();
     if (codeOptions) {
       payload.codeOptions = codeOptions;
@@ -1709,6 +1769,7 @@ function bindEvents() {
     updateLongNameCounter();
   });
   $("customLoraEnabled").addEventListener("change", syncCustomLora);
+  wireHelpTips();
   $("modemPreset").addEventListener("change", syncPresetChannelName);
   $("copyBuildUrl").addEventListener("click", async () => {
     try {

@@ -111,7 +111,12 @@ is sent to the server: `static/prefs-import.js` parses the JSONC in the browser.
 
 The form is split into the settings most users touch and everything else:
 
-1. Firmware and device.
+1. Firmware and device. Under the device picker, level with the repository
+   link under the firmware, the "Meshtastic UI" checkbox with a (?) help
+   button; it shows only for boards with `mui` and is unticked whenever it is
+   hidden. The (?) box opens on hover, keyboard focus or tap
+   (`wireHelpTips()`), closes on an outside click or Escape, and slides back
+   inside the screen near an edge.
 2. Node: long/short name and timezone.
 3. LoRa radio: region, modem preset, TX power, manual LoRa parameters.
 4. Device: role, rebroadcast mode, node info and device telemetry intervals.

@@ -78,6 +78,22 @@ label, so the build page can name boards that only a fork has.
 If GitHub cannot be reached and the commit is not cached, the page offers
 `data/devices.json` instead.
 
+### Meshtastic UI
+
+Some boards have a second build with Meshtastic UI (MUI), the touch interface:
+an `<env>-tft` env with no display name of its own. The Web Flasher offers it
+as a switch on the board, and so does the builder: a board gets the
+"Meshtastic UI" checkbox when its own block sets `custom_meshtastic_has_mui =
+true` and its `<env>-tft` env exists and is not `board_level = extra`. Ticking
+it builds that env instead. Boards whose `-tft` env is a board of its own
+(Heltec V4 TFT) or whose only env already is the MUI build (Crowpanel) are
+picked from the list directly. In upstream 2.8.1, Jentastic 2.8.104 and
+Nodastic this gives the switch to T-Deck, SenseCAP Indicator, PICOmputer S3
+and WisMesh Tap V2.
+
+Lists cached by a version without this field carry no format marker and are
+read again from GitHub once (`CATALOG_FORMAT` in `board_catalog.py`).
+
 Only `heltec-v4` and `nrf52_promicro_diy_tcxo` are prewarmed in the builder
 image. Any other board, from upstream or from a fork, downloads its libraries
 on its first build in each container, which is why builds need

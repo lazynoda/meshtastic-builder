@@ -56,6 +56,10 @@ reason code and the GitHub issue tracking it (see
 [Firmware Sources](firmwares.md#unavailable-boards)). `POST /api/builds`
 refuses it.
 
+A board whose firmware has a Meshtastic UI build it does not list as a board of
+its own (the `<env>-tft` env of a board declaring `custom_meshtastic_has_mui`)
+carries `"mui": true`. See [Firmware Sources](firmwares.md#meshtastic-ui).
+
 Response:
 
 ```json
@@ -66,6 +70,13 @@ Response:
       "label": "LILYGO T-Beam",
       "platformioEnv": "tbeam",
       "family": "esp32"
+    },
+    {
+      "id": "t-deck",
+      "label": "LILYGO T-Deck",
+      "platformioEnv": "t-deck",
+      "family": "esp32-s3",
+      "mui": true
     },
     {
       "id": "heltec-mesh-node-t096",
@@ -184,6 +195,12 @@ Request:
   }
 }
 ```
+
+`mui` is optional (`true` or `false`, default `false`). With `true` the build
+compiles the board's Meshtastic UI env (`t-deck-tft` for `t-deck`) and stores
+it as the build's `platformio_env`, with ` (Meshtastic UI)` appended to the
+board label. It is refused for a board without `"mui": true` in
+`/api/devices`.
 
 `codeOptions` is optional. Both sub-options are independent, missing
 `customLora` fields fall back to their documented defaults, and the whole object

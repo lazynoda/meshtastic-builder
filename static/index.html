@@ -59,11 +59,23 @@
                 <select id="firmwareTag" name="firmwareTag" required></select>
                 <small id="firmwareBranchHint" class="field-hint" hidden></small>
               </label>
-              <label>
-                <span data-i18n="step1.device"></span>
-                <div id="deviceCombo"></div>
-                <small id="deviceUnavailable" class="field-hint device-unavailable" role="status" hidden></small>
-              </label>
+              <div class="field-stack">
+                <label>
+                  <span data-i18n="step1.device"></span>
+                  <div id="deviceCombo"></div>
+                  <small id="deviceUnavailable" class="field-hint device-unavailable" role="status" hidden></small>
+                </label>
+                <div id="muiOption" class="mui-option" hidden>
+                  <label class="check-line">
+                    <input id="muiEnabled" type="checkbox">
+                    <span data-i18n="step1.mui"></span>
+                  </label>
+                  <span class="help">
+                    <button class="help-tip" type="button" aria-describedby="muiHelp" data-i18n-aria-label="help.label">?</button>
+                    <span id="muiHelp" class="help-pop" role="tooltip" data-i18n="step1.muiHint"></span>
+                  </span>
+                </div>
+              </div>
             </div>
           </section>
 

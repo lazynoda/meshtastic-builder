@@ -41,7 +41,10 @@ def create_build_submission(config: Config, payload: dict[str, Any]) -> dict[str
     version = resolve_supported_version(config, firmware_tag, firmware_id=source.id)
     # Checked against the boards of this exact commit, so a board the chosen
     # firmware or tag lacks is refused here instead of failing to compile.
-    device = get_device_for_build(config, source, version["sha"], device_id)
+    mui = payload.get("mui", False)
+    if not isinstance(mui, bool):
+        raise ValueError("El campo mui debe ser true o false.")
+    device = get_device_for_build(config, source, version["sha"], device_id, mui=mui)
     # Version gates (patches, channel count, code options) compare x.y.z, which
     # for a branch comes from its version.properties rather than from a tag.
     gate_version = version["version"]

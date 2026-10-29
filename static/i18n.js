@@ -9,6 +9,9 @@ const DICT = {
 
     "step1.title": "Firmware y dispositivo",
     "step1.device": "Dispositivo",
+    "step1.mui": "Meshtastic UI",
+    "help.label": "Ayuda",
+    "step1.muiHint": "Compila la variante con Meshtastic UI (MUI), la interfaz tactil para la pantalla de la placa. Es lo mismo que el interruptor del Web Flasher.",
     "step1.devicePlaceholder": "Busca un dispositivo",
     "step1.firmware": "Firmware",
     "step1.version": "Version de firmware",
@@ -287,6 +290,9 @@ const DICT = {
 
     "step1.title": "Firmware and device",
     "step1.device": "Device",
+    "step1.mui": "Meshtastic UI",
+    "help.label": "Help",
+    "step1.muiHint": "Builds the Meshtastic UI (MUI) variant, the touch interface for the board's screen. Same as the Web Flasher's switch.",
     "step1.devicePlaceholder": "Search for a device",
     "step1.firmware": "Firmware",
     "step1.version": "Firmware version",
@@ -588,6 +594,9 @@ function applyI18n() {
   }
   for (const el of document.querySelectorAll("[data-i18n-placeholder]")) {
     el.placeholder = t(el.dataset.i18nPlaceholder);
+  }
+  for (const el of document.querySelectorAll("[data-i18n-aria-label]")) {
+    el.setAttribute("aria-label", t(el.dataset.i18nAriaLabel));
   }
   for (const button of document.querySelectorAll("[data-lang]")) {
     button.classList.toggle("is-active", button.dataset.lang === lang);

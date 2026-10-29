@@ -437,6 +437,149 @@ custom_meshtastic_display_name = Bad
         self.assertEqual(sorted(parse_boards([("variants/x/platformio.ini", text)])), ["ok"])
 
 
+MUI_INI = """
+[env:t-deck]
+custom_meshtastic_architecture = esp32-s3
+custom_meshtastic_actively_supported = true
+custom_meshtastic_display_name = LILYGO T-Deck
+custom_meshtastic_has_mui = true
+board_level = release
+
+[env:t-deck-tft]
+extends = env:t-deck
+board_level = pr
+
+[env:t-watch-ultra]
+custom_meshtastic_architecture = esp32-s3
+custom_meshtastic_actively_supported = true
+custom_meshtastic_display_name = T-Watch Ultra
+custom_meshtastic_has_mui = true
+
+[env:t-watch-ultra-tft]
+extends = env:t-watch-ultra
+board_level = extra
+
+[env:heltec-v4]
+custom_meshtastic_architecture = esp32-s3
+custom_meshtastic_actively_supported = true
+custom_meshtastic_display_name = Heltec V4
+custom_meshtastic_has_mui = true
+
+[env:heltec-v4-tft]
+custom_meshtastic_architecture = esp32-s3
+custom_meshtastic_actively_supported = true
+custom_meshtastic_display_name = Heltec V4 TFT
+
+[env:elecrow-adv-35-tft]
+custom_meshtastic_architecture = esp32-s3
+custom_meshtastic_actively_supported = true
+custom_meshtastic_display_name = Crowpanel Adv 3.5 TFT
+custom_meshtastic_has_mui = true
+
+[env:unphone]
+custom_meshtastic_architecture = esp32-s3
+custom_meshtastic_actively_supported = true
+custom_meshtastic_display_name = unPhone
+custom_meshtastic_has_mui = true
+
+[env:tbeam]
+custom_meshtastic_architecture = esp32
+custom_meshtastic_actively_supported = true
+custom_meshtastic_display_name = LILYGO T-Beam
+"""
+MUI_SHA = "e" * 40
+
+
+def fake_github_mui(url, timeout=15):
+    if url == f"https://api.github.com/repos/lazynoda/meshtastic-firmware/git/trees/{MUI_SHA}":
+        return json.dumps({"tree": [{"path": "variants", "type": "tree", "sha": VARIANTS_SHA}]}), {}
+    if url == f"https://api.github.com/repos/lazynoda/meshtastic-firmware/git/trees/{VARIANTS_SHA}?recursive=1":
+        tree = [{"path": "esp32s3/all/platformio.ini", "type": "blob", "sha": "c" * 40, "size": 900}]
+        return json.dumps({"truncated": False, "tree": tree}), {}
+    if url == f"https://raw.githubusercontent.com/lazynoda/meshtastic-firmware/{MUI_SHA}/variants/esp32s3/all/platformio.ini":
+        return MUI_INI, {}
+    return fake_github(url, timeout)
+
+
+class MeshtasticUiTests(unittest.TestCase):
+    """The Web Flasher's "Meshtastic UI" switch builds the board's `<env>-tft` env."""
+
+    def test_only_boards_with_a_hidden_tft_env_get_the_option(self):
+        from meshtastic_builder.device_sync import parse_boards
+
+        boards = parse_boards([("variants/esp32s3/all/platformio.ini", MUI_INI)])
+        self.assertEqual(boards["t-deck"].mui_env, "t-deck-tft")
+        # board_level = extra: the flasher never builds it.
+        self.assertIsNone(boards["t-watch-ultra"].mui_env)
+        # The -tft env is a board of its own in the list: picked directly, no switch.
+        self.assertIsNone(boards["heltec-v4"].mui_env)
+        self.assertIn("heltec-v4-tft", boards)
+        # Already the MUI build, and a board with has_mui but no -tft env.
+        self.assertIsNone(boards["elecrow-adv-35-tft"].mui_env)
+        self.assertIsNone(boards["unphone"].mui_env)
+        self.assertIsNone(boards["tbeam"].mui_env)
+        self.assertNotIn("t-deck-tft", boards)
+
+    def test_mui_build_uses_the_tft_env_and_is_labelled(self):
+        from meshtastic_builder.app import device_json
+        from meshtastic_builder.board_catalog import devices_for
+
+        with tempfile.TemporaryDirectory() as tmp:
+            config = temp_config(Path(tmp))
+            source = get_firmware(ROOT, "nodastic")
+            cache = userprefs_cache_path(config, MUI_SHA, "nodastic")
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            cache.write_text(TEMPLATE, encoding="utf-8")
+
+            def head(url, timeout=15):
+                if url == "https://api.github.com/repos/lazynoda/meshtastic-firmware/commits/nodastic":
+                    return json.dumps({"sha": MUI_SHA}), {}
+                if url.endswith(f"{MUI_SHA}/version.properties"):
+                    return "major = 2\nminor = 8\nbuild = 1\n", {}
+                return fake_github_mui(url, timeout)
+
+            with patch("meshtastic_builder.firmware._http_get", head):
+                devices, _ = devices_for(config, source, MUI_SHA)
+                listed = {d.id: device_json(d, source) for d in devices}
+
+                def submit(device_id, **extra):
+                    return create_build_submission(
+                        config,
+                        {"deviceId": device_id, "firmwareId": "nodastic", "prefsJsonc": NAMED_PREFS, **extra},
+                    )
+
+                mui_row = submit("t-deck", mui=True)["row"]
+                plain_row = submit("t-deck")["row"]
+                with self.assertRaises(ValueError):
+                    submit("tbeam", mui=True)
+                with self.assertRaises(ValueError):
+                    submit("t-deck", mui="yes")
+            self.assertTrue(listed["t-deck"]["mui"])
+            self.assertNotIn("mui", listed["tbeam"])
+            self.assertNotIn("t-deck-tft", listed)
+            self.assertEqual(mui_row["platformio_env"], "t-deck-tft")
+            self.assertEqual(mui_row["device_id"], "t-deck")
+            self.assertEqual(mui_row["device_label"], "LILYGO T-Deck (Meshtastic UI)")
+            self.assertEqual(plain_row["platformio_env"], "t-deck")
+            self.assertEqual(plain_row["device_label"], "LILYGO T-Deck")
+
+    def test_lists_cached_before_meshtastic_ui_are_read_again(self):
+        from meshtastic_builder.board_catalog import devices_for
+
+        with tempfile.TemporaryDirectory() as tmp:
+            config = temp_config(Path(tmp))
+            initialize_database(config)
+            old = [{"id": "t-deck", "label": "LILYGO T-Deck", "platformio_env": "t-deck", "family": "esp32-s3", "enabled": True}]
+            with connection(config) as conn:
+                conn.execute(
+                    "INSERT INTO board_catalogs (firmware_id, sha, devices_json, created_at) VALUES (?, ?, ?, ?)",
+                    ("nodastic", MUI_SHA, json.dumps(old), "2026-10-01T00:00:00+00:00"),
+                )
+            with patch("meshtastic_builder.firmware._http_get", fake_github_mui):
+                devices, _ = devices_for(config, get_firmware(ROOT, "nodastic"), MUI_SHA)
+            self.assertEqual({d.id: d.mui_env for d in devices}["t-deck"], "t-deck-tft")
+
+
 class BuilderTests(unittest.TestCase):
     def build_row(self, **overrides):
         row = {

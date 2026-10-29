@@ -19,7 +19,7 @@ import re
 import threading
 import urllib.error
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from typing import Any
 
 from .config import Config
@@ -41,6 +41,9 @@ MAX_INI_BYTES = 256 * 1024
 FETCH_WORKERS = 8
 
 _SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+# Bumped when Device gains data read from platformio.ini, so lists cached by an
+# older version (a bare JSON list, before Meshtastic UI) are read again once.
+CATALOG_FORMAT = 2
 _locks: dict[tuple[str, str], threading.Lock] = {}
 _locks_guard = threading.Lock()
 
@@ -118,11 +121,14 @@ def _load_cached(config: Config, firmware_id: str, sha: str) -> list[Device] | N
         ).fetchone()
     if row is None:
         return None
-    return [Device(**item) for item in json.loads(row["devices_json"])]
+    stored = json.loads(row["devices_json"])
+    if not isinstance(stored, dict) or stored.get("format") != CATALOG_FORMAT:
+        return None
+    return [Device(**item) for item in stored["devices"]]
 
 
 def _store(config: Config, firmware_id: str, sha: str, devices: list[Device]) -> None:
-    payload = json.dumps([asdict(device) for device in devices])
+    payload = json.dumps({"format": CATALOG_FORMAT, "devices": [asdict(device) for device in devices]})
     with connection(config) as conn:
         conn.execute(
             """
@@ -164,10 +170,17 @@ def _devices_for(config: Config, source: FirmwareSource, sha: str) -> tuple[list
         return devices, True
 
 
-def get_device_for_build(config: Config, source: FirmwareSource, sha: str, device_id: str) -> Device:
+def get_device_for_build(
+    config: Config, source: FirmwareSource, sha: str, device_id: str, *, mui: bool = False
+) -> Device:
+    """The board to build. With `mui`, its Meshtastic UI env, labelled as such."""
     devices, _from_firmware = devices_for(config, source, sha)
     for device in devices:
         if device.id == device_id:
+            if mui:
+                if not device.mui_env:
+                    raise ValueError(f"{device.label} no tiene Meshtastic UI en esta version de {source.name}.")
+                device = replace(device, platformio_env=device.mui_env, label=f"{device.label} (Meshtastic UI)")
             unavailable = source.unavailable(device.platformio_env)
             if unavailable is not None:
                 # Listed, so users can read why, but never queued: it cannot succeed.

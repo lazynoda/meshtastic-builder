@@ -12,6 +12,8 @@ class Device:
     platformio_env: str
     family: str
     enabled: bool
+    # The `<env>-tft` build of this board (Meshtastic UI), when the firmware has one.
+    mui_env: str | None = None
 
 
 def load_devices(root_dir: Path) -> list[Device]:

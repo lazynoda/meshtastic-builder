@@ -25,7 +25,8 @@ firmware version, fill in a form, and download a ZIP ready to flash.
   small, documented patches are ever applied;
   see [Advanced Build Options](docs/build-options.md#the-two-patches).
 - 96 supported devices, the same set the
-  [Meshtastic Web Flasher](https://flasher.meshtastic.org) offers.
+  [Meshtastic Web Flasher](https://flasher.meshtastic.org) offers, including
+  its Meshtastic UI builds for boards like the T-Deck.
 - Interface in Spanish and English.
 
 ## What You Can Set
