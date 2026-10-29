@@ -57,6 +57,8 @@ const state = {
   unavailableDevices: {},
   // Boards with a Meshtastic UI build in the selected firmware version.
   muiDevices: new Set(),
+  // The board the Meshtastic UI checkbox was last defaulted for.
+  muiDefaultFor: null,
   firmwares: [],
   firmwareNames: {},
   versions: [],
@@ -632,11 +634,20 @@ function syncDeviceAvailability() {
 
 // The Web Flasher's "Meshtastic UI" switch: only for boards whose firmware has a
 // -tft build. Unticked and hidden for any other board, so it never leaks into a submit.
+// Ticked by default each time such a board is picked, as the Web Flasher does;
+// reloading the list for the same board (a version change) keeps the user's choice.
 function syncMuiOption() {
   const picker = $("deviceId");
-  const available = Boolean(picker && state.muiDevices.has(picker.value));
+  const device = picker ? picker.value : "";
+  const available = state.muiDevices.has(device);
   $("muiOption").hidden = !available;
-  if (!available) $("muiEnabled").checked = false;
+  if (!available) {
+    $("muiEnabled").checked = false;
+    state.muiDefaultFor = null;
+  } else if (state.muiDefaultFor !== device) {
+    $("muiEnabled").checked = true;
+    state.muiDefaultFor = device;
+  }
 }
 
 // (?) buttons: hover and keyboard focus are pure CSS; a tap or click toggles the

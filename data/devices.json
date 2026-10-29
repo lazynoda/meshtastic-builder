@@ -371,6 +371,27 @@
     "enabled": true
   },
   {
+    "id": "t5s3-epaper-v1",
+    "label": "LilyGo T5 E-paper S3 Pro V1",
+    "platformio_env": "t5s3-epaper-v1",
+    "family": "esp32-s3",
+    "enabled": true
+  },
+  {
+    "id": "t5s3-epaper-v2",
+    "label": "LilyGo T5 E-paper S3 Pro V2",
+    "platformio_env": "t5s3-epaper-v2",
+    "family": "esp32-s3",
+    "enabled": true
+  },
+  {
+    "id": "t5s3-epaper-inkhud",
+    "label": "LilyGo T5 E-paper S3 Pro V2 InkHUD",
+    "platformio_env": "t5s3_epaper_inkhud",
+    "family": "esp32-s3",
+    "enabled": true
+  },
+  {
     "id": "m5stack-core",
     "label": "M5 Stack",
     "platformio_env": "m5stack-core",
@@ -476,9 +497,37 @@
     "enabled": true
   },
   {
+    "id": "rak-wismesh-pocket",
+    "label": "RAK WisMesh Pocket V3",
+    "platformio_env": "rak_wismesh_pocket",
+    "family": "nrf52840",
+    "enabled": true
+  },
+  {
+    "id": "rak-wismesh-pod",
+    "label": "RAK WisMesh Pod",
+    "platformio_env": "rak_wismesh_pod",
+    "family": "nrf52840",
+    "enabled": true
+  },
+  {
     "id": "rak2560",
     "label": "RAK WisMesh Repeater",
     "platformio_env": "rak2560",
+    "family": "nrf52840",
+    "enabled": true
+  },
+  {
+    "id": "rak-wismesh-repeater-mini",
+    "label": "RAK WisMesh Repeater Mini V2",
+    "platformio_env": "rak_wismesh_repeater_mini",
+    "family": "nrf52840",
+    "enabled": true
+  },
+  {
+    "id": "rak-wismesh-repeater-mini-hp",
+    "label": "RAK WisMesh Repeater Mini V2 HP",
+    "platformio_env": "rak_wismesh_repeater_mini_hp",
     "family": "nrf52840",
     "enabled": true
   },
@@ -581,6 +630,13 @@
     "enabled": true
   },
   {
+    "id": "seeed-wio-tracker-l2-tft",
+    "label": "Seeed Wio Tracker L2",
+    "platformio_env": "seeed_wio_tracker_L2-tft",
+    "family": "esp32-s3",
+    "enabled": true
+  },
+  {
     "id": "wio-tracker-wm1110",
     "label": "Seeed Wio WM1110 Tracker",
     "platformio_env": "wio-tracker-wm1110",
@@ -647,6 +703,13 @@
     "id": "thinknode-m5",
     "label": "ThinkNode M5",
     "platformio_env": "thinknode_m5",
+    "family": "esp32-s3",
+    "enabled": true
+  },
+  {
+    "id": "thinknode-m9",
+    "label": "ThinkNode M9",
+    "platformio_env": "thinknode_m9",
     "family": "esp32-s3",
     "enabled": true
   },

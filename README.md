@@ -24,9 +24,10 @@ firmware version, fill in a form, and download a ZIP ready to flash.
   [`data/firmwares.json`](docs/firmwares.md), compiled with PlatformIO. Only two
   small, documented patches are ever applied;
   see [Advanced Build Options](docs/build-options.md#the-two-patches).
-- 96 supported devices, the same set the
-  [Meshtastic Web Flasher](https://flasher.meshtastic.org) offers, including
-  its Meshtastic UI builds for boards like the T-Deck.
+- Every board each firmware version declares as supported in its own
+  `platformio.ini` files (105 for Meshtastic 2.8.1), close to what the
+  [Meshtastic Web Flasher](https://flasher.meshtastic.org) offers, with its
+  Meshtastic UI builds for boards like the T-Deck.
 - Interface in Spanish and English.
 
 ## What You Can Set

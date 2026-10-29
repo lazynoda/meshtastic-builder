@@ -62,10 +62,15 @@ release it is based on.
 The device list is per firmware and per version. The first time a commit is
 requested, the server reads its `variants/` tree through the GitHub API (two
 calls) and downloads its `platformio.ini` files from raw.githubusercontent.com
-(about 200 for upstream, a few seconds). It applies the Web Flasher's rule
-(`custom_meshtastic_display_name`, actively supported, not `board_level =
-extra`) and stores the result in SQLite table `board_catalogs`, keyed by
-firmware and commit. A commit never changes, so it is never read again; the ini
+(about 200 for upstream, a few seconds). It reads them the way PlatformIO does,
+resolving `extends` (an env's own section, then its `extends` chain, then the
+global `[env]`), because many boards declare their keys in a shared base
+section (ThinkNode M9, T5 E-paper S3) or inherit them from a parent env (RAK
+WisMesh Pocket from `rak4631`). An env is offered when it then has
+`custom_meshtastic_display_name`, `custom_meshtastic_actively_supported = true`
+and no `board_level = extra`; an env that takes its display name from another
+offered env is a build variant of that board (`rak4631_eink`), not a board. The
+result goes into SQLite table `board_catalogs`, keyed by firmware and commit. A commit never changes, so it is never read again; the ini
 files themselves are also cached on disk by blob SHA, so another tag of the
 same firmware only downloads what changed.
 
@@ -81,18 +86,31 @@ If GitHub cannot be reached and the commit is not cached, the page offers
 ### Meshtastic UI
 
 Some boards have a second build with Meshtastic UI (MUI), the touch interface:
-an `<env>-tft` env with no display name of its own. The Web Flasher offers it
-as a switch on the board, and so does the builder: a board gets the
-"Meshtastic UI" checkbox when its own block sets `custom_meshtastic_has_mui =
-true` and its `<env>-tft` env exists and is not `board_level = extra`. Ticking
-it builds that env instead. Boards whose `-tft` env is a board of its own
-(Heltec V4 TFT) or whose only env already is the MUI build (Crowpanel) are
-picked from the list directly. In upstream 2.8.1, Jentastic 2.8.104 and
-Nodastic this gives the switch to T-Deck, SenseCAP Indicator, PICOmputer S3
-and WisMesh Tap V2.
+an `<env>-tft` env with no display name of its own (it inherits the board's).
+The Web Flasher offers it as a switch on the board, ticked by default, and so
+does the builder: a board gets the "Meshtastic UI" checkbox when it resolves
+`custom_meshtastic_has_mui = true` and its `<env>-tft` env exists and is not
+`board_level = extra`. Ticking it builds that env instead. Boards whose `-tft`
+env is a board of its own (Heltec V4 TFT) or whose only env already is the MUI
+build (Crowpanel) are picked from the list directly, and a `-tft` env whose
+plain board is `extra` (Seeed Wio Tracker L2) is offered as the board. In
+upstream 2.8.1, Jentastic 2.8.104 and Nodastic this gives the switch to
+T-Deck, SenseCAP Indicator, PICOmputer S3, WisMesh Tap V2 and ThinkNode M9.
 
-Lists cached by a version without this field carry no format marker and are
-read again from GitHub once (`CATALOG_FORMAT` in `board_catalog.py`).
+Lists cached by an older version are read again from GitHub once
+(`CATALOG_FORMAT` in `board_catalog.py`, bumped whenever the parsing changes).
+
+### Compared with the Web Flasher
+
+The Web Flasher does not read `platformio.ini`: its board list is hand-kept in
+[meshtastic/api](https://github.com/meshtastic/api) (`deviceHardware`), filtered
+to `activelySupported`, and is the same for every version. The builder reads
+each firmware's own files instead, because forks add boards upstream's list
+lacks and old tags lack newer boards. For upstream 2.8.1 the two differ by a
+few boards: the Flasher also offers boards with no metadata in their ini
+(ThinkNode M4/M7, Cardputer ADV) or marked `extra` in the firmware
+(T-LoRa V2.1-1.8), and the builder also offers boards the firmware marks
+supported that the Flasher's list does not (T-Watch Ultra, ThinkNode M8...).
 
 Only `heltec-v4` and `nrf52_promicro_diy_tcxo` are prewarmed in the builder
 image. Any other board, from upstream or from a fork, downloads its libraries

@@ -1,8 +1,12 @@
 """Regenerate data/devices.json from a firmware checkout.
 
-The device list is the set the Meshtastic Web Flasher offers: every env under
-variants/**/platformio.ini that declares custom_meshtastic_display_name, sets
-custom_meshtastic_actively_supported = true and is not board_level = extra.
+The device list is read from the firmware's own variants/**/platformio.ini, so
+it works the same for upstream and for forks with boards upstream lacks: every
+env that, after resolving `extends` like PlatformIO, has
+custom_meshtastic_display_name, custom_meshtastic_actively_supported = true and
+no board_level = extra (see parse_boards for build variants and Meshtastic UI).
+The Web Flasher's own list is hand-maintained in meshtastic/api and is not per
+version, so the two differ by a few boards.
 
 Run it against the checkout of the newest supported tag after each firmware
 release. Existing entries keep their id and label (stored builds and shared
@@ -12,6 +16,7 @@ are removed. Nothing is written without --write.
 
 from __future__ import annotations
 
+import configparser
 import json
 import re
 from collections.abc import Iterable
@@ -50,15 +55,6 @@ EXCLUDED_FAMILIES: dict[str, str] = {
 def exclusion_reason(env: str, family: str) -> str | None:
     return EXCLUDED_ENVS.get(env) or EXCLUDED_FAMILIES.get(family)
 
-_ENV_HEADER_RE = re.compile(r"(?m)^(?=\[env:)")
-_ENV_NAME_RE = re.compile(r"^\[env:([^\]]+)\]")
-
-
-def _key(block: str, name: str) -> str | None:
-    match = re.search(rf"(?m)^{re.escape(name)}\s*=\s*(.+?)\s*$", block)
-    return match.group(1) if match else None
-
-
 @dataclass(frozen=True)
 class FlasherBoard:
     env: str
@@ -68,62 +64,153 @@ class FlasherBoard:
     mui_env: str | None = None
 
 
-# The Web Flasher's "Meshtastic UI" switch: a board declaring
-# custom_meshtastic_has_mui = true whose `<env>-tft` env exists builds that env
-# instead. Boards whose own env already ends in -tft (Crowpanel) are that build,
-# and a -tft env listed as a board of its own (Heltec V4 TFT) is picked directly.
+# The Web Flasher's "Meshtastic UI" switch builds a board's `<env>-tft` env
+# instead of `<env>`. See parse_boards() for which envs count as that variant.
 MUI_SUFFIX = "-tft"
-
 
 # Env names reach `pio run -e` in the builder; the shell script enforces the same set.
 SAFE_ENV_RE = re.compile(r"^[A-Za-z0-9._-]{1,80}$")
 
+# A hostile or broken repository must not turn one board list into an endless walk.
+MAX_EXTENDS_STEPS = 64
+
+_KEYS = (
+    "custom_meshtastic_display_name",
+    "custom_meshtastic_actively_supported",
+    "custom_meshtastic_architecture",
+    "custom_meshtastic_has_mui",
+    "board_level",
+)
+
+
+def _multi_values(raw: str) -> list[str]:
+    # platformio/project/config.py::parse_multi_values (PlatformIO 6.1.19)
+    items = raw.split("\n" if "\n" in raw else ", ")
+    return [item.strip() for item in items if item.strip()]
+
+
+def _load_ini(files: Iterable[tuple[str, str]]) -> tuple[configparser.ConfigParser, dict[str, str]]:
+    """All files in one parser, as PlatformIO reads platformio.ini plus extra_configs.
+
+    Same parser settings as PlatformIO (`;` and `#` inline comments); no
+    interpolation, because only plain keys are read. A file that does not parse
+    is skipped rather than failing the whole list.
+    """
+    parser = configparser.ConfigParser(inline_comment_prefixes=("#", ";"), interpolation=None, strict=False)
+    sources: dict[str, str] = {}
+    for source, text in sorted(files):
+        probe = configparser.ConfigParser(inline_comment_prefixes=("#", ";"), interpolation=None, strict=False)
+        try:
+            probe.read_string(text, source=source)
+        except configparser.Error:
+            continue
+        parser.read_string(text, source=source)
+        for section in probe.sections():
+            sources.setdefault(section, source)
+    return parser, sources
+
+
+def _resolve(parser: configparser.ConfigParser, env: str) -> dict[str, tuple[str, str]]:
+    """{key: (value, section it came from)} for one env, resolving `extends`.
+
+    Mirrors ProjectConfig.walk_options: the env's own section first, then its
+    `extends` chain (last listed first), then the global [env]; the first
+    section that sets a key wins. That is what the firmware's own manifest
+    generator reads through env.GetProjectOption().
+    """
+    found: dict[str, tuple[str, str]] = {}
+    queue = ["env", f"env:{env}"]
+    seen: set[str] = set()
+    steps = 0
+    while queue and steps < MAX_EXTENDS_STEPS:
+        section = queue.pop()
+        steps += 1
+        if section in seen or not parser.has_section(section):
+            continue
+        seen.add(section)
+        for key in _KEYS:
+            if key not in found and parser.has_option(section, key):
+                found[key] = (parser.get(section, key).strip(), section)
+        if parser.has_option(section, "extends"):
+            queue.extend(_multi_values(parser.get(section, "extends")))
+    return found
+
 
 def parse_boards(files: Iterable[tuple[str, str]]) -> dict[str, FlasherBoard]:
-    """Every env the Web Flasher would offer, from (path, platformio.ini text) pairs.
+    """The boards to offer, from (path, platformio.ini text) pairs of one commit.
 
-    Keys are read from the env's own block only, which is how the firmware
-    declares them: the custom_meshtastic_* keys are never inherited via extends.
+    An env is offered when, after resolving `extends` the way PlatformIO does,
+    it has a display name, is actively supported and is not `board_level =
+    extra`. Two kinds of env resolve to a board name without being boards:
+
+    - an env that takes its display name from another offered env is a build
+      variant of that board (`t-deck-tft` of `t-deck`, `rak4631_dbg` of
+      `rak4631`), not a board of its own;
+    - `<board>-tft` without a display name of its own is the board's Meshtastic
+      UI build, offered as the board's switch (also when both take the name
+      from a shared base section, as the ThinkNode M9 does).
+
+    A `-tft` env whose base board is not offered (`seeed_wio_tracker_L2` is
+    `extra`) is the board's only build, so it is offered as the board, like
+    the Web Flasher does. A `-tft` env with a display name of its own (Heltec
+    V4 TFT) stays a board of its own.
     """
+    parser, sources = _load_ini(files)
+    envs = [s.removeprefix("env:") for s in parser.sections() if s.startswith("env:")]
+    resolved = {env: _resolve(parser, env) for env in envs if SAFE_ENV_RE.match(env)}
+
+    def value(env: str, key: str) -> str:
+        return resolved[env].get(key, ("", ""))[0]
+
+    def name_source(env: str) -> str:
+        return resolved[env].get("custom_meshtastic_display_name", ("", ""))[1]
+
+    def offered(env: str) -> bool:
+        return (
+            bool(value(env, "custom_meshtastic_display_name"))
+            and value(env, "custom_meshtastic_actively_supported").lower() == "true"
+            and value(env, "board_level").lower() != "extra"
+        )
+
+    def named_after_env(env: str) -> str | None:
+        """The other env this one takes its display name from, if any."""
+        source = name_source(env)
+        if source.startswith("env:") and source != f"env:{env}":
+            return source.removeprefix("env:")
+        return None
+
+    def mui_variant_of(env: str) -> str | None:
+        """The board whose Meshtastic UI build this env is, if it is one."""
+        if not env.endswith(MUI_SUFFIX) or name_source(env) == f"env:{env}":
+            return None
+        base = env[: -len(MUI_SUFFIX)]
+        return base if base in resolved else None
+
+    candidates = {env for env in resolved if offered(env)}
     boards: dict[str, FlasherBoard] = {}
-    has_mui: set[str] = set()
-    # Every env's board_level, listed or not: a -tft variant has no display name of its own.
-    levels: dict[str, str] = {}
-    for source, text in sorted(files):
-        for block in _ENV_HEADER_RE.split(text):
-            match = _ENV_NAME_RE.match(block)
-            if match is None:
-                continue
-            levels[match.group(1)] = (_key(block, "board_level") or "").lower()
-            label = _key(block, "custom_meshtastic_display_name")
-            if not label:
-                continue
-            if (_key(block, "custom_meshtastic_actively_supported") or "").lower() != "true":
-                continue
-            if (_key(block, "board_level") or "").lower() == "extra":
-                continue
-            env = match.group(1)
-            if not SAFE_ENV_RE.match(env):
-                continue
-            if (_key(block, "custom_meshtastic_has_mui") or "").lower() == "true":
-                has_mui.add(env)
-            boards[env] = FlasherBoard(
-                env=env,
-                label=label[:120],
-                family=(_key(block, "custom_meshtastic_architecture") or "unknown")[:40],
-                source=source,
-            )
-    for env in has_mui:
+    for env in sorted(candidates):
+        base = mui_variant_of(env)
+        if base is not None and base in candidates:
+            continue  # the base board's switch, below
+        parent = named_after_env(env)
+        if parent is not None and parent in candidates and base is None:
+            continue  # a build variant of another board (debug, InkHUD copy...)
+        boards[env] = FlasherBoard(
+            env=env,
+            label=value(env, "custom_meshtastic_display_name")[:120],
+            family=(value(env, "custom_meshtastic_architecture") or "unknown")[:40],
+            source=sources.get(f"env:{env}", ""),
+        )
+    for env, board in list(boards.items()):
         mui_env = env + MUI_SUFFIX
         if (
-            env.endswith(MUI_SUFFIX)
-            or mui_env in boards
-            or mui_env not in levels
-            or levels[mui_env] == "extra"
-            or not SAFE_ENV_RE.match(mui_env)
+            value(env, "custom_meshtastic_has_mui").lower() == "true"
+            and mui_env in resolved
+            and mui_env not in boards
+            and mui_variant_of(mui_env) == env
+            and value(mui_env, "board_level").lower() != "extra"
         ):
-            continue
-        boards[env] = replace(boards[env], mui_env=mui_env)
+            boards[env] = replace(board, mui_env=mui_env)
     return boards
 
 

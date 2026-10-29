@@ -54,6 +54,121 @@ class FlasherBoardsTests(unittest.TestCase):
                 flasher_boards(Path(tmp))
 
 
+# Shapes taken from upstream v2.8.1 variants (ThinkNode M9, RAK4631 family, T5
+# E-paper, Wio Tracker L2), trimmed to the keys that decide what is offered.
+INHERITED_INI = """
+[thinknode_m9_base]
+custom_meshtastic_architecture = esp32-s3
+custom_meshtastic_actively_supported = true ; trailing comment, as PlatformIO allows
+custom_meshtastic_display_name = ThinkNode M9
+custom_meshtastic_has_mui = true
+extends = esp32s3_base
+board_level = release
+
+[env:thinknode_m9]
+extends = thinknode_m9_base
+
+[env:thinknode_m9-tft]
+extends = thinknode_m9_base
+
+[env:rak4631]
+custom_meshtastic_architecture = nrf52840
+custom_meshtastic_actively_supported = true
+custom_meshtastic_display_name = RAK WisBlock 4631
+board_level = release
+
+[env:rak_wismesh_pocket]
+extends = env:rak4631
+custom_meshtastic_display_name = RAK WisMesh Pocket V3
+
+[env:rak4631_dbg]
+extends = env:rak4631
+board_level = extra
+
+[env:rak4631_eink]
+extends = env:rak4631
+
+[t5s3_base]
+custom_meshtastic_architecture = esp32-s3
+custom_meshtastic_actively_supported = true
+
+[env:t5s3-epaper-v1]
+extends = t5s3_base
+board_level = release
+custom_meshtastic_display_name = LilyGo T5 E-paper S3 Pro V1
+
+[env:seeed_wio_tracker_L2]
+custom_meshtastic_architecture = esp32-s3
+custom_meshtastic_actively_supported = true
+custom_meshtastic_display_name = Seeed Wio Tracker L2
+custom_meshtastic_has_mui = true
+board_level = extra
+
+[env:seeed_wio_tracker_L2-tft]
+extends = env:seeed_wio_tracker_L2
+board_level = release
+
+[env:loop_a]
+extends = env:loop_b
+custom_meshtastic_display_name = Loop
+
+[env:loop_b]
+extends = env:loop_a
+custom_meshtastic_actively_supported = true
+"""
+
+
+class InheritanceTests(unittest.TestCase):
+    """Keys inherited through `extends`, resolved like PlatformIO's ProjectConfig."""
+
+    def boards(self):
+        from meshtastic_builder.device_sync import parse_boards
+
+        return parse_boards([("variants/x/platformio.ini", INHERITED_INI)])
+
+    def test_keys_from_a_base_section_count(self):
+        boards = self.boards()
+        self.assertEqual(boards["thinknode_m9"].label, "ThinkNode M9")
+        self.assertEqual(boards["thinknode_m9"].family, "esp32-s3")
+        self.assertEqual(boards["t5s3-epaper-v1"].label, "LilyGo T5 E-paper S3 Pro V1")
+        # Own name, the rest inherited from the parent env.
+        self.assertEqual(boards["rak_wismesh_pocket"].label, "RAK WisMesh Pocket V3")
+        self.assertEqual(boards["rak_wismesh_pocket"].family, "nrf52840")
+
+    def test_shared_base_tft_env_is_the_boards_meshtastic_ui_switch(self):
+        boards = self.boards()
+        self.assertEqual(boards["thinknode_m9"].mui_env, "thinknode_m9-tft")
+        self.assertNotIn("thinknode_m9-tft", boards)
+
+    def test_env_named_after_another_board_is_a_variant_not_a_board(self):
+        boards = self.boards()
+        self.assertIn("rak4631", boards)
+        self.assertNotIn("rak4631_eink", boards)
+        self.assertNotIn("rak4631_dbg", boards)
+
+    def test_tft_env_of_an_extra_board_is_offered_as_the_board(self):
+        boards = self.boards()
+        self.assertNotIn("seeed_wio_tracker_L2", boards)
+        self.assertEqual(boards["seeed_wio_tracker_L2-tft"].label, "Seeed Wio Tracker L2")
+        self.assertIsNone(boards["seeed_wio_tracker_L2-tft"].mui_env)
+
+    def test_extends_loops_terminate(self):
+        self.assertEqual(self.boards()["loop_a"].label, "Loop")
+
+    def test_offered_set(self):
+        self.assertEqual(
+            sorted(self.boards()),
+            ["loop_a", "rak4631", "rak_wismesh_pocket", "seeed_wio_tracker_L2-tft", "t5s3-epaper-v1", "thinknode_m9"],
+        )
+
+    def test_a_file_that_does_not_parse_is_skipped(self):
+        from meshtastic_builder.device_sync import parse_boards
+
+        broken = "custom_meshtastic_display_name = before any section\n"
+        boards = parse_boards([("variants/a/platformio.ini", broken), ("variants/x/platformio.ini", INHERITED_INI)])
+        self.assertIn("thinknode_m9", boards)
+
+
 class SyncTests(unittest.TestCase):
     def boards(self, *items):
         from meshtastic_builder.device_sync import FlasherBoard

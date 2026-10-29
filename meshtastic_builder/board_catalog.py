@@ -41,9 +41,10 @@ MAX_INI_BYTES = 256 * 1024
 FETCH_WORKERS = 8
 
 _SHA_RE = re.compile(r"^[0-9a-f]{40}$")
-# Bumped when Device gains data read from platformio.ini, so lists cached by an
-# older version (a bare JSON list, before Meshtastic UI) are read again once.
-CATALOG_FORMAT = 2
+# Bumped whenever the list read from platformio.ini changes (a new Device field,
+# a new parsing rule), so lists cached by an older version are read again once.
+# 2: Meshtastic UI. 3: keys inherited through `extends`.
+CATALOG_FORMAT = 3
 _locks: dict[tuple[str, str], threading.Lock] = {}
 _locks_guard = threading.Lock()
 
