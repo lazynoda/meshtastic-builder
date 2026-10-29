@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.5] - 2026-10-29
+
+### Fixed
+
+- The owner long name had no length limit. Firmware 2.8.0 and newer keep only
+  24 bytes of it and turn a character cut in half into `?`, so a name ending
+  in emoji could reach the node as `...???`. The form now shows a byte counter
+  with the limit of the selected version (24 from 2.8.0, 39 before) and the API
+  refuses a longer name.
+
 ## [1.2.4] - 2026-10-29
 
 ### Changed
@@ -276,6 +286,7 @@ First tagged release: the version running on
 
 - AGPL-3.0-only. The firmware patches stay under GPL-3.0.
 
+[1.2.5]: https://github.com/lazynoda/meshtastic-builder/compare/v1.2.4...v1.2.5
 [1.2.4]: https://github.com/lazynoda/meshtastic-builder/compare/v1.2.3...v1.2.4
 [1.2.3]: https://github.com/lazynoda/meshtastic-builder/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/lazynoda/meshtastic-builder/compare/v1.2.1...v1.2.2
