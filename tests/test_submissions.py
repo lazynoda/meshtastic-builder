@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from dataclasses import replace
@@ -92,6 +93,57 @@ class SubmissionTests(unittest.TestCase):
                 },
             )
             self.assertEqual(ok["public"]["ownerLongName"], "Nodo Azotea")
+
+    def test_long_name_follows_the_firmware_byte_limit(self):
+        # 2.8.0 clamps the long name to 24 bytes (39 before); a 29-byte name ending in
+        # emoji reached the node as "lazynoda λ Base 🏡???".
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            config = replace(
+                load_config(),
+                data_dir=tmp_path,
+                db_path=tmp_path / "test.sqlite",
+                artifact_dir=tmp_path / "artifacts",
+                job_dir=tmp_path / "jobs",
+                cache_dir=tmp_path / "cache",
+            )
+            initialize_database(config)
+            upsert_firmware_versions(
+                config,
+                [
+                    {"tag": "v2.8.1.test", "sha": "abc281", "supported": 1},
+                    {"tag": "v2.7.26.test", "sha": "abc272", "supported": 1},
+                ],
+            )
+            for tag in ("v2.8.1.test", "v2.7.26.test"):
+                template_path = userprefs_cache_path(config, tag)
+                template_path.parent.mkdir(parents=True, exist_ok=True)
+                template_path.write_text(
+                    '{"USERPREFS_CONFIG_OWNER_LONG_NAME": "", "USERPREFS_CONFIG_OWNER_SHORT_NAME": ""}',
+                    encoding="utf-8",
+                )
+
+            def submit(tag, long_name):
+                prefs = json.dumps(
+                    {"USERPREFS_CONFIG_OWNER_LONG_NAME": long_name, "USERPREFS_CONFIG_OWNER_SHORT_NAME": "AZO"},
+                    ensure_ascii=False,
+                )
+                return create_build_submission(config, {"deviceId": "tbeam", "firmwareTag": tag, "prefsJsonc": prefs})
+
+            name_29 = "lazynoda λ Base 🏡🌐🔌"
+            name_24 = "x" * 20 + "🏡"
+            self.assertEqual(len(name_29.encode("utf-8")), 29)
+            self.assertEqual(len(name_24.encode("utf-8")), 24)
+            with self.assertRaisesRegex(ValueError, "29 bytes.*24"):
+                submit("v2.8.1.test", name_29)
+            with self.assertRaises(ValueError):
+                submit("v2.8.1.test", "x" * 25)
+            self.assertEqual(submit("v2.8.1.test", name_24)["public"]["ownerLongName"], name_24)
+            # Before 2.8.0 the firmware keeps 39 bytes.
+            self.assertEqual(submit("v2.7.26.test", name_29)["public"]["ownerLongName"], name_29)
+            submit("v2.7.26.test", "x" * 39)
+            with self.assertRaises(ValueError):
+                submit("v2.7.26.test", "x" * 40)
 
     def test_public_view_exposes_only_the_node_names_from_prefs(self):
         row = {

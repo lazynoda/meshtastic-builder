@@ -69,6 +69,19 @@ def max_channels(options: dict[str, Any], firmware_tag: str) -> int:
     return 8 if firmware_at_least(firmware_tag, str(options["eightChannelsSinceFirmwareVersion"])) else 3
 
 
+def long_name_max_bytes(options: dict[str, Any], firmware_tag: str) -> int:
+    """UTF-8 bytes the firmware keeps of the owner long name.
+
+    Firmware 2.8.0 clamps the stored and transmitted long name to 24 bytes
+    (`MAX_LONG_NAME_BYTES`, `clampLongName`) and turns a character cut in half
+    into `?`; earlier firmware keeps 39 (a 40-byte buffer with its terminator).
+    """
+    spec = options["longName"]
+    if firmware_at_least(firmware_tag, str(spec["sinceFirmwareVersion"])):
+        return int(spec["maxBytes"])
+    return int(spec["legacyMaxBytes"])
+
+
 def _bool_field(payload: dict[str, Any], key: str) -> bool:
     value = payload.get(key)
     if not isinstance(value, bool):

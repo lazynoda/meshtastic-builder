@@ -574,6 +574,7 @@ function syncAdvancedAvailability() {
     el.hidden = state.codeOptionsNative;
   });
   $("advancedUnavailable").hidden = state.codeOptionsAvailable;
+  updateLongNameCounter();
   syncCustomLora();
 }
 
@@ -1132,6 +1133,32 @@ function validateOwnerNames() {
   }
 }
 
+// Firmware 2.8.0 keeps only 24 bytes of the long name (39 before) and turns a
+// character cut in half into "?", so the limit follows the selected version.
+function longNameMaxBytes() {
+  const spec = state.buildOptions?.longName;
+  if (!spec) return 24;
+  return versionAtLeast(selectedGateVersion(), spec.sinceFirmwareVersion) ? spec.maxBytes : spec.legacyMaxBytes;
+}
+
+function updateLongNameCounter() {
+  const input = $("longName");
+  const max = longNameMaxBytes();
+  const byteLength = encoder.encode(input.value).length;
+  $("longNameBytes").textContent = `${byteLength}/${max} bytes`;
+  // Only add or clear the over-limit mark: an empty name keeps the "required" mark from a failed submit.
+  if (byteLength > max) input.classList.add("fieldError");
+  else if (input.value.trim()) input.classList.remove("fieldError");
+  return { byteLength, max };
+}
+
+function validateLongName() {
+  const { byteLength, max } = updateLongNameCounter();
+  if (byteLength > max) {
+    throw new Error(t("error.longName", { bytes: max }));
+  }
+}
+
 function validateShortName() {
   const input = $("shortName");
   const byteLength = encoder.encode(input.value).length;
@@ -1194,6 +1221,7 @@ function validateChannel(channel, index) {
 }
 
 function buildPrefs() {
+  validateLongName();
   validateShortName();
   const prefs = {};
   for (const [key, value] of Object.entries(state.templateDefaults)) {
@@ -1678,6 +1706,7 @@ function bindEvents() {
   // Clear the "required" mark from a failed submit as soon as there is a name.
   $("longName").addEventListener("input", () => {
     if ($("longName").value.trim()) $("longName").classList.remove("fieldError");
+    updateLongNameCounter();
   });
   $("customLoraEnabled").addEventListener("change", syncCustomLora);
   $("modemPreset").addEventListener("change", syncPresetChannelName);

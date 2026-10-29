@@ -153,6 +153,7 @@ leave the region band plan while a raw frequency can.
 | `minFirmwareVersion` (`2.6.4`) | Below this the options are rejected with a 400 and the panel is hidden. |
 | `nativeSinceFirmwareVersion` (`2.8.0`) | From this version the firmware reads the macros itself; no patch is shipped. |
 | `eightChannelsSinceFirmwareVersion` (`2.8.0`) | From this version 8 channels are accepted instead of 3. |
+| `longName` (`maxBytes` 24 from `sinceFirmwareVersion` 2.8.0, `legacyMaxBytes` 39 before) | Byte limit of the owner long name. Firmware 2.8.0 clamps it to 24 bytes on first boot and replaces a character cut in half with `?`. |
 | `fixedGpsPatch.minFirmwareVersion` (`2.8.0`) | From this version a fixed position needs `fixed-gps-nodedb.patch`. |
 | `fixedGpsPatch.fixedSinceFirmwareVersion` (`2.8.1`) | The first release carrying upstream PR #11825; from it, that patch is no longer applied. |
 

@@ -72,7 +72,10 @@
             <div class="grid grid-two">
               <label>
                 <span data-i18n="step2.longName"></span>
-                <input id="longName" type="text" autocomplete="off" data-i18n-placeholder="step2.longNamePlaceholder">
+                <span class="inline-input">
+                  <input id="longName" type="text" autocomplete="off" data-i18n-placeholder="step2.longNamePlaceholder" aria-describedby="longNameBytes">
+                  <span id="longNameBytes" class="byte-counter">0/24 bytes</span>
+                </span>
               </label>
               <label>
                 <span data-i18n="step2.shortName"></span>

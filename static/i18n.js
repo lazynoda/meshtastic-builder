@@ -203,6 +203,7 @@ const DICT = {
 
     "error.noVersions": "No hay versiones soportadas en cache.",
     "error.template": "No se pudo cargar userPrefs.jsonc.",
+    "error.longName": "El nombre largo no puede superar {bytes} bytes en esta version de firmware: el nodo lo cortaria.",
     "error.shortName": "El nombre corto no puede superar 4 bytes.",
     "error.ownerNames": "Escribe el nombre largo y el nombre corto del nodo.",
     "error.blePin": "El PIN de Bluetooth debe tener 6 cifras y no empezar por 0.",
@@ -479,6 +480,7 @@ const DICT = {
 
     "error.noVersions": "No supported versions in cache.",
     "error.template": "Could not load userPrefs.jsonc.",
+    "error.longName": "The long name cannot exceed {bytes} bytes on this firmware version: the node would cut it.",
     "error.shortName": "The short name cannot exceed 4 bytes.",
     "error.ownerNames": "Enter the node's long name and short name.",
     "error.blePin": "The Bluetooth PIN must have 6 digits and not start with 0.",

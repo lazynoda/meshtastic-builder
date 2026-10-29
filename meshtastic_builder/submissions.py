@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from .code_options import load_build_options, max_channels, validate_code_options
+from .code_options import load_build_options, long_name_max_bytes, max_channels, validate_code_options
 from .config import Config
 from .db import create_build_request, public_build_view
 from .board_catalog import get_device_for_build
@@ -65,6 +65,14 @@ def create_build_submission(config: Config, payload: dict[str, Any]) -> dict[str
     for key in OWNER_NAME_KEYS:
         if not str(prefs.get(key) or "").strip():
             raise ValueError("Falta el nombre largo o el nombre corto del nodo.")
+    # The firmware cuts a longer name on first boot, and a character cut in half
+    # becomes "?" (a 29-byte name ending in emoji came out as "...🏡???").
+    max_long = long_name_max_bytes(load_build_options(config.root_dir), gate_version)
+    long_bytes = len(str(prefs["USERPREFS_CONFIG_OWNER_LONG_NAME"]).encode("utf-8"))
+    if long_bytes > max_long:
+        raise ValueError(
+            f"El nombre largo ocupa {long_bytes} bytes y esta version de firmware solo guarda {max_long}."
+        )
     row = create_build_request(
         config,
         device_id=device.id,

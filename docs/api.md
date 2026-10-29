@@ -92,6 +92,9 @@ frontend uses it to render controls and to gate behaviour by firmware version:
   itself, so no source patch is shipped and `okToMqtt` uses `nativeMacro`.
 - `eightChannelsSinceFirmwareVersion`: from this version 8 channels are
   accepted instead of 3.
+- `longName`: UTF-8 byte limit of the owner long name, `maxBytes` (24) from
+  `sinceFirmwareVersion` (2.8.0) and `legacyMaxBytes` (39) before it. The page
+  shows a byte counter and `POST /api/builds` refuses a longer name.
 - `artifactTtlDays`: added by the server from `MB_ARTIFACT_TTL_DAYS`, not from
   the JSON file. The page prints it next to the submit button and in the result
   panel, so the retention copy cannot drift from what cleanup actually enforces.

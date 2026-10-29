@@ -2,6 +2,11 @@
   "minFirmwareVersion": "2.6.4",
   "nativeSinceFirmwareVersion": "2.8.0",
   "eightChannelsSinceFirmwareVersion": "2.8.0",
+  "longName": {
+    "legacyMaxBytes": 39,
+    "maxBytes": 24,
+    "sinceFirmwareVersion": "2.8.0"
+  },
   "patchFile": "docker/patches/userprefs-ext.patch",
   "fixedGpsPatch": {
     "patchFile": "docker/patches/fixed-gps-nodedb.patch",
