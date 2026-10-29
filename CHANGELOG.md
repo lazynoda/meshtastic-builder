@@ -15,13 +15,18 @@ All notable changes to this project are documented here. The format follows
   requested; the API refuses it too.
 - Jentastic: Heltec Mesh Node T096 and Heltec Mesh Pocket (5000 and 10000 mAh,
   with and without InkHUD) are marked unavailable: the firmware does not fit in
-  their flash (#3). They
-  still build with Meshtastic Oficial and Nodastic.
+  their flash (#3). They still build with Meshtastic Oficial and Nodastic.
 
 ### Changed
 
 - A build whose firmware does not fit in the board's flash or RAM is no longer
   compiled a second time: the retry always failed the same way.
+
+### Upgrading
+
+- `docker/build_firmware.sh` changed: rebuild the builder image, or overlay the
+  new script onto the existing one (see `docs/worker-and-builder.md`).
+- Rebuild and restart `web` and `worker`. No database migration.
 
 ## [1.2.1] - 2026-10-29
 
