@@ -552,9 +552,15 @@ def build_stats(config: Config) -> dict[str, Any]:
             """,
             (iso_now(),),
         ).fetchone()["total"]
+    by_status = {status: counts.get(status, 0) for status in STATUS_ORDER}
+    # Every build that produced a firmware, downloadable or not: an expired build
+    # succeeded too, its download window just closed. `expired` stays as its own
+    # count, so it is a subset of `succeeded` and the statuses no longer add up
+    # to `total` (queued + running + succeeded + failed do).
+    by_status["succeeded"] += by_status["expired"]
     return {
         "total": sum(counts.values()),
-        **{status: counts.get(status, 0) for status in STATUS_ORDER},
+        **by_status,
         "available": int(available),
         "lastRequestedAt": last_requested,
     }

@@ -22,18 +22,23 @@ tokens, no preferences, no device or firmware choices.
     "total": 42,
     "queued": 2,
     "running": 1,
-    "succeeded": 34,
+    "succeeded": 38,
     "failed": 1,
     "expired": 4,
-    "available": 30,
+    "available": 33,
     "lastRequestedAt": "2026-09-17T04:31:25+00:00"
   }
 }
 ```
 
-`available` counts the builds a user could download right now. It is lower than
-`succeeded` once a build's window has closed but the expiry sweep has not run
-yet, since expiry is also applied lazily when a download is attempted.
+`succeeded` counts every build that produced a firmware, including the ones
+whose download has since expired. `expired` is therefore a subset of
+`succeeded`, and `total` is `queued + running + succeeded + failed`.
+
+`available` counts the builds a user could download right now. It is at most
+`succeeded - expired`, and lower while a build's window has closed but the
+expiry sweep has not run yet, since expiry is also applied lazily when a
+download is attempted.
 
 `lastRequestedAt` is `null` until the first build is requested.
 

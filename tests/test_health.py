@@ -14,6 +14,7 @@ from meshtastic_builder.db import (
     connection,
     create_build_request,
     initialize_database,
+    mark_build_expired,
     mark_build_success,
     utc_now,
 )
@@ -122,6 +123,31 @@ class BuildStatsTests(unittest.TestCase):
             stats = build_stats(config)
             self.assertEqual(stats["succeeded"], 1)
             self.assertEqual(stats["available"], 0)
+
+    def test_succeeded_includes_expired_builds(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config = temp_config(Path(tmp))
+            initialize_database(config)
+            builds = [queue_build(config, str(i)) for i in range(3)]
+            artifact = config.artifact_dir / "artifact.zip"
+            artifact.parent.mkdir(parents=True, exist_ok=True)
+            artifact.write_bytes(b"zip")
+            for build in builds[:2]:
+                mark_build_success(
+                    config,
+                    build["id"],
+                    artifact_path=artifact,
+                    artifact_sha256="sha",
+                    artifact_size_bytes=artifact.stat().st_size,
+                    build_log="ok",
+                )
+            mark_build_expired(config, builds[0]["id"])
+            stats = build_stats(config)
+            self.assertEqual(stats["total"], 3)
+            self.assertEqual(stats["queued"], 1)
+            self.assertEqual(stats["succeeded"], 2)
+            self.assertEqual(stats["expired"], 1)
+            self.assertEqual(stats["available"], 1)
 
 
 class HealthEndpointTests(unittest.TestCase):

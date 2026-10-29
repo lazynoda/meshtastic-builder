@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- `/api/health`: `builds.succeeded` now also counts builds whose download has
+  expired, so it is the number of firmwares ever built (the README's
+  "firmwares built" badge reads it). `expired` is still reported on its own;
+  `available` is unchanged.
+
 ## [1.2.0] - 2026-10-26
 
 ### Added
