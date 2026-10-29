@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.3] - 2026-10-29
+
+### Fixed
+
+- A long name, short name or channel name starting with `{` (e.g. the short
+  name `{λ}`) was refused as "must be a list of bytes", and the firmware's
+  build script would have compiled it as a byte array. It is now accepted,
+  and the copy the compiler reads escapes the brace so the node gets exactly
+  the typed text. PSKs and keys still must be byte arrays.
+
 ## [1.2.2] - 2026-10-29
 
 ### Added
@@ -257,6 +267,7 @@ First tagged release: the version running on
 
 - AGPL-3.0-only. The firmware patches stay under GPL-3.0.
 
+[1.2.3]: https://github.com/lazynoda/meshtastic-builder/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/lazynoda/meshtastic-builder/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/lazynoda/meshtastic-builder/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/lazynoda/meshtastic-builder/compare/v1.1.3...v1.2.0
