@@ -294,8 +294,7 @@ function applyImportedPrefs({ prefs, macros }) {
     $(id).checked = key in prefs && (key === "USERPREFS_FIXED_GPS" || prefs[key] === "" || importBool(prefs[key]));
   }
   const pin = prefs.USERPREFS_FIXED_BLUETOOTH;
-  $("blePinEnabled").checked = pin !== undefined;
-  if (pin !== undefined) $("blePin").value = pin;
+  $("blePin").value = pin !== undefined ? pin : "";
   for (const [key, id] of IMPORT_ADMIN_KEYS) {
     $(id).value = key in prefs ? byteArrayToBase64(prefs[key], shortPrefKey(key), 32) : "";
   }

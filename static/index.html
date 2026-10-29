@@ -206,14 +206,10 @@
             <section class="panel">
               <h2><span data-i18n="radios.bluetoothHead"></span></h2>
               <div class="grid grid-two">
-                <label class="check-line" data-pref-key="USERPREFS_FIXED_BLUETOOTH">
-                  <input id="blePinEnabled" type="checkbox">
-                  <span data-i18n="radios.blePinEnabled"></span>
-                  <small class="field-hint" data-i18n="radios.blePinHint"></small>
-                </label>
                 <label data-pref-key="USERPREFS_FIXED_BLUETOOTH">
                   <span data-i18n="radios.blePin"></span>
-                  <input id="blePin" type="number" min="100000" max="999999" step="1" value="121212">
+                  <input id="blePin" type="text" inputmode="numeric" maxlength="6" autocomplete="off" data-i18n-placeholder="radios.blePinPlaceholder">
+                  <small class="field-hint" data-i18n="radios.blePinHint"></small>
                 </label>
               </div>
             </section>

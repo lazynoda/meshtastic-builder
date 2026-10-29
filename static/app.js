@@ -1255,9 +1255,8 @@ function buildPrefs() {
     setOptionalPref(prefs, "USERPREFS_FIXED_GPS_ALT", $("fixedGpsAlt").value);
   }
 
-  if ($("blePinEnabled").checked) {
-    setOptionalPref(prefs, "USERPREFS_FIXED_BLUETOOTH", validateBlePin());
-  }
+  // Empty PIN: no key at all, so the firmware keeps its own pairing default.
+  setOptionalPref(prefs, "USERPREFS_FIXED_BLUETOOTH", validateBlePin());
   // A board with no WiFi radio gets no WiFi macros, whatever is still typed in the form.
   if (wifiSupported()) {
     buildWifiPrefs(prefs);
