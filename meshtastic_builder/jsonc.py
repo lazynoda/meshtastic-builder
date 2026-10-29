@@ -186,6 +186,11 @@ CHANNEL_NAME_RE = re.compile(r"^USERPREFS_CHANNEL_[0-7]_NAME$")
 UNQUOTED_HEX_RE = re.compile(r"0[xX][0-9a-fA-F]+")
 
 
+def is_string_key(key: str) -> bool:
+    """Keys whose value is always text for the firmware, never a byte array or number."""
+    return key in STRING_MACRO_KEYS or bool(CHANNEL_NAME_RE.match(key))
+
+
 def _reaches_compiler_unquoted(value: str) -> bool:
     """Mirror of the branch order in upstream bin/platformio-custom.py."""
     return (
@@ -243,7 +248,27 @@ def strip_octal_leading_zeros(value: str) -> str:
     return ("" if digits == "0" else sign) + digits
 
 
-def _value_for_compiler(value: str) -> str:
+# bin/platformio-custom.py passes any value that starts with `{` to the compiler bare, as a
+# byte array, so a text value like the short name `{λ}` never gets its quotes and the build
+# fails. The compiled copy hides the leading brace from that check, and the compiler still
+# reads the same text:
+# - without whitespace the value reaches /bin/sh unquoted, so `\{` (the shell escape that
+#   shell_escape_for_compiler already writes for `{`) comes out as a plain `{`;
+# - with whitespace SCons wraps it in double quotes, where a backslash before `{` would
+#   survive, so the brace is written as the C octal escape `\173`, which the compiler turns
+#   back into `{` inside the string literal.
+def brace_text_for_compiler(value: str) -> str:
+    """`{λ}` -> `\\{λ\\}`, `{a b}` -> `\\173a b}`; text not starting with `{` unchanged."""
+    if not value.startswith("{"):
+        return value
+    if " " in value or "\t" in value:
+        return "\\173" + value[1:]
+    return "".join("\\" + ch if ch in SHELL_META_CHARS else ch for ch in value)
+
+
+def _value_for_compiler(key: str, value: str) -> str:
+    if is_string_key(key) and value.startswith("{"):
+        return brace_text_for_compiler(value)
     return shell_escape_for_compiler(strip_octal_leading_zeros(value))
 
 
@@ -257,7 +282,7 @@ def prefs_for_compiler(prefs_text: str) -> str:
     if not isinstance(parsed, dict):
         return prefs_text
     escaped = {
-        key: _value_for_compiler(value) if isinstance(value, str) else value
+        key: _value_for_compiler(key, value) if isinstance(value, str) else value
         for key, value in parsed.items()
     }
     if escaped == parsed:
@@ -410,7 +435,7 @@ def _validate_string_shape(key: str, value: str) -> None:
     if value.startswith("meshtastic_"):
         if not ENUM_VALUE_RE.match(value):
             raise JsoncValidationError(f"El valor de {key} no es un identificador valido.")
-    elif value.startswith("{"):
+    elif value.startswith("{") and not is_string_key(key):
         if not BYTE_ARRAY_RE.match(value):
             raise JsoncValidationError(f"El valor de {key} debe ser una lista de bytes como {{ 0x01, 0x02 }}.")
     elif UNSAFE_STRING_RE.search(value):
@@ -452,8 +477,9 @@ def validate_userpref_value(key: str, value: Any, max_channels: int = 3) -> None
 
     if key in MAX_BYTES_KEYS and isinstance(value, str) and len(value.encode("utf-8")) > MAX_BYTES_KEYS[key]:
         raise JsoncValidationError(f"{key} no puede superar {MAX_BYTES_KEYS[key]} bytes.")
-    if (key in STRING_MACRO_KEYS or CHANNEL_NAME_RE.match(key)) and isinstance(value, str):
-        if value and _reaches_compiler_unquoted(value):
+    if is_string_key(key) and isinstance(value, str):
+        # A leading `{` is fine here: prefs_for_compiler rewrites it so the firmware quotes it.
+        if value and not value.startswith("{") and _reaches_compiler_unquoted(value):
             raise JsoncValidationError(
                 f"{key} no puede ser solo digitos ni parecer un numero, booleano o enum: "
                 "el firmware lo compilaria sin comillas."

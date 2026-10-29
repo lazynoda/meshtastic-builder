@@ -12,7 +12,7 @@ The backend still validates submitted JSONC because users can bypass the page.
 
 | Area | Keys | Notes |
 | --- | --- | --- |
-| Owner identity | `USERPREFS_CONFIG_OWNER_LONG_NAME`, `USERPREFS_CONFIG_OWNER_SHORT_NAME` | Both required: the form does not prefill them and the API refuses a build without them. Short name is limited to 4 UTF-8 bytes. |
+| Owner identity | `USERPREFS_CONFIG_OWNER_LONG_NAME`, `USERPREFS_CONFIG_OWNER_SHORT_NAME` | Both required: the form does not prefill them and the API refuses a build without them. Short name is limited to 4 UTF-8 bytes. A name may start with `{` (e.g. `{λ}`): the firmware's build script would pass such a value bare as a byte array, so the copy the compiler reads escapes the brace and the node still gets the exact text. |
 | Timezone | `USERPREFS_TZ_STRING` | Must be a POSIX TZ string, not an IANA name. Examples: peninsular Spain `CET-1CEST,M3.5.0,M10.5.0/3`, Canary Islands `WET0WEST,M3.5.0/1,M10.5.0`. |
 | LoRa region | `USERPREFS_CONFIG_LORA_REGION` | Values must match known `RegionCode` enum constants from Meshtastic protobufs. |
 | Modem preset | `USERPREFS_LORACONFIG_MODEM_PRESET` | Deprecated presets such as `LONG_SLOW` and `VERY_LONG_SLOW` are rejected. |

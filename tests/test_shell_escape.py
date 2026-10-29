@@ -105,6 +105,77 @@ class ShellEscapeTests(unittest.TestCase):
         self.assertEqual(out["USERPREFS_LORACONFIG_CHANNEL_NUM"], "4")
 
 
+def platformio_flag(key: str, value: str) -> str:
+    """bin/platformio-custom.py (upstream v2.8.1, Nodastic, Jentastic v2.8.104): braces bare."""
+    if value.startswith("{"):
+        return "-D" + key + "=" + value
+    return "-D" + key + "=" + stringify_macro(value)
+
+
+def c_string_the_firmware_gets(key: str, value: str) -> str | None:
+    """Compile a tiny C program with the -D flag through /bin/sh and print the macro."""
+    gcc = shutil.which("gcc") or shutil.which("cc")
+    if gcc is None:
+        return None
+    with tempfile.TemporaryDirectory() as tmp:
+        src = Path(tmp) / "m.c"
+        src.write_text(f'#include <stdio.h>\nint main(void){{fputs({key}, stdout);return 0;}}\n', encoding="utf-8")
+        exe = Path(tmp) / "m"
+        cmd = f"{gcc} -o {exe} {quote_spaces(platformio_flag(key, value))} {src}"
+        build = subprocess.run([SH, "-c", cmd], capture_output=True, text=True, timeout=60)
+        if build.returncode != 0:
+            return f"<build failed: {build.stderr.strip()[-200:]}>"
+        return subprocess.run([str(exe)], capture_output=True, timeout=10).stdout.decode("utf-8")
+
+
+class BraceTextTests(unittest.TestCase):
+    """A text pref starting with `{` (short name `{λ}`) is not a byte array."""
+
+    KEY = "USERPREFS_CONFIG_OWNER_SHORT_NAME"
+
+    def compiled(self, value: str) -> str:
+        prefs = json.dumps({self.KEY: value}, ensure_ascii=False)
+        return json.loads(prefs_for_compiler(prefs))[self.KEY]
+
+    def test_examples(self):
+        cases = {
+            "{λ}": "\\{λ\\}",
+            "{x}y": "\\{x\\}y",
+            "{": "\\{",
+            "{a b}": "\\173a b}",
+            "{a|b c}": "\\173a|b c}",
+            "λ{x}": "λ\\{x\\}",
+            "Noda": "Noda",
+        }
+        for value, expected in cases.items():
+            with self.subTest(value=value):
+                self.assertEqual(self.compiled(value), expected)
+
+    def test_byte_arrays_in_other_keys_are_untouched(self):
+        prefs = json.dumps({"USERPREFS_CHANNEL_0_PSK": "{ 0x01 }", "USERPREFS_USE_ADMIN_KEY_0": "{ 0xea, 0x2d }"})
+        self.assertIs(prefs_for_compiler(prefs), prefs)
+
+    def test_compiled_value_is_quoted_by_platformio(self):
+        for value in ("{λ}", "{a b}"):
+            with self.subTest(value=value):
+                self.assertFalse(self.compiled(value).startswith("{"))
+
+    def test_firmware_string_is_what_the_user_typed(self):
+        for value in ("{λ}", "{x}y", "{", "{a b}", "{a|b c}", "λ{x}", "Ñandú"):
+            with self.subTest(value=value):
+                got = c_string_the_firmware_gets(self.KEY, self.compiled(value))
+                if got is None:
+                    self.skipTest("no C compiler")
+                self.assertEqual(got, value)
+
+    def test_raw_brace_name_does_not_compile(self):
+        # What the builder sent before: platformio-custom.py passes `{λ}` bare.
+        got = c_string_the_firmware_gets(self.KEY, "{λ}")
+        if got is None:
+            self.skipTest("no C compiler")
+        self.assertNotEqual(got, "{λ}")
+
+
 class LeadingZeroTests(unittest.TestCase):
     def test_leading_zeros_are_dropped(self):
         cases = {

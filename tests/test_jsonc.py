@@ -268,6 +268,28 @@ class HardeningTests(unittest.TestCase):
         )
         self.assertEqual(parsed["USERPREFS_USE_ADMIN_KEY_2"], "{}")
 
+    def test_text_keys_may_start_with_a_brace(self):
+        # A short name like `{λ}` was refused as "debe ser una lista de bytes".
+        for key, value in (
+            ("USERPREFS_CONFIG_OWNER_SHORT_NAME", "{λ}"),
+            ("USERPREFS_CONFIG_OWNER_LONG_NAME", "{lazynoda} base"),
+            ("USERPREFS_CHANNEL_0_NAME", "{Test}"),
+        ):
+            with self.subTest(key=key):
+                _text, parsed = validate_and_normalize_userprefs(
+                    json.dumps({key: value}, ensure_ascii=False),
+                    {key},
+                    1000,
+                )
+                self.assertEqual(parsed[key], value)
+
+    def test_byte_keys_still_need_a_byte_array(self):
+        self.assert_rejected("USERPREFS_CHANNEL_0_PSK", "{λ}")
+        self.assert_rejected("USERPREFS_CONFIG_SECURITY_PRIVATE_KEY", "{ rm }")
+
+    def test_text_keys_still_refuse_quotes(self):
+        self.assert_rejected("USERPREFS_CONFIG_OWNER_SHORT_NAME", '{"}')
+
     def test_quoted_values_cannot_escape_the_macro(self):
         self.assert_rejected("USERPREFS_MQTT_USERNAME", 'me" -DEVIL=1 "')
         self.assert_rejected("USERPREFS_CONFIG_OWNER_LONG_NAME", "node`id`")
