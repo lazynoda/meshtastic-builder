@@ -211,8 +211,18 @@ phase "compile ${PIO_ENV}"
 # platform version (platform-espressif32#529). A genuine compile error fails twice.
 # Also between the two attempts: a platform installed during the first run can
 # bring its own tool-sreccat, which only the retry can then use.
+# Except when the linker says the image does not fit: a retry links the same
+# objects again and fails the same way, so it would only waste a minute of CPU.
 use_native_sreccat
-pio run -e "${PIO_ENV}" || { use_native_sreccat; pio run -e "${PIO_ENV}"; }
+pio_log="$(mktemp)"
+if ! pio run -e "${PIO_ENV}" 2>&1 | tee "${pio_log}"; then
+  if grep -qE "region [\`'\"]?[A-Za-z0-9_]+[\`'\"]? overflowed by [0-9,]+ bytes" "${pio_log}"; then
+    fail firmware_too_big compile "$(grep -m1 -oE "region [^ ]+ overflowed by [0-9,]+ bytes" "${pio_log}")"
+  fi
+  use_native_sreccat
+  pio run -e "${PIO_ENV}"
+fi
+rm -f "${pio_log}"
 
 # Only what a flasher consumes. .elf and .map are dropped on purpose: they were
 # 81% of the ZIP and nothing in bin/device-install.sh reads them, so they only

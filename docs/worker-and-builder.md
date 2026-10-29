@@ -177,7 +177,11 @@ under the running SCons, so every ESP32-S3 hybrid build fails with
 ([platform-espressif32#529](https://github.com/pioarduino/platform-espressif32/issues/529)).
 Even on 6.1.19 the first run after a platform change can fail during that swap,
 so both prewarm and the runtime entrypoint retry `pio run` once. Bump the pin
-only after a real `heltec-v4` build passes.
+only after a real `heltec-v4` build passes. The runtime entrypoint skips the
+retry when the linker reports `region ... overflowed by N bytes`: linking the
+same objects again fails the same way, so it stops at once with
+`firmware_too_big` (`tests/test_build_script.py` runs that block with a fake
+`pio`).
 
 On arm64 hosts PlatformIO's `tool-sreccat` package carries a 32-bit ARM
 `srec_cat`, which a 64-bit-only image cannot run (`sh: 1: …/srec_cat: not
