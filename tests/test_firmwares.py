@@ -9,6 +9,7 @@ from unittest.mock import patch
 from meshtastic_builder.builder import build_info, builder_args, build_firmware_source, stage_patches
 from meshtastic_builder.config import load_config
 from meshtastic_builder.db import (
+    connection,
     get_firmware_version,
     initialize_database,
     list_firmware_versions,
@@ -83,6 +84,41 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(nodastic.versioning, "branch")
         self.assertEqual(nodastic.branch, "nodastic")
         self.assertEqual(nodastic.clone_url, "https://github.com/lazynoda/meshtastic-firmware.git")
+
+    def test_shipped_catalog_marks_jentastic_boards_that_do_not_fit(self):
+        jentastic = get_firmware(ROOT, "jentastic")
+        boards = (
+            "heltec-mesh-node-t096",
+            "heltec-mesh-pocket-5000",
+            "heltec-mesh-pocket-5000-inkhud",
+            "heltec-mesh-pocket-10000",
+            "heltec-mesh-pocket-10000-inkhud",
+        )
+        for env in boards:
+            item = jentastic.unavailable(env)
+            self.assertIsNotNone(item, env)
+            self.assertEqual(item.reason, "firmware_too_big")
+            self.assertEqual(item.issue, "https://github.com/lazynoda/meshtastic-builder/issues/3")
+        self.assertIsNone(jentastic.unavailable("heltec-mesh-node-t114-inkhud"))
+        self.assertIsNone(get_firmware(ROOT, "meshtastic").unavailable("heltec-mesh-node-t096"))
+        self.assertIsNone(get_firmware(ROOT, "nodastic").unavailable("heltec-mesh-node-t096"))
+
+    def test_catalog_rejects_malformed_unavailable_boards(self):
+        base = {"id": "x", "name": "X", "url": "https://github.com/a/b", "versioning": "tags"}
+        cases = [
+            ["t096"],
+            {"bad env!": {"reason": "firmware_too_big", "issue": "https://github.com/a/b/issues/1"}},
+            {"t096": {"issue": "https://github.com/a/b/issues/1"}},
+            {"t096": {"reason": "firmware_too_big", "issue": "https://evil.test/issues/1"}},
+            {"t096": {"reason": "firmware_too_big"}},
+        ]
+        for unavailable in cases:
+            with tempfile.TemporaryDirectory() as tmp:
+                (Path(tmp) / "data").mkdir()
+                entry = {**base, "unavailableBoards": unavailable}
+                (Path(tmp) / "data" / "firmwares.json").write_text(json.dumps({"firmwares": [entry]}))
+                with self.assertRaises(ValueError, msg=repr(unavailable)):
+                    load_firmware_catalog(Path(tmp))
 
     def test_missing_catalog_falls_back_to_upstream_only(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -347,6 +383,45 @@ class BoardCatalogTests(unittest.TestCase):
                 )["row"]
             self.assertEqual(row["platformio_env"], "nrf52_promicro_diy_e28")
             self.assertEqual(row["device_label"], "NRF52 Pro-micro E28 DIY")
+
+    def test_unavailable_board_is_listed_with_its_reason_but_refused(self):
+        from meshtastic_builder.app import device_json
+        from meshtastic_builder.board_catalog import devices_for
+        from meshtastic_builder.firmwares import UnavailableBoard
+
+        issue = "https://github.com/lazynoda/meshtastic-builder/issues/3"
+        source = replace(
+            get_firmware(ROOT, "nodastic"),
+            unavailable_boards=(UnavailableBoard("nrf52_promicro_diy_e28", "firmware_too_big", issue),),
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            config = temp_config(Path(tmp))
+            cache = userprefs_cache_path(config, NODASTIC_SHA, "nodastic")
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            cache.write_text(TEMPLATE, encoding="utf-8")
+            with patch("meshtastic_builder.firmware._http_get", fake_github), patch(
+                "meshtastic_builder.submissions.get_firmware", return_value=source
+            ):
+                devices, _ = devices_for(config, source, NODASTIC_SHA)
+                listed = {d.platformio_env: device_json(d, source) for d in devices}
+                with self.assertRaises(ValueError) as refused:
+                    create_build_submission(
+                        config,
+                        {"deviceId": "nrf52-promicro-diy-e28", "firmwareId": "nodastic", "prefsJsonc": NAMED_PREFS},
+                    )
+                # Another board of the same firmware still builds.
+                row = create_build_submission(
+                    config,
+                    {"deviceId": "tbeam", "firmwareId": "nodastic", "prefsJsonc": NAMED_PREFS},
+                )["row"]
+            self.assertEqual(
+                listed["nrf52_promicro_diy_e28"]["unavailable"], {"reason": "firmware_too_big", "issue": issue}
+            )
+            self.assertNotIn("unavailable", listed["tbeam"])
+            self.assertIn(issue, str(refused.exception))
+            self.assertEqual(row["platformio_env"], "tbeam")
+            with connection(config) as conn:
+                self.assertEqual(conn.execute("SELECT COUNT(*) FROM build_requests").fetchone()[0], 1)
 
     def test_hostile_env_names_are_dropped(self):
         from meshtastic_builder.device_sync import parse_boards

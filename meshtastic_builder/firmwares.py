@@ -23,6 +23,26 @@ VERSIONING_BRANCH = "branch"
 _ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,31}$")
 _REPO_URL_RE = re.compile(r"^https://github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?/?$")
 _BRANCH_RE = re.compile(r"^[A-Za-z0-9._/-]{1,100}$")
+_ENV_RE = re.compile(r"^[A-Za-z0-9._-]{1,100}$")
+_REASON_RE = re.compile(r"^[a-z_]{1,40}$")
+_ISSUE_URL_RE = re.compile(r"^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/issues/[0-9]+$")
+
+
+@dataclass(frozen=True)
+class UnavailableBoard:
+    """A board the firmware offers that cannot be built with it right now.
+
+    It stays in the device list, marked, so users see why instead of the board
+    silently missing; submissions for it are refused. `reason` is a code the
+    page translates (`device.unavailable.<reason>`), `issue` tracks the fix.
+    """
+
+    env: str
+    reason: str
+    issue: str
+
+    def public(self) -> dict[str, str]:
+        return {"reason": self.reason, "issue": self.issue}
 
 
 @dataclass(frozen=True)
@@ -35,6 +55,10 @@ class FirmwareSource:
     versioning: str
     branch: str | None = None
     license: str = "GPL-3.0-or-later"
+    unavailable_boards: tuple[UnavailableBoard, ...] = ()
+
+    def unavailable(self, env: str) -> UnavailableBoard | None:
+        return next((item for item in self.unavailable_boards if item.env == env), None)
 
     @property
     def full_name(self) -> str:
@@ -80,6 +104,7 @@ def _parse_entry(raw: object) -> FirmwareSource:
             raise ValueError(f"Firmware {firmware_id}: branch versioning needs a valid 'branch'.")
     else:
         branch = None
+    unavailable = _parse_unavailable(firmware_id, raw.get("unavailableBoards"))
     return FirmwareSource(
         id=firmware_id,
         name=name,
@@ -89,7 +114,30 @@ def _parse_entry(raw: object) -> FirmwareSource:
         versioning=versioning,
         branch=branch,
         license=str(raw.get("license") or "GPL-3.0-or-later"),
+        unavailable_boards=unavailable,
     )
+
+
+def _parse_unavailable(firmware_id: str, raw: object) -> tuple[UnavailableBoard, ...]:
+    """`{"<platformio env>": {"reason": "<code>", "issue": "<GitHub issue URL>"}}`."""
+    if raw is None:
+        return ()
+    if not isinstance(raw, dict):
+        raise ValueError(f"Firmware {firmware_id}: unavailableBoards must be an object keyed by env.")
+    boards = []
+    for env, spec in raw.items():
+        if not isinstance(env, str) or not _ENV_RE.match(env):
+            raise ValueError(f"Firmware {firmware_id}: invalid env in unavailableBoards: {env!r}")
+        if not isinstance(spec, dict):
+            raise ValueError(f"Firmware {firmware_id}: unavailableBoards.{env} must be an object.")
+        reason = str(spec.get("reason", ""))
+        issue = str(spec.get("issue", ""))
+        if not _REASON_RE.match(reason):
+            raise ValueError(f"Firmware {firmware_id}: unavailableBoards.{env} needs a reason code.")
+        if not _ISSUE_URL_RE.match(issue):
+            raise ValueError(f"Firmware {firmware_id}: unavailableBoards.{env} needs a GitHub issue URL.")
+        boards.append(UnavailableBoard(env=env, reason=reason, issue=issue))
+    return tuple(boards)
 
 
 # Used when data/firmwares.json is absent, so an install that predates the file

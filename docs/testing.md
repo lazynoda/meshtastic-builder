@@ -49,12 +49,15 @@ to the build pipeline still need a real build on the VM.
 - Build failure classification, including that secrets in the `-D` dump never
   reach the user-facing detail line.
 - Newest-first firmware version ordering.
+- Boards a firmware marks unavailable: listed with their reason, refused on submit.
+- No compile retry after a flash/RAM overflow.
 
 ## Test Files
 
 - `tests/test_admin.py`
 - `tests/test_app.py`
 - `tests/test_build_failures.py`
+- `tests/test_build_script.py` (the compile step of `docker/build_firmware.sh`, with a fake `pio`)
 - `tests/test_builder.py`
 - `tests/test_cleanup.py`
 - `tests/test_code_options.py`

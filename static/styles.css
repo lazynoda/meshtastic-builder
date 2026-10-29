@@ -778,6 +778,22 @@ input[type="checkbox"] {
   color: var(--accent);
 }
 
+/* A board the selected firmware cannot build yet: listed, but muted. */
+.combo-list li.is-unavailable {
+  color: var(--muted);
+}
+
+.device-unavailable {
+  display: block;
+  margin-top: 6px;
+  text-align: center;
+  color: var(--warn);
+}
+
+.device-unavailable a {
+  color: inherit;
+}
+
 .extra-row {
   display: grid;
   grid-template-columns: 1.2fr 1.4fr auto;

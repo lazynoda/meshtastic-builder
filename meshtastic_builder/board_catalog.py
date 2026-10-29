@@ -28,6 +28,11 @@ from .device_sync import exclusion_reason, parse_boards, sync_devices
 from .devices import Device, enabled_devices
 from .firmwares import FirmwareSource
 
+# Server-side wording for API clients; the page translates the code itself.
+UNAVAILABLE_REASONS = {
+    "firmware_too_big": "el firmware no cabe en la memoria flash de esta placa",
+}
+
 # Upper bounds on what one commit may make us download. Upstream has ~200
 # platformio.ini files under variants/; these leave room without letting a
 # hostile repository listed by mistake turn one page load into thousands.
@@ -163,5 +168,13 @@ def get_device_for_build(config: Config, source: FirmwareSource, sha: str, devic
     devices, _from_firmware = devices_for(config, source, sha)
     for device in devices:
         if device.id == device_id:
+            unavailable = source.unavailable(device.platformio_env)
+            if unavailable is not None:
+                # Listed, so users can read why, but never queued: it cannot succeed.
+                raise ValueError(
+                    f"{device.label} no esta disponible con {source.name} por ahora "
+                    f"({UNAVAILABLE_REASONS.get(unavailable.reason, unavailable.reason)}). "
+                    f"Se esta trabajando en ello: {unavailable.issue}"
+                )
             return device
     raise ValueError("Dispositivo no soportado por este firmware.")

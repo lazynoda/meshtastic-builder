@@ -14,9 +14,9 @@ from .code_options import load_build_options
 from .config import Config, ensure_directories, load_config
 from .cleanup import build_is_expired, expire_build_artifact
 from .db import build_stats, get_build_by_token, initialize_database, public_build_view
-from .devices import enabled_devices
+from .devices import Device, enabled_devices
 from .board_catalog import devices_for
-from .firmwares import DEFAULT_FIRMWARE_ID, get_firmware, load_firmware_catalog
+from .firmwares import DEFAULT_FIRMWARE_ID, FirmwareSource, get_firmware, load_firmware_catalog
 from .firmware import (
     FirmwareLookupError,
     get_userprefs_template,
@@ -41,6 +41,20 @@ def _json_default(value: Any) -> Any:
 
 def _public_error(message: str) -> dict[str, str]:
     return {"error": message}
+
+
+def device_json(device: Device, source: FirmwareSource | None) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "id": device.id,
+        "label": device.label,
+        "platformioEnv": device.platformio_env,
+        "family": device.family,
+    }
+    # Only for boards the selected firmware cannot build yet: still listed, with why.
+    unavailable = source.unavailable(device.platformio_env) if source is not None else None
+    if unavailable is not None:
+        payload["unavailable"] = unavailable.public()
+    return payload
 
 
 class MeshtasticBuilderHandler(BaseHTTPRequestHandler):
@@ -82,29 +96,21 @@ class MeshtasticBuilderHandler(BaseHTTPRequestHandler):
                 if not send_body:
                     return self.head_not_allowed()
                 firmware_id = query.get("firmware", [""])[0]
+                source = None
                 if firmware_id:
                     # The boards of the selected firmware at the selected version.
                     version = resolve_supported_version(
                         self.config, query.get("tag", [""])[0] or None, firmware_id=firmware_id
                     )
-                    devices, from_firmware = devices_for(
-                        self.config, get_firmware(self.config.root_dir, firmware_id), version["sha"]
-                    )
+                    source = get_firmware(self.config.root_dir, firmware_id)
+                    devices, from_firmware = devices_for(self.config, source, version["sha"])
                 else:
                     # No firmware named: the static list, which also labels old builds.
                     devices, from_firmware = enabled_devices(self.config.root_dir), False
                 return self.json_response(
                     {
                         "fromFirmware": from_firmware,
-                        "devices": [
-                            {
-                                "id": device.id,
-                                "label": device.label,
-                                "platformioEnv": device.platformio_env,
-                                "family": device.family,
-                            }
-                            for device in devices
-                        ],
+                        "devices": [device_json(device, source) for device in devices],
                     }
                 )
             if path in {"/api/health", "/health"}:

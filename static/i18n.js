@@ -14,6 +14,9 @@ const DICT = {
     "step1.version": "Version de firmware",
     "step1.noVersion": "N/A",
     "step1.branchHint": "Sin versiones: se compila la rama {branch} ({version}, {sha}).",
+    "device.unavailable": "no disponible",
+    "device.unavailableHint": "No disponible con {firmware} por ahora: {reason}. Estamos trabajando en ello ({issue}). Mientras tanto puedes compilarlo con Meshtastic Oficial.",
+    "device.unavailable.firmware_too_big": "el firmware no cabe en la memoria flash de esta placa",
 
     "step2.title": "Nodo",
     "step2.longName": "Nombre largo",
@@ -288,6 +291,9 @@ const DICT = {
     "step1.version": "Firmware version",
     "step1.noVersion": "N/A",
     "step1.branchHint": "No releases: builds the {branch} branch ({version}, {sha}).",
+    "device.unavailable": "unavailable",
+    "device.unavailableHint": "Not available with {firmware} for now: {reason}. We are working on it ({issue}). Meanwhile you can build it with Meshtastic Oficial.",
+    "device.unavailable.firmware_too_big": "the firmware does not fit in this board's flash memory",
 
     "step2.title": "Node",
     "step2.longName": "Long name",

@@ -51,6 +51,11 @@ that firmware at that version, read from its own repository (see
 [Firmware Sources](firmwares.md#boards)). `fromFirmware` is `false` when GitHub
 could not be reached and the static list was returned instead.
 
+A board that firmware lists but cannot build yet carries `unavailable`, with a
+reason code and the GitHub issue tracking it (see
+[Firmware Sources](firmwares.md#unavailable-boards)). `POST /api/builds`
+refuses it.
+
 Response:
 
 ```json
@@ -61,6 +66,16 @@ Response:
       "label": "LILYGO T-Beam",
       "platformioEnv": "tbeam",
       "family": "esp32"
+    },
+    {
+      "id": "heltec-mesh-node-t096",
+      "label": "Heltec Mesh Node 096",
+      "platformioEnv": "heltec-mesh-node-t096",
+      "family": "nrf52840",
+      "unavailable": {
+        "reason": "firmware_too_big",
+        "issue": "https://github.com/lazynoda/meshtastic-builder/issues/3"
+      }
     }
   ]
 }

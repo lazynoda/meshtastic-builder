@@ -53,6 +53,8 @@ const DEFAULT_CHANNEL_NAME = "SFNarrow";
 const state = {
   deviceFamilies: {},
   deviceLabels: {},
+  // Boards the selected firmware lists but cannot build yet: id -> {reason, issue}.
+  unavailableDevices: {},
   firmwares: [],
   firmwareNames: {},
   versions: [],
@@ -202,7 +204,7 @@ function comboHtml(items, selectedValue, { valueAttrs = "", placeholder = "" } =
         ${items
           .map(
             (item) =>
-              `<li role="option" data-value="${escapeHtml(item.value)}"${item.value === selectedValue ? ' aria-selected="true"' : ""}>${escapeHtml(item.label)}</li>`,
+              `<li role="option" data-value="${escapeHtml(item.value)}"${item.className ? ` class="${escapeHtml(item.className)}"` : ""}${item.value === selectedValue ? ' aria-selected="true"' : ""}>${escapeHtml(item.label)}</li>`,
           )
           .join("")}
       </ul>
@@ -606,6 +608,25 @@ function syncWifiAvailability() {
   $("wifiUnsupported").hidden = supported;
 }
 
+// A board the firmware cannot build yet: say why under the picker and keep the
+// submit button off. The server refuses it too, for API clients.
+function syncDeviceAvailability() {
+  const picker = $("deviceId");
+  const info = picker ? state.unavailableDevices[picker.value] : null;
+  const hint = $("deviceUnavailable");
+  hint.hidden = !info;
+  if (info) {
+    const firmware = selectedFirmware();
+    const reason = t(`device.unavailable.${info.reason}`);
+    hint.innerHTML = t("device.unavailableHint", {
+      firmware: escapeHtml(firmware ? firmware.name : ""),
+      reason: escapeHtml(reason === `device.unavailable.${info.reason}` ? info.reason : reason),
+      issue: `<a href="${escapeHtml(info.issue)}" target="_blank" rel="noreferrer">${escapeHtml(info.issue.replace(/^https:\/\/github\.com\//, ""))}</a>`,
+    });
+  }
+  $("submitBuild").disabled = Boolean(info);
+}
+
 function syncFixedGps() {
   $("fixedGpsFields").hidden = !$("fixedGpsEnabled").checked;
 }
@@ -640,6 +661,7 @@ async function loadDevices() {
   const firmware = state.firmwares.length ? selectedFirmware() : null;
   const tag = $("firmwareTag").value;
   let devices;
+  state.unavailableDevices = {};
   if (firmware && (tag || firmware.versioning === "branch")) {
     const params = new URLSearchParams({ firmware: firmware.id });
     if (tag) params.set("tag", tag);
@@ -651,19 +673,28 @@ async function loadDevices() {
     for (const device of devices) {
       state.deviceFamilies[device.id] = device.family;
       state.deviceLabels[device.id] = device.label;
+      if (device.unavailable) state.unavailableDevices[device.id] = device.unavailable;
     }
   } else {
     devices = await loadDeviceCatalog();
   }
   const previous = $("deviceId")?.value;
   const keep = previous && devices.some((device) => device.id === previous);
+  // Still listed, so users find the board and read why; never the default pick.
+  const fallback = devices.find((device) => !device.unavailable) || devices[0];
   $("deviceCombo").innerHTML = comboHtml(
-    devices.map((device) => ({ value: device.id, label: device.label })),
-    keep ? previous : devices.length ? devices[0].id : "",
+    devices.map((device) => ({
+      value: device.id,
+      label: device.unavailable ? `${device.label} (${t("device.unavailable")})` : device.label,
+      className: device.unavailable ? "is-unavailable" : "",
+    })),
+    keep ? previous : fallback ? fallback.id : "",
     { valueAttrs: 'id="deviceId" name="deviceId"', placeholder: t("step1.devicePlaceholder") },
   );
   $("deviceId").addEventListener("change", syncWifiAvailability);
+  $("deviceId").addEventListener("change", syncDeviceAvailability);
   $("deviceId").addEventListener("change", updatePrefsPreview);
+  syncDeviceAvailability();
   // The list arrives after the first render, so repaint with the real device.
   syncWifiAvailability();
   updatePrefsPreview();
@@ -1504,6 +1535,7 @@ async function submitBuild(event) {
     setStatus(error.message, true);
     return;
   }
+  if (state.unavailableDevices[$("deviceId").value]) return;
   $("submitBuild").disabled = true;
   try {
     setStatusKey("status.creating");
@@ -1531,7 +1563,7 @@ async function submitBuild(event) {
   } catch (error) {
     setStatus(error.message, true);
   } finally {
-    $("submitBuild").disabled = false;
+    $("submitBuild").disabled = Boolean(state.unavailableDevices[$("deviceId").value]);
   }
 }
 
@@ -1723,6 +1755,7 @@ function bindEvents() {
   });
   document.addEventListener("languagechange", () => {
     if (!state.buildViewOnly && state.versions.length) renderVersionSelect();
+    if (!state.buildViewOnly && Object.keys(state.unavailableDevices).length) loadDevices();
     renderTtlNotice();
     renderExtraPrefs();
     renderChannels();

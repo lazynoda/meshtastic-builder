@@ -11,7 +11,29 @@
       "id": "jentastic",
       "name": "Jentastic",
       "url": "https://github.com/derpyspike/jentastic",
-      "versioning": "tags"
+      "versioning": "tags",
+      "unavailableBoards": {
+        "heltec-mesh-node-t096": {
+          "reason": "firmware_too_big",
+          "issue": "https://github.com/lazynoda/meshtastic-builder/issues/3"
+        },
+        "heltec-mesh-pocket-5000": {
+          "reason": "firmware_too_big",
+          "issue": "https://github.com/lazynoda/meshtastic-builder/issues/3"
+        },
+        "heltec-mesh-pocket-5000-inkhud": {
+          "reason": "firmware_too_big",
+          "issue": "https://github.com/lazynoda/meshtastic-builder/issues/3"
+        },
+        "heltec-mesh-pocket-10000": {
+          "reason": "firmware_too_big",
+          "issue": "https://github.com/lazynoda/meshtastic-builder/issues/3"
+        },
+        "heltec-mesh-pocket-10000-inkhud": {
+          "reason": "firmware_too_big",
+          "issue": "https://github.com/lazynoda/meshtastic-builder/issues/3"
+        }
+      }
     },
     {
       "id": "nodastic",

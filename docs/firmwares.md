@@ -35,6 +35,7 @@ Meshtastic: PlatformIO environments, `userPrefs.jsonc` at the root and
 | `versioning` | `tags`: users pick one of the repository's tags. `branch`: no releases, every build compiles the current head of `branch`. |
 | `branch` | Only for `branch` versioning. |
 | `license` | Optional, written to `BUILD_INFO.txt`. Default `GPL-3.0-or-later`. |
+| `unavailableBoards` | Optional. Boards this firmware lists but cannot build yet, keyed by PlatformIO env: `{"<env>": {"reason": "<code>", "issue": "<GitHub issue URL>"}}`. See [Unavailable boards](#unavailable-boards). |
 
 Without the file the builder offers upstream Meshtastic only.
 
@@ -81,6 +82,33 @@ Only `heltec-v4` and `nrf52_promicro_diy_tcxo` are prewarmed in the builder
 image. Any other board, from upstream or from a fork, downloads its libraries
 on its first build in each container, which is why builds need
 `MB_DOCKER_NETWORK=bridge`.
+
+## Unavailable boards
+
+A board the firmware offers but that cannot be built with it (for now) goes in
+that firmware's `unavailableBoards`, with a reason code and the GitHub issue
+that tracks the fix. Unlike `EXCLUDED_ENVS`/`EXCLUDED_FAMILIES` in
+`device_sync.py`, which hide a board from every firmware, this is per firmware
+and the board stays visible:
+
+- `/api/devices` lists it with `"unavailable": {"reason", "issue"}`;
+- the page shows it as unavailable, never picks it by default, and when it is
+  selected explains why under the picker, links the issue and keeps the submit
+  button off;
+- `POST /api/builds` refuses it with `400`, naming the reason and the issue.
+
+It applies to every version of that firmware. Remove the entry once a release
+fixes the board and a real build of it succeeds; older tags of that firmware
+are then offered again for it, so say in the issue which tags stay broken.
+
+Reason codes the page translates (`device.unavailable.<code>` in
+`static/i18n.js`): `firmware_too_big`, the image does not fit in the board's
+flash. A new code needs an ES and EN text there and in
+`UNAVAILABLE_REASONS` in `board_catalog.py`.
+
+Current entries: Jentastic, Heltec Mesh Node T096 and Heltec Mesh Pocket
+(5000 and 10000 mAh, with and without InkHUD), which overflow flash
+([#3](https://github.com/lazynoda/meshtastic-builder/issues/3)).
 
 ## Adding a firmware
 
