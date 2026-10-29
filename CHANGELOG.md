@@ -4,6 +4,28 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-10-29
+
+### Fixed
+
+- Board settings inherited through `extends` in `platformio.ini` were ignored,
+  so boards declaring their name or support in a shared base section were
+  missing: ThinkNode M9 (with its Meshtastic UI build), RAK WisMesh Pocket V3,
+  Pod and Repeater Mini V2 (HP), and LilyGo T5 E-paper S3 Pro V1, V2 and V2
+  InkHUD. The lists are now read the way PlatformIO reads them, for every
+  firmware.
+- Seeed Wio Tracker L2, whose only supported build is its Meshtastic UI one,
+  is offered, as in the Web Flasher.
+
+### Changed
+
+- The Meshtastic UI checkbox is ticked by default when a board that has it is
+  picked, as in the Web Flasher.
+
+### Upgrading
+
+- Board lists cached by earlier versions are read again from GitHub once.
+
 ## [1.3.0] - 2026-10-29
 
 ### Added
@@ -305,6 +327,7 @@ First tagged release: the version running on
 
 - AGPL-3.0-only. The firmware patches stay under GPL-3.0.
 
+[1.3.1]: https://github.com/lazynoda/meshtastic-builder/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/lazynoda/meshtastic-builder/compare/v1.2.5...v1.3.0
 [1.2.5]: https://github.com/lazynoda/meshtastic-builder/compare/v1.2.4...v1.2.5
 [1.2.4]: https://github.com/lazynoda/meshtastic-builder/compare/v1.2.3...v1.2.4
