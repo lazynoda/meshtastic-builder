@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.2] - 2026-10-29
+
+### Added
+
+- A firmware can mark boards it lists but cannot build yet
+  (`unavailableBoards` in `data/firmwares.json`, with a reason and a GitHub
+  issue). The page still lists them, marked unavailable, explains why under the
+  device picker with a link to the issue, and does not let the build be
+  requested; the API refuses it too.
+- Jentastic: Heltec Mesh Node T096 and Heltec Mesh Pocket (5000 and 10000 mAh,
+  with and without InkHUD) are marked unavailable: the firmware does not fit in
+  their flash (#3). They
+  still build with Meshtastic Oficial and Nodastic.
+
+### Changed
+
+- A build whose firmware does not fit in the board's flash or RAM is no longer
+  compiled a second time: the retry always failed the same way.
+
 ## [1.2.1] - 2026-10-29
 
 ### Fixed
@@ -233,6 +252,7 @@ First tagged release: the version running on
 
 - AGPL-3.0-only. The firmware patches stay under GPL-3.0.
 
+[1.2.2]: https://github.com/lazynoda/meshtastic-builder/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/lazynoda/meshtastic-builder/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/lazynoda/meshtastic-builder/compare/v1.1.3...v1.2.0
 [1.1.3]: https://github.com/lazynoda/meshtastic-builder/compare/v1.1.2...v1.1.3
